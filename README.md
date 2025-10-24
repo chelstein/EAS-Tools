@@ -1,6 +1,6 @@
 # Emergency Alert System (EAS) Tools
 
-Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS header + attention tone audio as a downloadable WAV file.
+Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file.
 
 > ⚠️ **Legal & ethics notice**
 > This project is for **educational, hobbyist, and lab use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
@@ -16,8 +16,9 @@ Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser.
 * **SAME encoder**
   * Build headers via a form or paste an existing header string
   * Generates proper **header bursts**, **attention tones (1050 Hz / 853+960 Hz where applicable)**, and **EOM**
+  * Injects TTS voice (via WASM/web TTS Service) for **audio playback** (optional)
   * Exports a **WAV** you can download
-* **Zero backend**: everything runs locally; no audio leaves your machine/browser
+* **Zero backend**: everything runs locally, including the WASM TTS voice; no audio leaves your machine/browser unless you use the outside TTS service (all other features are 100% local)
 * Works as a **static site** (ideal for GitHub Pages / Netlify / local file server)
 
 ---
@@ -61,7 +62,7 @@ What you’ll see:
 ### Encoder
 
 1. Switch to **Encoder** tab
-2. Fill the form (or toggle **Custom header** and paste a valid SAME header)
+2. Fill out the form (or toggle **Custom header** and paste a valid SAME header)
 3. Click **Generate** to synthesize audio
 4. Click **Save as WAV** to download
 
@@ -85,6 +86,7 @@ The app activates the **Encoder** tab and attempts to parse/populate fields.
   * AFSK demodulation, bit/byte framing, header detection (0xAB sync), and header parsing
 * **Encoder** (`encoder-bundle.js`)
   * Builds SAME bursts + attention tones, concatenates audio, and writes a **WAV** (via `assets/wavefile.js`)
+  * Optional TTS voice synthesis (via WASM or external service)
 * **Resampling** via `assets/wave-resampler.js` as needed
 * Default tuning targets common sample rates (44.1 kHz / 48 kHz)
 
