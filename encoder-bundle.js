@@ -3987,16 +3987,31 @@
                             handleDecodeError(error);
                         });
                     }).catch(handleDecodeError);
-                } else {
-                    console.error("Request failed with status:", xhr.status, xhr.statusText);
-                    addStatus("Error fetching TTS audio. There will instead be silence.", "ERROR");
+                }
+
+                else if (xhr.getResponseHeader("Content-Type") === "application/json") {
+                    let responseJSON = {};
+                    try {
+                        const decoder = new TextDecoder("utf-8");
+                        responseJSON = JSON.parse(decoder.decode(xhr.response));
+                    } catch (error) {
+                        console.error("Failed to parse JSON response:", error);
+                    }
+                    console.error("Request failed with status:", xhr.status, xhr.response);
+                    addStatus("Error fetching TTS audio. The server said: '" + responseJSON.error + "'. There will instead be silence.", "ERROR");
+                    finishWithSilence();
+                }
+
+                else {
+                    console.error("Unexpected response type:", xhr.getResponseHeader("Content-Type"), xhr.response);
+                    addStatus("Unexpected response type while fetching TTS audio. There will instead be silence.", "ERROR");
                     finishWithSilence();
                 }
             };
 
             xhr.onerror = function() {
-                console.error("Network error occurred.");
-                addStatus("Network error occurred while fetching TTS audio. There will instead be silence.", "ERROR");
+                console.error("Unhandled network error occurred.", xhr.status, xhr.statusText);
+                addStatus("Unhandled network error occurred while fetching TTS audio. There will instead be silence.", "ERROR");
                 finishWithSilence();
             };
 
