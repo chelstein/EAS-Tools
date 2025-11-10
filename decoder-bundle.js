@@ -1,3 +1,7 @@
+window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
+    window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
+});
+
 (function () {
     'use strict';
     // Decoder bundle
@@ -4093,21 +4097,33 @@
         modalContainer.style.display = "none";
     });
 
-    function showAlertInfo(header) { //takes a parsed header
+    async function showAlertInfo(header) { //takes a parsed header
+        const e2tReady = window.EAS2TextModulePromise;
+        const resourcePromise = e2tReady.then(({ loadAllResources }) =>
+            loadAllResources({ fallbackBase: 'assets/E2T/' })
+        );
+        const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
+
         infoContainer.innerHTML = "";
+
         const alertName = events[header.event];
         const issueTime = header.issueTime;
         const expirationTime = getExpirationTime(issueTime, header.alertTime);
+        const eas = await EAS2Text.fromUSMessage(header.rawHeader, { resources, mode: 'NONE', useLocaleTimezone: true });
+        const encodedHeader = encodeURIComponent(header.rawHeader);
+
         console.log(expirationTime);
-        infoContainer.appendChild(createInfo(`Type: <div class="${getAlertType(alertName)}">${alertName}</div>`));
+
+        infoContainer.appendChild(createInfo(`Type: ${alertName}`));
         infoContainer.appendChild(createInfo(`Issuer: ${entryNames[header.originator]}`));
         infoContainer.appendChild(createInfo(`Affected Locations: ${locationsToReadable(header.locationCodes)}`));
         infoContainer.appendChild(createInfo(`Issue date: ${dateToReadable(issueTime, false)}`));
         infoContainer.appendChild(createInfo(`Expires on: ${dateToReadable(expirationTime, false)}`));
         infoContainer.appendChild(createInfo(`Time until Expiration: ${isExpired(expirationTime) ? "EXPIRED" : relativeToReadable(subtractRelative(expirationTime, new Date()), false)}`));
         infoContainer.appendChild(createInfo(`Sender ID: ${header.sender}`));
-        //infoContainer.appendChild(createInfo(`Alert Text: ${headerToText(header)}`));
-        const encodedHeader = encodeURIComponent(header.rawHeader);
+        infoContainer.appendChild(document.createElement("br"));
+        infoContainer.appendChild(createInfo(`Human-Readable Alert Text: "${eas.EASText}"`));
+        infoContainer.appendChild(document.createElement("br"));
         infoContainer.appendChild(createInfo(`<a href="index.html?header=${encodedHeader}">Open in SAME Encoder</a>`));
     }
 
