@@ -8,10 +8,11 @@ const fontLoader = async () => {
         { family: 'VCR EAS', file: 'vcreas.ttf' },
         { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf' },
         { family: 'Akzidenz', file: 'Akzidenz.ttf' },
-        { family: 'HelveticaNarrowBold', file: 'HelveticaNarrowBold.ttf' },
+        { family: 'Helvetica Narrow', file: 'helvn.ttf' },
         { family: 'Swiss721', file: 'Swiss721.ttf' },
         { family: 'UPD6465', file: 'UPD6465.ttf' },
         { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf' },
+        { family: 'PJF CharGen', file: 'pjf-chargen.ttf' },
     ];
 
     await Promise.all(
@@ -155,11 +156,14 @@ function updateVdsExportState(state, offsetX, viewportWidth, frameDelay) {
     });
 }
 
-function drawVdsExportFrame(ctx, state, offsetX, centerY, fontSize) {
+function drawVdsExportFrame(ctx, state, offsetX, centerY, fontSize, renderText) {
     if (!state) return;
     const lineHeight = fontSize + 10;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
+    const drawChar = (typeof renderText === 'function')
+        ? renderText
+        : (text, x, y) => ctx.fillText(text, x, y);
 
     state.charMetrics.forEach((metrics, lineIdx) => {
         const verticalOffset = lineIdx - (state.lines.length - 1) / 2;
@@ -169,9 +173,34 @@ function drawVdsExportFrame(ctx, state, offsetX, centerY, fontSize) {
 
         metrics.forEach((metric) => {
             if (metric.state !== 'visible') return;
-            ctx.fillText(metric.char, lineLeft + metric.offset, y);
+            drawChar(metric.char, lineLeft + metric.offset, y);
         });
     });
+}
+
+function createTextRenderer(ctx, outlineColor, outlineWidth) {
+    const parsedWidth = Number(outlineWidth);
+    const hasOutline = Boolean(outlineColor) && Number.isFinite(parsedWidth) && parsedWidth > 0;
+
+    if (!hasOutline) {
+        return (text, x, y) => {
+            if (text === undefined || text === null) return;
+            const stringText = typeof text === 'string' ? text : String(text);
+            if (!stringText) return;
+            ctx.fillText(stringText, x, y);
+        };
+    }
+
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = parsedWidth;
+
+    return (text, x, y) => {
+        if (text === undefined || text === null) return;
+        const stringText = typeof text === 'string' ? text : String(text);
+        if (!stringText) return;
+        ctx.strokeText(stringText, x, y);
+        ctx.fillText(stringText, x, y);
+    };
 }
 
 function exportAsGIF(canvas, filename) {
@@ -202,6 +231,8 @@ function exportAsGIF(canvas, filename) {
     captureCtx.font = font;
     captureCtx.textAlign = useVdsMode ? 'left' : 'center';
     captureCtx.textBaseline = 'middle';
+    captureCtx.lineJoin = generator.outlineJoin || 'round';
+    const renderText = createTextRenderer(captureCtx, generator.outlineColor, generator.outlineWidth);
     const vdsState = useVdsMode ? createVdsExportState(captureCtx, lines) : null;
 
     const maxLineWidth = lines.reduce((maxWidth, line) => {
@@ -244,14 +275,21 @@ function exportAsGIF(canvas, filename) {
 
         if (useVdsMode) {
             updateVdsExportState(vdsState, offsetX, captureCanvas.width, vdsDelay);
-            drawVdsExportFrame(captureCtx, vdsState, offsetX, captureCanvas.height / 2, fontSize);
+            drawVdsExportFrame(
+                captureCtx,
+                vdsState,
+                offsetX,
+                captureCanvas.height / 2,
+                fontSize,
+                renderText
+            );
             return;
         }
 
         lines.forEach((line, index) => {
             const verticalOffset = index - (lines.length - 1) / 2;
             const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
-            captureCtx.fillText(line, offsetX, y);
+            renderText(line, offsetX, y);
         });
     };
 
@@ -305,6 +343,10 @@ class TextCrawlGenerator {
         this.vdsReferenceSpeed = Math.max(0.01, Math.abs(this.speed) || 2);
         this.vdsState = null;
         this.fontFamily = 'Arial';
+        this.fontStyle = 'normal';
+        this.outlineColor = null;
+        this.outlineWidth = 0;
+        this.outlineJoin = 'round';
 
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
@@ -355,6 +397,21 @@ class TextCrawlGenerator {
 
     setBgColor(color) {
         this.bgColor = color;
+    }
+
+    setOutlineColor(color) {
+        this.outlineColor = color;
+    }
+
+    setOutlineWidth(width) {
+        const parsed = Number(width);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            this.outlineWidth = parsed;
+        }
+    }
+
+    setOutlineJoin(join) {
+        this.outlineJoin = join;
     }
 
     getCrawlText() {
@@ -486,9 +543,12 @@ class TextCrawlGenerator {
         });
     }
 
-    _drawVdsLines(state) {
+    _drawVdsLines(state, renderText) {
         const lineHeight = this.fontSize + 10;
         const totalLines = state.lines.length;
+        const drawChar = (typeof renderText === 'function')
+            ? renderText
+            : (text, x, y) => this.ctx.fillText(text, x, y);
 
         for (let lineIdx = 0; lineIdx < totalLines; lineIdx++) {
             const verticalOffset = lineIdx - (totalLines - 1) / 2;
@@ -500,7 +560,7 @@ class TextCrawlGenerator {
             for (let charIdx = 0; charIdx < metrics.length; charIdx++) {
                 const metric = metrics[charIdx];
                 if (metric.state !== 'visible') continue;
-                this.ctx.fillText(metric.char, lineLeft + metric.offset, y);
+                drawChar(metric.char, lineLeft + metric.offset, y);
             }
         }
     }
@@ -536,11 +596,13 @@ class TextCrawlGenerator {
         this.ctx.fillStyle = this.bgColor;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = this.textColor;
+        this.ctx.lineJoin = this.outlineJoin;
+        const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
 
         lines.forEach((line, index) => {
             const verticalOffset = index - (lines.length - 1) / 2;
             const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-            this.ctx.fillText(line, this.offsetX, y);
+            renderText(line, this.offsetX, y);
         });
     }
 
@@ -570,6 +632,8 @@ class TextCrawlGenerator {
             this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
             this.ctx.textAlign = 'left';
             this.ctx.textBaseline = 'middle';
+            this.ctx.lineJoin = this.outlineJoin;
+            const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
 
             const lines = (this.text || '').split('\n');
             const state = this._ensureVdsState(lines);
@@ -584,7 +648,7 @@ class TextCrawlGenerator {
 
             const effectiveDelay = this.getEffectiveVdsDelay();
             this._updateVdsCharacters(state, effectiveDelay);
-            this._drawVdsLines(state);
+            this._drawVdsLines(state, renderText);
 
             if (Number.isFinite(this.speed)) {
                 this.offsetX -= this.speed;
@@ -619,6 +683,8 @@ class TextCrawlGenerator {
             this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
+            this.ctx.lineJoin = this.outlineJoin;
+            const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
 
             const lines = this.text.split('\n');
 
@@ -639,7 +705,7 @@ class TextCrawlGenerator {
             lines.forEach((line, index) => {
                 const verticalOffset = index - (lines.length - 1) / 2;
                 const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-                this.ctx.fillText(line, this.offsetX, y);
+                renderText(line, this.offsetX, y);
             });
 
             this.offsetX -= this.speed;
@@ -693,6 +759,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const normalizedVdsDelay = Number.isFinite(parsedVdsDelay) && parsedVdsDelay > 0 ? parsedVdsDelay : DEFAULT_VDS_BASE_DELAY;
     const fontFamily = document.getElementById('crawlFontFamily') ? document.getElementById('crawlFontFamily').value : 'Arial';
     const fontStyle = document.getElementById('crawlFontStyle') ? document.getElementById('crawlFontStyle').value : 'normal';
+    const outlineColor = document.getElementById('crawlOutlineColor').value;
+    const outlineWidth = document.getElementById('crawlOutlineWidth').value;
+    const outlineJoin = document.getElementById('crawlOutlineJoin').value;
 
     await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
 
@@ -711,7 +780,10 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             useVDSMode,
             vdsFrameDelay,
             fontFamily,
-            fontStyle
+            fontStyle,
+            outlineColor,
+            outlineWidth,
+            outlineJoin
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -732,7 +804,10 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             useVDSMode,
             vdsFrameDelay,
             fontFamily,
-            fontStyle
+            fontStyle,
+            outlineColor,
+            outlineWidth,
+            outlineJoin
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -761,6 +836,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setBgColor(bgColor);
         window.crawlGenerator.setFontFamily(fontFamily);
         window.crawlGenerator.setFontStyle(fontStyle);
+        window.crawlGenerator.setOutlineColor(outlineColor);
+        window.crawlGenerator.setOutlineWidth(outlineWidth);
+        window.crawlGenerator.setOutlineJoin(outlineJoin);
         window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
         window.crawlGenerator.setVDSMode(useVDSMode);
         window.crawlGenerator.start();
@@ -790,6 +868,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setBgColor(bgColor);
         window.crawlGenerator.setFontFamily(fontFamily);
         window.crawlGenerator.setFontStyle(fontStyle);
+        window.crawlGenerator.setOutlineColor(outlineColor);
+        window.crawlGenerator.setOutlineWidth(outlineWidth);
+        window.crawlGenerator.setOutlineJoin(outlineJoin);
         window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
         window.crawlGenerator.setVDSMode(useVDSMode);
 
@@ -813,8 +894,6 @@ document.getElementById('exportCrawlGIF').addEventListener('click', () => {
         alert('Please start the crawl before exporting.');
     }
 });
-
-
 
 document.getElementById('crawlMode').addEventListener('change', (event) => {
     const mode = event.target.value;
@@ -916,6 +995,9 @@ if (savedSettings) {
     document.getElementById('vdsFrameDelay').value = settings.vdsFrameDelay || DEFAULT_VDS_BASE_DELAY;
     document.getElementById('crawlFontFamily').value = settings.fontFamily || 'Arial';
     document.getElementById('crawlFontStyle').value = settings.fontStyle || 'normal';
+    document.getElementById('crawlOutlineColor').value = settings.outlineColor || '#000000';
+    document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;
+    document.getElementById('crawlOutlineJoin').value = settings.outlineJoin || 'round';
 
     addStatus('Loaded saved crawl settings!');
 

@@ -319,10 +319,11 @@
                         <option value="VCR EAS">VCR EAS (older EASyPLUS Font)</option>
                         <option value="Geneva Blue">Geneva Blue</option>
                         <option value="Akzidenz">Akzidenz-Grotesk</option>
-                        <option value="HelveticaNarrowBold">Helvetica Narrow Bold</option>
+                        <option value="Helvetica Narrow">Helvetica Narrow</option>
                         <option value="Swiss721">Swiss 721</option>
                         <option value="UPD6465">UPD6465</option>
                         <option value="VCREAS_4.5">VCR EAS 4.5</option>
+                        <option value="PJF CharGen">PJF CharGen</option>
                     </select>
                     <br>
                     <label for="crawlFontStyle">Font Style:</label>
@@ -339,6 +340,19 @@
                     <br>
                     <label for="crawlTextColor">Text Color:</label>
                     <input type="color" id="crawlTextColor" value="#FFFFFF">
+                    <br>
+                    <label for="crawlOutlineColor">Text Outline Color (set outline width to >0 to enable):</label>
+                    <input type="color" id="crawlOutlineColor" value="#000000">
+                    <br>
+                    <label for="crawlOutlineWidth">Text Outline Width (pixels, 0-10):</label>
+                    <input type="number" id="crawlOutlineWidth" min="0" max="10" value="0">
+                    <br>
+                    <label for="crawlOutlineJoin">Text Outline Join Style:</label>
+                    <select id="crawlOutlineJoin">
+                        <option value="round" selected>Round</option>
+                        <option value="bevel">Bevel</option>
+                        <option value="miter">Miter</option>
+                    </select>
                     <div id="E2TOptions" style="display: none;">
                         <label class="custom-checkbox-container localTZ">
                             <br>Use Local Timezone:
