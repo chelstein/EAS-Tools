@@ -292,8 +292,47 @@
                     <label for="crawlSpeed">Crawl Speed (pixels per frame, 1-20):</label>
                     <input type="number" id="crawlSpeed" min="1" max="20" value="5">
                     <br>
+                    <br>
+                    <label for="crawlUseVDSMode">Use VDS Mode:</label>
+                    <input type="checkbox" id="crawlUseVDSMode">
+                    <br>
+                    <label for="vdsFrameDelay">VDS Frame Delay (fps/hz, 1-360):</label>
+                    <input type="number" id="vdsFrameDelay" min="1" max="360" value="30">
+                    <br>
+                    <br>
                     <label for="crawlFontSize">Font Size (pixels, 10-100):</label>
                     <input type="number" id="crawlFontSize" min="10" max="100" value="24">
+                    <br>
+                    <label for="crawlFontFamily">Font Family:</label>
+                    <select id="crawlFontFamily">
+                        <option value="Arial" selected>Arial</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Trebuchet MS">Trebuchet MS</option>
+                        <option value="Impact">Impact</option>
+                        <option value="Comic Sans MS">Comic Sans MS</option>
+                        <option value="Hack">Hack</option>
+                        <option value="STV5730A">STV5730A (EASyPLUS Font)</option>
+                        <option value="VCR EAS">VCR EAS (older EASyPLUS Font)</option>
+                        <option value="Geneva Blue">Geneva Blue</option>
+                        <option value="Akzidenz">Akzidenz-Grotesk</option>
+                        <option value="HelveticaNarrowBold">Helvetica Narrow Bold</option>
+                        <option value="Swiss721">Swiss 721</option>
+                        <option value="UPD6465">UPD6465</option>
+                        <option value="VCREAS_4.5">VCR EAS 4.5</option>
+                    </select>
+                    <br>
+                    <label for="crawlFontStyle">Font Style:</label>
+                    <select id="crawlFontStyle">
+                        <option value="normal" selected>Normal</option>
+                        <option value="bold">Bold</option>
+                        <option value="italic">Italic</option>
+                        <option value="italic bold">Bold Italic</option>
+                    </select>
+                    <br>
                     <br>
                     <label for="crawlBgColor">Background Color:</label>
                     <input type="color" id="crawlBgColor" value="#000000">
@@ -342,6 +381,7 @@
                     <button type="button" id="pauseCrawl">Pause Crawl</button>
                     <button type="button" id="stopCrawl">Stop/Reset Crawl</button>
                     <button type="button" id="exportCrawlGIF">Export as GIF</button>
+                    <button type="button" id="copyCrawlText">Copy Crawl Text to Clipboard</button>
                     <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
                 </div>
                 <br>

@@ -1,12 +1,37 @@
 /*
-This bundle of JS code is used to generate text crawl animations, similar to those seen in real EAS alerts. It provides functionality to create, customize, and render scrolling text effects on a web page. Users can customize the text content, speed, font size, colors, and other visual aspects of the crawl animation. The generated crawl can be previewed in real-time and exported as a video or GIF for use in various applications. This tool is particularly useful for creating authentic-looking EAS alert simulations for training, testing, or entertainment purposes.
+This bundle of JS code is used to generate text crawl animations, similar to those seen in real EAS alerts. It provides functionality to create, customize, and render scrolling text effects on a web page. Users can customize the text content, speed, font size, colors, and other visual aspects of the crawl animation. The generated crawl can be previewed in real-time and exported as a GIF for use in various applications. This tool is particularly useful for creating authentic-looking EAS alert simulations for training, testing, or entertainment purposes.
 */
+
+const fontLoader = async () => {
+    const fontDir = './assets/fonts/';
+    const fontsToLoad = [
+        { family: 'VCR EAS', file: 'vcreas.ttf' },
+        { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf' },
+        { family: 'Akzidenz', file: 'Akzidenz.ttf' },
+        { family: 'HelveticaNarrowBold', file: 'HelveticaNarrowBold.ttf' },
+        { family: 'Swiss721', file: 'Swiss721.ttf' },
+        { family: 'UPD6465', file: 'UPD6465.ttf' },
+        { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf' },
+    ];
+
+    await Promise.all(
+        fontsToLoad.map(({ family, file }) => {
+            const font = new FontFace(family, `url(${fontDir}${file})`);
+            return font.load().then((loaded) => {
+                document.fonts.add(loaded);
+            });
+        })
+    );
+};
+
+fontLoader();
 
 window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
     window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
 });
 
 const clearButton = document.getElementById('clr-crawl');
+const localStorageKey = 'eas-tools-crawl-settings';
 
 if (clearButton) {
     clearButton.addEventListener('click', () => resetStatus());
@@ -31,6 +56,124 @@ function resetStatus() {
     clearButton.style.display = "none";
 }
 
+const DEFAULT_VDS_BASE_DELAY = 10;
+
+function createVdsExportState(ctx, lines) {
+    const normalizedLines = Array.isArray(lines) ? lines : [];
+    const charMetrics = [];
+    const lineWidths = [];
+
+    normalizedLines.forEach((line) => {
+        const metrics = [];
+        const characters = Array.from(line);
+        let cursor = 0;
+
+        characters.forEach((char) => {
+            const glyph = char === '' ? ' ' : char;
+            const width = ctx.measureText(glyph).width;
+            metrics.push({
+                char,
+                offset: cursor,
+                width,
+                state: 'pre',
+                framesRemaining: 0
+            });
+            cursor += width;
+        });
+
+        charMetrics.push(metrics);
+        lineWidths.push(cursor);
+    });
+
+    const maxLineWidth = lineWidths.reduce((maxWidth, width) => Math.max(maxWidth, width), 0);
+
+    return {
+        lines: normalizedLines.slice(),
+        charMetrics,
+        lineWidths,
+        maxLineWidth
+    };
+}
+
+function resetVdsExportState(state) {
+    if (!state) return;
+    state.charMetrics.forEach((metrics) => {
+        metrics.forEach((metric) => {
+            metric.state = 'pre';
+            metric.framesRemaining = 0;
+        });
+    });
+}
+
+function updateVdsExportState(state, offsetX, viewportWidth, frameDelay) {
+    if (!state) return;
+    const viewportLeft = 0;
+    const viewportRight = viewportWidth;
+
+    state.charMetrics.forEach((metrics, lineIdx) => {
+        const width = state.lineWidths[lineIdx] || 0;
+        const lineLeft = offsetX - width / 2;
+
+        metrics.forEach((metric) => {
+            const charLeft = lineLeft + metric.offset;
+            const charRight = charLeft + metric.width;
+
+            switch (metric.state) {
+                case 'pre':
+                    if (charLeft <= viewportRight) {
+                        metric.state = 'delayIn';
+                        metric.framesRemaining = frameDelay;
+                    }
+                    break;
+                case 'delayIn':
+                    if (charRight < viewportLeft) {
+                        metric.state = 'done';
+                        metric.framesRemaining = 0;
+                    } else if (metric.framesRemaining > 0) {
+                        metric.framesRemaining--;
+                    } else {
+                        metric.state = 'visible';
+                    }
+                    break;
+                case 'visible':
+                    if (charLeft <= viewportLeft) {
+                        metric.state = 'delayOut';
+                        metric.framesRemaining = frameDelay;
+                    }
+                    break;
+                case 'delayOut':
+                    if (metric.framesRemaining > 0) {
+                        metric.framesRemaining--;
+                    } else {
+                        metric.state = 'done';
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    });
+}
+
+function drawVdsExportFrame(ctx, state, offsetX, centerY, fontSize) {
+    if (!state) return;
+    const lineHeight = fontSize + 10;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    state.charMetrics.forEach((metrics, lineIdx) => {
+        const verticalOffset = lineIdx - (state.lines.length - 1) / 2;
+        const y = centerY + verticalOffset * lineHeight;
+        const width = state.lineWidths[lineIdx] || 0;
+        const lineLeft = offsetX - width / 2;
+
+        metrics.forEach((metric) => {
+            if (metric.state !== 'visible') return;
+            ctx.fillText(metric.char, lineLeft + metric.offset, y);
+        });
+    });
+}
+
 function exportAsGIF(canvas, filename) {
     if (!window.crawlGenerator) {
         alert('Please start the crawl before exporting.');
@@ -50,12 +193,16 @@ function exportAsGIF(canvas, filename) {
     const textColor = generator.textColor || '#FFFFFF';
     const bgColor = generator.bgColor || '#000000';
     const lines = text.split('\n');
-    const font = `${fontSize}px Arial`;
+    const useVdsMode = Boolean(generator.vdsMode);
+    const fontStyle = generator.fontStyle || 'normal';
+    const fontFamily = generator.fontFamily || 'Arial';
+    const font = `${fontStyle} ${fontSize}px ${fontFamily}`;
     const lineHeight = fontSize + 10;
 
     captureCtx.font = font;
-    captureCtx.textAlign = 'center';
+    captureCtx.textAlign = useVdsMode ? 'left' : 'center';
     captureCtx.textBaseline = 'middle';
+    const vdsState = useVdsMode ? createVdsExportState(captureCtx, lines) : null;
 
     const maxLineWidth = lines.reduce((maxWidth, line) => {
         const width = captureCtx.measureText(line).width;
@@ -76,6 +223,12 @@ function exportAsGIF(canvas, filename) {
     const MIN_GIF_DELAY = 20; // browsers commonly clamp GIF frames below ~20ms
     const frameDelay = Math.max(MIN_GIF_DELAY, Math.round(targetMsPerFrame));
     const pxPerFrame = baseSpeed * (frameDelay / targetMsPerFrame);
+    const defaultVdsDelay = (Number.isFinite(generator.vdsBaseDelayFrames) && generator.vdsBaseDelayFrames > 0)
+        ? generator.vdsBaseDelayFrames
+        : DEFAULT_VDS_BASE_DELAY;
+    const vdsDelay = useVdsMode && typeof generator.getEffectiveVdsDelay === 'function'
+        ? generator.getEffectiveVdsDelay(pxPerFrame)
+        : defaultVdsDelay;
     const framesNeeded = Math.max(1, Math.ceil(travelDistance / pxPerFrame));
 
     const gif = new GIF({
@@ -89,6 +242,12 @@ function exportAsGIF(canvas, filename) {
         captureCtx.fillStyle = textColor;
         captureCtx.font = font;
 
+        if (useVdsMode) {
+            updateVdsExportState(vdsState, offsetX, captureCanvas.width, vdsDelay);
+            drawVdsExportFrame(captureCtx, vdsState, offsetX, captureCanvas.height / 2, fontSize);
+            return;
+        }
+
         lines.forEach((line, index) => {
             const verticalOffset = index - (lines.length - 1) / 2;
             const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
@@ -96,6 +255,7 @@ function exportAsGIF(canvas, filename) {
         });
     };
 
+    resetVdsExportState(vdsState);
     let offsetX = startOffset;
     for (let i = 0; i < framesNeeded; i++) {
         drawFrame(offsetX);
@@ -103,6 +263,7 @@ function exportAsGIF(canvas, filename) {
         offsetX -= pxPerFrame;
         if (offsetX < endOffset) {
             offsetX = startOffset;
+            resetVdsExportState(vdsState);
         }
     }
 
@@ -139,6 +300,11 @@ class TextCrawlGenerator {
         this.startFromRightInitialized = false;
         this.msPerFrame = 1000 / 60;
         this.lastTimestamp = null;
+        this.vdsMode = false;
+        this.vdsBaseDelayFrames = DEFAULT_VDS_BASE_DELAY;
+        this.vdsReferenceSpeed = Math.max(0.01, Math.abs(this.speed) || 2);
+        this.vdsState = null;
+        this.fontFamily = 'Arial';
 
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
@@ -150,11 +316,21 @@ class TextCrawlGenerator {
         this.offsetX = this.canvas.width / 2;
         this.offsetY = this.canvas.height / 2;
         this.startFromRightInitialized = false;
+        this._invalidateVdsState();
     }
 
     setText(text) {
         this.text = text;
         this.startFromRightInitialized = false;
+        this._invalidateVdsState();
+    }
+
+    setFontFamily(fontFamily) {
+        this.fontFamily = fontFamily;
+    }
+
+    setFontStyle(fontStyle) {
+        this.fontStyle = fontStyle;
     }
 
     setSpeed(speed) {
@@ -169,6 +345,7 @@ class TextCrawlGenerator {
         if (Number.isFinite(parsed) && parsed > 0) {
             this.fontSize = parsed;
             this.startFromRightInitialized = false;
+            this._invalidateVdsState();
         }
     }
 
@@ -178,6 +355,154 @@ class TextCrawlGenerator {
 
     setBgColor(color) {
         this.bgColor = color;
+    }
+
+    getCrawlText() {
+        return this.text;
+    }
+
+    setVDSMode(enabled) {
+        const next = Boolean(enabled);
+        if (this.vdsMode !== next) {
+            this.vdsMode = next;
+            this.startFromRightInitialized = false;
+            this._invalidateVdsState();
+        }
+    }
+
+    _invalidateVdsState() {
+        this.vdsState = null;
+    }
+
+    _ensureVdsState(lines) {
+        const normalizedLines = Array.isArray(lines) ? lines : [];
+        const key = normalizedLines.join('\n');
+
+        if (this.vdsState && this.vdsState.key === key) {
+            return this.vdsState;
+        }
+
+        const lineWidths = [];
+        const charMetrics = normalizedLines.map((line) => {
+            const metrics = [];
+            const characters = Array.from(line);
+            let cursor = 0;
+
+            characters.forEach((char) => {
+                const measuredChar = char === '' ? ' ' : char;
+                const width = this.ctx.measureText(measuredChar).width;
+                metrics.push({
+                    char,
+                    offset: cursor,
+                    width,
+                    state: 'pre',
+                    framesRemaining: 0
+                });
+                cursor += width;
+            });
+
+            lineWidths.push(cursor);
+            return metrics;
+        });
+
+        const maxLineWidth = lineWidths.reduce((maxWidth, width) => Math.max(maxWidth, width), 0);
+
+        this.vdsState = {
+            key,
+            lines: normalizedLines.slice(),
+            charMetrics,
+            lineWidths,
+            maxLineWidth
+        };
+
+        return this.vdsState;
+    }
+
+    _resetVdsCharacters(state) {
+        state.charMetrics.forEach((metrics) => {
+            metrics.forEach((metric) => {
+                metric.state = 'pre';
+                metric.framesRemaining = 0;
+            });
+        });
+    }
+
+    getEffectiveVdsDelay(speedOverride) {
+        const referenceSpeed = Math.max(0.01, this.vdsReferenceSpeed);
+        const currentSpeed = Math.max(
+            0.01,
+            Number.isFinite(speedOverride) ? Math.abs(speedOverride) : Math.abs(this.speed) || referenceSpeed
+        );
+        const scaled = (this.vdsBaseDelayFrames * referenceSpeed) / currentSpeed;
+        return Math.max(1, Math.round(scaled));
+    }
+
+    _updateVdsCharacters(state, frameDelay) {
+        const viewportLeft = 0;
+        const viewportRight = this.canvas.width;
+
+        state.charMetrics.forEach((metrics, lineIdx) => {
+            const width = state.lineWidths[lineIdx] || 0;
+            const lineLeft = this.offsetX - width / 2;
+
+            metrics.forEach((metric) => {
+                const charLeft = lineLeft + metric.offset;
+                const charRight = charLeft + metric.width;
+
+                switch (metric.state) {
+                    case 'pre':
+                        if (charLeft <= viewportRight) {
+                            metric.state = 'delayIn';
+                            metric.framesRemaining = frameDelay;
+                        }
+                        break;
+                    case 'delayIn':
+                        if (charRight < viewportLeft) {
+                            metric.state = 'done';
+                            metric.framesRemaining = 0;
+                        } else if (metric.framesRemaining > 0) {
+                            metric.framesRemaining--;
+                        } else {
+                            metric.state = 'visible';
+                        }
+                        break;
+                    case 'visible':
+                        if (charLeft <= viewportLeft) {
+                            metric.state = 'delayOut';
+                            metric.framesRemaining = frameDelay;
+                        }
+                        break;
+                    case 'delayOut':
+                        if (metric.framesRemaining > 0) {
+                            metric.framesRemaining--;
+                        } else {
+                            metric.state = 'done';
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            });
+        });
+    }
+
+    _drawVdsLines(state) {
+        const lineHeight = this.fontSize + 10;
+        const totalLines = state.lines.length;
+
+        for (let lineIdx = 0; lineIdx < totalLines; lineIdx++) {
+            const verticalOffset = lineIdx - (totalLines - 1) / 2;
+            const y = this.offsetY + verticalOffset * lineHeight;
+            const metrics = state.charMetrics[lineIdx];
+            const width = state.lineWidths[lineIdx] || 0;
+            const lineLeft = this.offsetX - width / 2;
+
+            for (let charIdx = 0; charIdx < metrics.length; charIdx++) {
+                const metric = metrics[charIdx];
+                if (metric.state !== 'visible') continue;
+                this.ctx.fillText(metric.char, lineLeft + metric.offset, y);
+            }
+        }
     }
 
     start() {
@@ -194,7 +519,7 @@ class TextCrawlGenerator {
         this.isAnimating = false;
         this.lastTimestamp = null;
 
-        this.ctx.font = `${this.fontSize}px Arial`;
+        this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
 
@@ -225,54 +550,105 @@ class TextCrawlGenerator {
     }
 
     animate(timestamp) {
-        if (!this.isAnimating) return;
+        if(this.vdsMode) {
+            if (!this.isAnimating) return;
 
-        if (typeof timestamp === 'number') {
-            if (this.lastTimestamp !== null) {
-                const delta = timestamp - this.lastTimestamp;
-                if (delta > 0) {
-                    const smoothing = 0.1;
-                    this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * delta;
+            if (typeof timestamp === 'number') {
+                if (this.lastTimestamp !== null) {
+                    const delta = timestamp - this.lastTimestamp;
+                    if (delta > 0) {
+                        const smoothing = 0.1;
+                        this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * delta;
+                    }
                 }
+                this.lastTimestamp = timestamp;
             }
-            this.lastTimestamp = timestamp;
+
+            this.ctx.fillStyle = this.bgColor;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = this.textColor;
+            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
+            this.ctx.textAlign = 'left';
+            this.ctx.textBaseline = 'middle';
+
+            const lines = (this.text || '').split('\n');
+            const state = this._ensureVdsState(lines);
+            const maxLineWidth = state.maxLineWidth || 0;
+            const startOffset = this.canvas.width + maxLineWidth / 2;
+
+            if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
+                this.offsetX = startOffset;
+                this.startFromRightInitialized = true;
+                this._resetVdsCharacters(state);
+            }
+
+            const effectiveDelay = this.getEffectiveVdsDelay();
+            this._updateVdsCharacters(state, effectiveDelay);
+            this._drawVdsLines(state);
+
+            if (Number.isFinite(this.speed)) {
+                this.offsetX -= this.speed;
+            }
+
+            if (this.offsetX < -maxLineWidth / 2) {
+                this.offsetX = startOffset;
+                this._resetVdsCharacters(state);
+            }
+
+            requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
+            return;
         }
 
-        this.ctx.fillStyle = this.bgColor;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = this.textColor;
-        this.ctx.font = `${this.fontSize}px Arial`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
+        else {
+            if (!this.isAnimating) return;
 
-        const lines = this.text.split('\n');
+            if (typeof timestamp === 'number') {
+                if (this.lastTimestamp !== null) {
+                    const delta = timestamp - this.lastTimestamp;
+                    if (delta > 0) {
+                        const smoothing = 0.1;
+                        this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * delta;
+                    }
+                }
+                this.lastTimestamp = timestamp;
+            }
 
-        const maxLineWidth = lines.reduce((maxWidth, line) => {
-            const width = this.ctx.measureText(line).width;
-            return width > maxWidth ? width : maxWidth;
-        }, 0);
+            this.ctx.fillStyle = this.bgColor;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = this.textColor;
+            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
 
-        const startOffset = this.canvas.width + maxLineWidth / 2;
+            const lines = this.text.split('\n');
 
-        if (!this.startFromRightInitialized) {
-            this.offsetX = startOffset;
-            this.startFromRightInitialized = true;
-        } else if (!Number.isFinite(this.offsetX)) {
-            this.offsetX = startOffset;
+            const maxLineWidth = lines.reduce((maxWidth, line) => {
+                const width = this.ctx.measureText(line).width;
+                return width > maxWidth ? width : maxWidth;
+            }, 0);
+
+            const startOffset = this.canvas.width + maxLineWidth / 2;
+
+            if (!this.startFromRightInitialized) {
+                this.offsetX = startOffset;
+                this.startFromRightInitialized = true;
+            } else if (!Number.isFinite(this.offsetX)) {
+                this.offsetX = startOffset;
+            }
+
+            lines.forEach((line, index) => {
+                const verticalOffset = index - (lines.length - 1) / 2;
+                const y = this.offsetY + verticalOffset * (this.fontSize + 10);
+                this.ctx.fillText(line, this.offsetX, y);
+            });
+
+            this.offsetX -= this.speed;
+            if (this.offsetX < -maxLineWidth / 2) {
+                this.offsetX = startOffset;
+            }
+
+            requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
         }
-
-        lines.forEach((line, index) => {
-            const verticalOffset = index - (lines.length - 1) / 2;
-            const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-            this.ctx.fillText(line, this.offsetX, y);
-        });
-
-        this.offsetX -= this.speed;
-        if (this.offsetX < -maxLineWidth / 2) {
-            this.offsetX = startOffset;
-        }
-
-        requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
     }
 }
 
@@ -311,6 +687,14 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const useLocalTZ = document.getElementById('crawlUseLocalTZ').checked;
     const useOverrideTZ = document.getElementById('crawlUseOverrideTZ').value;
     const endecMode = document.getElementById('endecMode').value;
+    const useVDSMode = document.getElementById('crawlUseVDSMode').checked;
+    const vdsFrameDelay = document.getElementById('vdsFrameDelay').value;
+    const parsedVdsDelay = Number(vdsFrameDelay);
+    const normalizedVdsDelay = Number.isFinite(parsedVdsDelay) && parsedVdsDelay > 0 ? parsedVdsDelay : DEFAULT_VDS_BASE_DELAY;
+    const fontFamily = document.getElementById('crawlFontFamily') ? document.getElementById('crawlFontFamily').value : 'Arial';
+    const fontStyle = document.getElementById('crawlFontStyle') ? document.getElementById('crawlFontStyle').value : 'normal';
+
+    await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
 
     if (rawHeader && crawlMode === 'header') {
         const settings = {
@@ -323,7 +707,11 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             rawHeader,
             useLocalTZ,
             useOverrideTZ,
-            endecMode
+            endecMode,
+            useVDSMode,
+            vdsFrameDelay,
+            fontFamily,
+            fontStyle
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -340,7 +728,11 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             rawHeader: '',
             useLocalTZ,
             useOverrideTZ,
-            endecMode
+            endecMode,
+            useVDSMode,
+            vdsFrameDelay,
+            fontFamily,
+            fontStyle
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -367,6 +759,10 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setFontSize(fontSize);
         window.crawlGenerator.setTextColor(textColor);
         window.crawlGenerator.setBgColor(bgColor);
+        window.crawlGenerator.setFontFamily(fontFamily);
+        window.crawlGenerator.setFontStyle(fontStyle);
+        window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
+        window.crawlGenerator.setVDSMode(useVDSMode);
         window.crawlGenerator.start();
     }
 
@@ -392,6 +788,11 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setFontSize(fontSize);
         window.crawlGenerator.setTextColor(textColor);
         window.crawlGenerator.setBgColor(bgColor);
+        window.crawlGenerator.setFontFamily(fontFamily);
+        window.crawlGenerator.setFontStyle(fontStyle);
+        window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
+        window.crawlGenerator.setVDSMode(useVDSMode);
+
         window.crawlGenerator.start();
     }
 });
@@ -412,6 +813,8 @@ document.getElementById('exportCrawlGIF').addEventListener('click', () => {
         alert('Please start the crawl before exporting.');
     }
 });
+
+
 
 document.getElementById('crawlMode').addEventListener('change', (event) => {
     const mode = event.target.value;
@@ -484,7 +887,16 @@ document.getElementById('crawlUseOverrideTZ').addEventListener('change', (event)
     }
 });
 
-const localStorageKey = 'eas-tools-crawl-settings';
+document.getElementById('copyCrawlText').addEventListener('click', async () => {
+    const crawlText = window.crawlGenerator.getCrawlText();
+    try {
+        await navigator.clipboard.writeText(crawlText);
+        addStatus('Crawl text copied to clipboard!');
+    } catch (err) {
+        alert('Failed to copy text: ' + err);
+    }
+});
+
 const savedSettings = localStorage.getItem(localStorageKey);
 
 if (savedSettings) {
@@ -499,6 +911,11 @@ if (savedSettings) {
     document.getElementById('crawlRawHeader').value = settings.rawHeader;
     document.getElementById('crawlUseLocalTZ').checked = settings.useLocalTZ;
     document.getElementById('crawlUseOverrideTZ').value = settings.useOverrideTZ;
+    document.getElementById('endecMode').value = settings.endecMode;
+    document.getElementById('crawlUseVDSMode').checked = settings.useVDSMode;
+    document.getElementById('vdsFrameDelay').value = settings.vdsFrameDelay || DEFAULT_VDS_BASE_DELAY;
+    document.getElementById('crawlFontFamily').value = settings.fontFamily || 'Arial';
+    document.getElementById('crawlFontStyle').value = settings.fontStyle || 'normal';
 
     addStatus('Loaded saved crawl settings!');
 

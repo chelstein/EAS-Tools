@@ -99,7 +99,7 @@ async function tryFetch(url, timeoutMs) {
   }
 }
 
-async function loadJSONResource(key, { preferLocal = false, timeoutMs = 5000, fallbackBase = fallbackBaseURL } = {}) {
+async function loadJSONResource(key, { preferLocal = true, timeoutMs = 5000, fallbackBase = fallbackBaseURL } = {}) {
   if (cache.has(key)) {
     return cache.get(key);
   }
