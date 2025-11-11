@@ -236,25 +236,6 @@
                     <label for="ttsVoice">Select Voice:</label>
                     <select id="ttsVoice" name="ttsVoice">
                         <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
-                        <option value="paul">[VT] NWS Paul (takes longest time to process all requests)</option>
-                        <option value="ScanSoft Tom_Full_22kHz">[BAL] Scansoft Tom</option>
-                        <!-- CURRENTLY BROKEN: <option value="RealSpeechTom">RealSpeech Tom</option> -->
-                        <option value="ATT Mike16">[BAL] Mike</option>
-                        <option value="Microsoft David Desktop">[BAL] Microsoft David</option>
-                        <option value="DECTalkPaulV1">[DT] DECTalk Paul v1 (SAPI 4, slightly quieter)</option>
-                        <option value="DECTalkHarryIgor">[DT] DECTalk Harry/Igor</option>
-                        <option value="DECTalkFrank">[DT] DECTalk Frank</option>
-                        <option value="DECTalkDennis">[DT] DECTalk Dennis</option>
-                        <option value="DECTalkBetty">[DT] DECTalk Betty</option>
-                        <option value="DECTalkUrsula">[DT] DECTalk Ursula</option>
-                        <option value="DECTalkWendy">[DT] DECTalk Wendy</option>
-                        <option value="DECTalkRita">[DT] DECTalk Rita</option>
-                        <option value="DECTalkKit">[DT] DECTalk Kit</option>
-                        <option value="DECTalkVariableVal">[DT] DECTalk Variable Val (identical to DECTalk Paul v1 unless pitch is modified)</option>
-                        <option value="DECTalkPaulV2">[BAL] DECTalk Paul v2 (SAPI 5, louder)</option>
-                        <option value="FestvoxKal">[FEST] Festvox Kal</option>
-                        <option value="Loquendo Dave">[BAL] Loquendo Dave</option>
-                        <option value="EMNet">[EMNet] EMNet</option>
                     </select>
                     <br class="overrideTZ">
                     <br class="overrideTZ">
@@ -282,7 +263,7 @@
                 <p id="status"></p>
                 <br>
                 <div>
-                    Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, and <a href="https://anon64.bitkit.us/eas-gen/">Anon64 EAS Header Generator</a>
+                    Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, <a href="https://anon64.bitkit.us/eas-gen/">Anon64 EAS Header Generator</a>, and CryptoDude3 GitHub Pages (removed) for original inspiration
                 </div>
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
@@ -429,6 +410,7 @@
         <script>
             (() => {
                 const buttons = document.querySelectorAll('button[data-tool]');
+                const params = new URLSearchParams(window.location.search);
 
                 const panels = {
                     decoder: document.getElementById('decoder-panel'),
@@ -441,6 +423,10 @@
                     Object.entries(panels).forEach(([name, panel]) => {
                         panel.classList.toggle('active', name === target);
                     });
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const newParams = new URLSearchParams(window.location.search);
+                    newParams.set('tool', target);
+                    window.history.replaceState({}, '', `${window.location.pathname}?${newParams}`);
                 };
 
                 buttons.forEach((btn) => {
@@ -455,10 +441,13 @@
                     });
                 });
 
-                const params = new URLSearchParams(window.location.search);
-
                 if (params.get('header')) {
                     activate('encoder');
+                }
+
+                const toolParam = params.get('tool');
+                if (toolParam && panels[toolParam]) {
+                    activate(toolParam);
                 }
             })();
         </script>

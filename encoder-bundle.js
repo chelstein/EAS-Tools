@@ -3868,6 +3868,43 @@
         create_eom_tones();
     }
 
+    async function getVoiceList() {
+        const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true";
+        const response = await fetch(url);
+        const data = await response.json();
+        const voiceListElement = document.getElementById("ttsVoice");
+        for (const [voiceId, voiceName] of Object.entries(data.voices)) {
+            if (voiceName.toLowerCase().includes("emnet")) {
+                const option = document.createElement("option");
+                option.value = voiceId;
+                option.textContent = "[EMNet] EMNet (uses generated headers as input)";
+                voiceListElement.appendChild(option);
+            }
+            else {
+                const option = document.createElement("option");
+                option.value = voiceId;
+                option.textContent = voiceName;
+                voiceListElement.appendChild(option);
+            }
+        }
+        voiceListElement.dispatchEvent(new Event('change'));
+    }
+
+    async function getAudioFromPage(response) {
+        const decoder = new TextDecoder("utf-8");
+        const responseText = decoder.decode(response);
+        const audioMatch = responseText.match(/id="downloadlink"><a href="(.*)" download/i);
+        if (audioMatch && audioMatch[1]) {
+            const audioSrc = audioMatch[1];
+            const audioResponse = await fetch("https://wagspuzzle.space/tools/eas-tts/" + audioSrc);
+            const audioArrayBuffer = await audioResponse.arrayBuffer();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const buffer = await audioContext.decodeAudioData(audioArrayBuffer);
+            return buffer;
+        }
+        return null;
+    }
+
     async function webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header) {
         addStatus("Generating TTS audio using web request, this may take a while...");
 
@@ -4005,8 +4042,31 @@
 
                 else {
                     console.error("Unexpected response type:", xhr.getResponseHeader("Content-Type"), xhr.response);
-                    addStatus("Unexpected response type while fetching TTS audio. There will instead be silence.", "ERROR");
-                    finishWithSilence();
+                    addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio from page...", "ERROR");
+                    try {
+                        getAudioFromPage(xhr.response).then((pcmRaw) => {
+                            if (pcmRaw !== null) {
+                                const normalizedPcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
+                                generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+                                appendPcmToSamples(normalizedPcm);
+                                generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+                                safeResolve();
+                            }
+                            else {
+                                addStatus("Failed to find audio in TTS HTML response. There will instead be silence.", "ERROR");
+                                finishWithSilence();
+                            }
+                        }).catch((error) => {
+                            console.error("Failed to get audio from page:", error);
+                            addStatus("Failed to get audio from page. There will instead be silence.", "ERROR");
+                            finishWithSilence();
+                        });
+                    } catch (error) {
+                        console.error("Failed to decode response:", error);
+                        addStatus("Failed to decode TTS HTML response. There will instead be silence.", "ERROR");
+                        finishWithSilence();
+                    }
+
                 }
             };
 
@@ -4473,5 +4533,5 @@
     }
     customHeader.dispatchEvent(new Event('change'));
     tts.dispatchEvent(new Event('change'));
-    voiceSelect.dispatchEvent(new Event('change'));
+    getVoiceList();
 })();
