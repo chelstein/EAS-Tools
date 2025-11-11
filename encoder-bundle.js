@@ -3868,7 +3868,7 @@
         create_eom_tones();
     }
 
-    async function webTTSGenerate(ttsText, ttsVoice) {
+    async function webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header) {
         addStatus("Generating TTS audio using web request, this may take a while...");
 
         return new Promise((resolve) => {
@@ -3912,8 +3912,9 @@
             const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit";
 
             const params = new URLSearchParams();
-            params.append("text", ttsText);
+            params.append("text", ttsVoice === "EMNet" ? header : ttsText);
             params.append("voice", ttsVoice);
+            params.append("useOverrideTZ", useOverrideTZ ?? "UTC");
 
             xhr.open("POST", url, true);
             xhr.responseType = "arraybuffer";
@@ -4020,12 +4021,11 @@
     }
 
 
-    async function create_alert_async(origin, event, locations, length, date, par, ttsText, ttsVoice) {
+    async function create_alert_async(header, ttsText, ttsVoice, useOverrideTZ) {
         document.getElementById("generate").disabled = true;
         addStatus("Generating EAS...");
 
-        var h = create_header_string(origin, event, locations, length, date, par);
-        create_header_tones(h);
+        create_header_tones(header);
         if (tone) { create_nwr_tone(); } else { create_wat(); }
 
         if (ttsVoice === "wasm") {
@@ -4041,7 +4041,7 @@
         }
 
         else if (ttsVoice !== null && ttsVoice !== undefined && ttsVoice !== "") {
-            await webTTSGenerate(ttsText, ttsVoice);
+            await webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header);
         }
 
         else {
@@ -4053,11 +4053,11 @@
         document.getElementById("generate").disabled = false;
     }
 
-    async function create_raw_alert_async(h, ttsText, ttsVoice) {
+    async function create_raw_alert_async(header, ttsText, ttsVoice, useOverrideTZ) {
         document.getElementById("generate").disabled = true;
         addStatus("Generating EAS...");
 
-        create_header_tones(h);
+        create_header_tones(header);
         if (tone) { create_nwr_tone(); } else { create_wat(); }
 
         if (ttsVoice === "wasm") {
@@ -4073,7 +4073,7 @@
         }
 
         else if (ttsVoice !== null && ttsVoice !== undefined && ttsVoice !== "") {
-            await webTTSGenerate(ttsText, ttsVoice);
+            await webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header);
         }
 
         else {
@@ -4140,6 +4140,31 @@
     function updateTts(t) {
         ttsDiv.style.display = t ? "block" : "none";
     }
+    function updateVoiceOptions(t) {
+        const selectedVoice = t.value;
+        const overrideTZElements = document.getElementsByClassName('overrideTZ');
+        const ttsTextElements = document.getElementsByClassName('ttsText');
+
+        if (selectedVoice === 'EMNet') {
+            for (let i = 0; i < overrideTZElements.length; i++) {
+                overrideTZElements[i].style.display = 'inline-block';
+            }
+            for (let i = 0; i < ttsTextElements.length; i++) {
+                ttsTextElements[i].style.display = 'none';
+                ttsTextElements[i].disabled = true;
+            }
+        }
+
+        else {
+            for (let i = 0; i < overrideTZElements.length; i++) {
+                overrideTZElements[i].style.display = 'none';
+            }
+            for (let i = 0; i < ttsTextElements.length; i++) {
+                ttsTextElements[i].style.display = 'inline-block';
+                ttsTextElements[i].disabled = false;
+            }
+        }
+    }
     hrselect.addEventListener("change", function () {
         hr = parseInt(hrselect.value);
         minselect.innerHTML = "";
@@ -4176,16 +4201,18 @@
 
         const ttsText = (document.getElementById('ttsText')?.value || '').trim();
         const ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
+        const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
+        const header = create_header_string(originator, event, locations, l, time, par);
 
         if (usecustom) {
-            await create_raw_alert_async(rawinput.value, ttsText, ttsVoice);
+            await create_raw_alert_async(rawinput.value, ttsText, ttsVoice, useOverrideTZ);
         } else {
-            await create_alert_async(originator, event, locations, l, time, par, ttsText, ttsVoice);
+            await create_alert_async(header, ttsText, ttsVoice, useOverrideTZ);
         }
 
         saveb.style.display = "inline-block";
         addStatus("EAS Generated! Samples: " + samples.length + (showTime ? ("  Time: " + (performance.now() - startTime).toFixed(2) + "ms") : ""));
-        addStatus("Generated header: " + (usecustom ? rawinput.value : create_header_string(originator, event, locations, l, time, par)));
+        addStatus("Generated header: " + (usecustom ? rawinput.value : header));
     }
 
     function gen_header() {
@@ -4440,4 +4467,11 @@
     if (tts) {
         tts.addEventListener('change', (event) => updateTts(event.target.checked));
     }
+    const voiceSelect = document.getElementById('ttsVoice');
+    if (voiceSelect) {
+        voiceSelect.addEventListener('change', (event) => updateVoiceOptions(event.target));
+    }
+    customHeader.dispatchEvent(new Event('change'));
+    tts.dispatchEvent(new Event('change'));
+    voiceSelect.dispatchEvent(new Event('change'));
 })();

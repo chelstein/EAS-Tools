@@ -230,11 +230,11 @@
                 <input type="checkbox" data-encoder-tts id="useTTS">
                 <div id="ttsDiv" style="display: none;">
                     <br>
-                    <textarea id="ttsText" rows="10" cols="50" placeholder="Type the message to speak…"></textarea>
-                    <br>
-                    <br>
+                    <textarea id="ttsText" class="ttsText" rows="10" cols="50" placeholder="Type the message to speak…"></textarea>
+                    <br class="ttsText">
+                    <br class="ttsText">
                     <label for="ttsVoice">Select Voice:</label>
-                    <select id="ttsVoice">
+                    <select id="ttsVoice" name="ttsVoice">
                         <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
                         <option value="paul">[VT] NWS Paul (takes longest time to process all requests)</option>
                         <option value="ScanSoft Tom_Full_22kHz">[BAL] Scansoft Tom</option>
@@ -254,6 +254,21 @@
                         <option value="DECTalkPaulV2">[BAL] DECTalk Paul v2 (SAPI 5, louder)</option>
                         <option value="FestvoxKal">[FEST] Festvox Kal</option>
                         <option value="Loquendo Dave">[BAL] Loquendo Dave</option>
+                        <option value="EMNet">[EMNet] EMNet</option>
+                    </select>
+                    <br class="overrideTZ">
+                    <br class="overrideTZ">
+                    <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
+                    <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
+                        <option value="UTC" selected>UTC (default)</option>
+                        <option value="EST">Eastern Standard Time</option>
+                        <option value="EDT">Eastern Daylight Time</option>
+                        <option value="CST">Central Standard Time</option>
+                        <option value="CDT">Central Daylight Time</option>
+                        <option value="MST">Mountain Standard Time</option>
+                        <option value="MDT">Mountain Daylight Time</option>
+                        <option value="PST">Pacific Standard Time</option>
+                        <option value="PDT">Pacific Daylight Time</option>
                     </select>
                 </div>
                 <br>
