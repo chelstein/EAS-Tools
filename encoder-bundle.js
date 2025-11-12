@@ -4206,8 +4206,59 @@
     var usecustom = false;
     let startTime = null;
     let showTime = localStorage["showTime"];//i use this for debugging
+    let lastValidTimeselectValue = "";
+    const TIMSELECT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+    function isTimeselectValueValid(value) {
+        if (!value) { return false; }
+        const match = TIMSELECT_PATTERN.exec(value.trim());
+        if (!match) { return false; }
+        const year = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10);
+        const day = parseInt(match[3], 10);
+        const hour = parseInt(match[4], 10);
+        const minute = parseInt(match[5], 10);
+        if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) { return false; }
+        const candidate = new Date(year, month - 1, day, hour, minute, 0, 0);
+        return candidate.getFullYear() === year &&
+            candidate.getMonth() === month - 1 &&
+            candidate.getDate() === day &&
+            candidate.getHours() === hour &&
+            candidate.getMinutes() === minute;
+    }
+
+    function guardTimeselectValue(showAlert = true) {
+        const value = timeselect.value;
+        if (isTimeselectValueValid(value)) {
+            lastValidTimeselectValue = value.trim();
+            return true;
+        }
+        if (showAlert) {
+            alert("Invalid date/time. Please enter a valid calendar date.");
+        }
+        if (lastValidTimeselectValue) {
+            timeselect.value = lastValidTimeselectValue;
+        } else {
+            stime();
+        }
+        return false;
+    }
+
+    function captureTimeselectInput() {
+        if (isTimeselectValueValid(timeselect.value)) {
+            lastValidTimeselectValue = timeselect.value.trim();
+        }
+    }
+
+    timeselect.addEventListener("change", guardTimeselectValue);
+    timeselect.addEventListener("blur", guardTimeselectValue);
+    timeselect.addEventListener("input", captureTimeselectInput);
     //updateLoc();
-    function stime() { timeselect.value = getLocalDT(new Date()); }
+    function stime() {
+        const currentValue = getLocalDT(new Date());
+        timeselect.value = currentValue;
+        lastValidTimeselectValue = currentValue;
+    }
     stime();
     function updateCustom(t) {
         samediv.style.display = t ? "block" : "none";
@@ -4265,6 +4316,8 @@
         if (par.length != 8) { addStatus("Sender ID must be 8 characters long!", "ERROR"); return; }
         if (locations.length < 1) { addStatus("There must be at least one location!", "ERROR"); return; }
 
+        if (!guardTimeselectValue()) { return; }
+
         var time = new Date(timeselect.value);
         var originator = originators.value;
         var event = events.value;
@@ -4276,7 +4329,7 @@
         es = spaces.checked;
 
         if (!checkZCZCIsValid(rawinput.value) && usecustom) {
-            alert("Invalid ZCZC header format!", "ERROR");
+            alert("Invalid ZCZC header format!");
             return;
         }
 
@@ -4303,6 +4356,7 @@
         var par = parinput.value;
         if (par.length != 8) { addStatus("Sender ID must be 8 characters long!", "ERROR"); return; }
         if (locations.length < 1) { addStatus("There must be at least one location!", "ERROR"); return; }
+        if (!guardTimeselectValue()) { return; }
         var time = new Date(timeselect.value);
         var originator = originators.value;
         var event = events.value;
@@ -4494,6 +4548,7 @@
                 base.setUTCDate(dayOfYear);
                 base.setUTCHours(hour, minute, 0, 0);
                 timeselect.value = getLocalDT(base);
+                lastValidTimeselectValue = timeselect.value;
             }
         }
         if (station && station.trim().length && parinput) {
