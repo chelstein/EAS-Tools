@@ -244,16 +244,42 @@
                     <br class="overrideTZ">
                     <br class="overrideTZ">
                     <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
+                    <!--
+                    tz_offsets = {
+                        "UTC": 0,
+                        "AST": -4,
+                        "EST": -5,
+                        "EDT": -4,
+                        "CST": -6,
+                        "CDT": -5,
+                        "MST": -7,
+                        "MDT": -6,
+                        "PST": -8,
+                        "PDT": -7,
+                        "AKST": -9,
+                        "AKDT": -8,
+                        "HST": -10,
+                        "HDT": -9,
+                        "SST": -11,
+                        "CHST": 10,
+                    }-->
                     <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
-                        <option value="UTC" selected>UTC (default)</option>
-                        <option value="EST">Eastern Standard Time</option>
-                        <option value="EDT">Eastern Daylight Time</option>
-                        <option value="CST">Central Standard Time</option>
-                        <option value="CDT">Central Daylight Time</option>
-                        <option value="MST">Mountain Standard Time</option>
-                        <option value="MDT">Mountain Daylight Time</option>
-                        <option value="PST">Pacific Standard Time</option>
-                        <option value="PDT">Pacific Daylight Time</option>
+                        <option value="UTC">UTC</option>
+                        <option value="AST">AST (Atlantic Standard Time)</option>
+                        <option value="EST">EST (Eastern Standard Time)</option>
+                        <option value="EDT">EDT (Eastern Daylight Time)</option>
+                        <option value="CST">CST (Central Standard Time)</option>
+                        <option value="CDT">CDT (Central Daylight Time)</option>
+                        <option value="MST">MST (Mountain Standard Time)</option>
+                        <option value="MDT">MDT (Mountain Daylight Time)</option>
+                        <option value="PST">PST (Pacific Standard Time)</option>
+                        <option value="PDT">PDT (Pacific Daylight Time)</option>
+                        <option value="AKST">AKST (Alaska Standard Time)</option>
+                        <option value="AKDT">AKDT (Alaska Daylight Time)</option>
+                        <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
+                        <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
+                        <option value="SST">SST (Samoa Standard Time)</option>
+                        <option value="CHST">CHST (Chamorro Standard Time)</option>
                     </select>
                 </div>
                 <hr>

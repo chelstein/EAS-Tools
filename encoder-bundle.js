@@ -4271,11 +4271,13 @@
         es = spaces.checked;
 
         const ttsText = (document.getElementById('ttsText')?.value || '').trim();
-        if (!ttsText) { alert("TTS text is required."); return; }
         const ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
         const header = create_header_string(originator, event, locations, l, time, par);
-
+        if (!ttsText && ttsVoice !== "EMNet") {
+            alert("TTS text is required.");
+            return;
+        }
         if (usecustom) {
             await create_raw_alert_async(rawinput.value, ttsText, ttsVoice, useOverrideTZ);
         } else {
