@@ -4042,7 +4042,7 @@
 
                 else {
                     console.error("Unexpected response type:", xhr.getResponseHeader("Content-Type"), xhr.response);
-                    addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio from page...", "ERROR");
+                    addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio from page...", "WARN");
                     try {
                         getAudioFromPage(xhr.response).then((pcmRaw) => {
                             if (pcmRaw !== null) {

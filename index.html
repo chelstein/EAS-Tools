@@ -39,6 +39,7 @@
         <main>
             <section id="decoder-panel" class="tool-panel active" aria-labelledby="tab-decoder">
                 <h2 class="section-heading">SAME Decoder</h2>
+                <hr>
                 <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
                 <button type="button" data-decoder-toggle>Start Decoder</button><br>
                 <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
@@ -48,7 +49,9 @@
                         <div class="level-meter__fill" data-level-fill></div>
                     </div>
                 </div>
-                <div id="sync">STATUS: WAITING...</div><br>
+                <hr>
+                <div id="sync">STATUS: WAITING...</div>
+                <hr>
                 <div id="afsk"></div>
                 <p id="output"></p>
                 <div class="modalContainer" style="display: none;">
@@ -64,6 +67,7 @@
             </section>
             <section id="encoder-panel" class="tool-panel" aria-labelledby="tab-encoder">
                 <h2 class="section-heading">SAME Encoder</h2>
+                <hr>
                 <label for="events">Select EAS Event Type:</label>
                 <select id="events">
                     <optgroup label="Weather-Related Events">
@@ -252,14 +256,14 @@
                         <option value="PDT">Pacific Daylight Time</option>
                     </select>
                 </div>
-                <br>
-                <br>
+                <hr>
                 <div class="control-panel">
                     <button type="button" data-encoder-generate id="generate">Generate</button>
                     <button type="button" id="play">Play Samples</button>
                     <button type="button" id="save" style="display: none;">Save as wav file</button>
                     <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Logs</button>
                 </div>
+                <hr>
                 <p id="status"></p>
                 <br>
                 <div>
@@ -268,6 +272,7 @@
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
                 <h2 class="section-heading">Text Crawl Generator</h2>
+                <hr>
                 <label for="crawlMode">Select Crawl Text Source:</label>
                 <select id="crawlMode">
                     <option value="custom" selected>Custom Text</option>
@@ -279,23 +284,57 @@
                 <textarea id="crawlText" rows="10" cols="50" class="crawl-text" placeholder="Type the text for the crawl…"></textarea>
                 <label for="crawlRawHeader" style="display: none;" class="crawl-raw-header">Input a raw EAS header:</label>
                 <input id="crawlRawHeader" style="display: none; width: 50vw;" class="crawl-raw-header" placeholder="ZCZC-WXR-TOR..."></input>
-                <br>
-                <br>
+                <hr>
                 <label for="crawlSettings">Crawl Settings:</label>
-                <br>
-                <br>
+                <hr>
+                <div id="E2TOptions" style="display: none;">
+                    E2T Options:
+                    <br>
+                    <label class="custom-checkbox-container localTZ">
+                        Use Local Timezone:
+                        <input type="checkbox" class="hidden-checkbox localTZ" id="crawlUseLocalTZ">
+                        <span class="checkmark localTZ"></span>
+                    </label>
+                    <br class="localTZ">
+                    <br class="overrideTZ">
+                    <label for="crawlUseOverrideTZ" class="overrideTZ">Override Timezone (cannot be combined with "Use Local Timezone"):</label>
+                    <select id="crawlUseOverrideTZ" class="overrideTZ">
+                        <option value="" selected>None (Default)</option>
+                        <option value="UTC">UTC</option>
+                        <option value="America/New_York">America/New_York (Eastern Time)</option>
+                        <option value="America/Chicago">America/Chicago (Central Time)</option>
+                        <option value="America/Denver">America/Denver (Mountain Time)</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles (Pacific Time)</option>
+                        <option value="America/Anchorage">America/Anchorage (Alaska Time)</option>
+                        <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii-Aleutian Time)</option>
+                    </select>
+                    <br class="overrideTZ">
+                    <br>
+                    <label for="endecMode">ENDEC Emulation Mode:</label>
+                    <select id="endecMode">
+                        <option value="" selected>None (Default)</option>
+                        <option value="SAGE">SAGE 1822/ANALOG</option>
+                        <option value="SAGEDIGITAL">SAGE 3644/DIGITAL</option>
+                        <option value="TFT">TFT EAS 911</option>
+                        <option value="EASY">Trilithic EASyPLUS</option>
+                        <option value="BURK">BURK EAS</option>
+                        <option value="DASDEC">Monroe Electronics One-Net/DASDEC</option>
+                        <option value="DASDECV3">Monroe Electronics One-Net/DASDEC V3</option>
+                        <option value="HOLLYANNE">Holly Anne</option>
+                        <option value="EAS1CG">Gorman Redlich</option>
+                    </select>
+                    <hr class="shorter-hr">
+                </div>
                 <div class="crawl-settings">
                     <label for="crawlSpeed">Crawl Speed (pixels per frame, 1-20):</label>
                     <input type="number" id="crawlSpeed" min="1" max="20" value="5">
-                    <br>
-                    <br>
+                    <hr class="shorter-hr">
                     <label for="crawlUseVDSMode">Use VDS Mode:</label>
                     <input type="checkbox" id="crawlUseVDSMode">
                     <br>
                     <label for="vdsFrameDelay">VDS Frame Delay (fps/hz, 1-360):</label>
                     <input type="number" id="vdsFrameDelay" min="1" max="360" value="30">
-                    <br>
-                    <br>
+                    <hr class="shorter-hr">
                     <label for="crawlFontSize">Font Size (pixels, 10-100):</label>
                     <input type="number" id="crawlFontSize" min="10" max="100" value="24">
                     <br>
@@ -329,14 +368,13 @@
                         <option value="italic">Italic</option>
                         <option value="italic bold">Bold Italic</option>
                     </select>
-                    <br>
-                    <br>
+                    <hr class="shorter-hr">
                     <label for="crawlBgColor">Background Color:</label>
                     <input type="color" id="crawlBgColor" value="#000000">
                     <br>
-                    <label for="crawlTextColor">Text Color:</label>
+                    <label for="crawlTextColor">Text Color: &ensp;&ensp;&ensp;&ensp;&ensp;</label>
                     <input type="color" id="crawlTextColor" value="#FFFFFF">
-                    <br>
+                    <hr class="shorter-hr">
                     <label for="crawlOutlineColor">Text Outline Color (set outline width to >0 to enable):</label>
                     <input type="color" id="crawlOutlineColor" value="#000000">
                     <br>
@@ -349,54 +387,20 @@
                         <option value="bevel">Bevel</option>
                         <option value="miter">Miter</option>
                     </select>
-                    <div id="E2TOptions" style="display: none;">
-                        <label class="custom-checkbox-container localTZ">
-                            <br>Use Local Timezone:
-                            <input type="checkbox" class="hidden-checkbox localTZ" id="crawlUseLocalTZ">
-                            <span class="checkmark localTZ"></span>
-                        </label>
-                        <br class="localTZ">
-                        <br class="overrideTZ">
-                        <label for="crawlUseOverrideTZ" class="overrideTZ">Override Timezone (cannot be combined with "Use Local Timezone"):</label>
-                        <select id="crawlUseOverrideTZ" class="overrideTZ">
-                            <option value="" selected>None (Default)</option>
-                            <option value="UTC">UTC</option>
-                            <option value="America/New_York">America/New_York (Eastern Time)</option>
-                            <option value="America/Chicago">America/Chicago (Central Time)</option>
-                            <option value="America/Denver">America/Denver (Mountain Time)</option>
-                            <option value="America/Los_Angeles">America/Los_Angeles (Pacific Time)</option>
-                            <option value="America/Anchorage">America/Anchorage (Alaska Time)</option>
-                            <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii-Aleutian Time)</option>
-                        </select>
-                        <br class="overrideTZ">
-                        <br>
-                        <label for="endecMode">ENDEC Emulation Mode:</label>
-                        <select id="endecMode">
-                            <option value="" selected>None (Default)</option>
-                            <option value="SAGE">SAGE 1822/ANALOG</option>
-                            <option value="SAGEDIGITAL">SAGE 3644/DIGITAL</option>
-                            <option value="TFT">TFT EAS 911</option>
-                            <option value="EASY">Trilithic EASyPLUS</option>
-                            <option value="BURK">BURK EAS</option>
-                            <option value="DASDEC">Monroe Electronics One-Net/DASDEC</option>
-                            <option value="DASDECV3">Monroe Electronics One-Net/DASDEC V3</option>
-                            <option value="HOLLYANNE">Holly Anne</option>
-                            <option value="EAS1CG">Gorman Redlich</option>
-                        </select>
-                    </div>
                 </div>
-                <br>
+                <hr>
                 <div class="control-panel">
                     <button type="button" id="startCrawl">Start Crawl</button>
                     <button type="button" id="pauseCrawl">Pause Crawl</button>
                     <button type="button" id="stopCrawl">Stop/Reset Crawl</button>
                     <button type="button" id="exportCrawlGIF">Export as GIF</button>
+                    <button type="button" id="exportCrawlVideo">Export as video (.webm)</button>
                     <button type="button" id="copyCrawlText">Copy Crawl Text to Clipboard</button>
                     <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
                 </div>
-                <br>
+                <hr>
                 <p id="status-crawl"></p>
-                <br>
+                <hr>
                 <div id="crawlDisplay" class="crawl-display" aria-live="polite" aria-atomic="true"></div>
             </section>
         </main>

@@ -203,6 +203,31 @@ function createTextRenderer(ctx, outlineColor, outlineWidth) {
     };
 }
 
+// Source - https://stackoverflow.com/a/64656254
+// Posted by Fennec, modified by community. See post 'Timeline' for change history
+// Retrieved 2025-11-11, License - CC BY-SA 4.0
+
+function getSupportedMimeTypes(media, types, codecs) {
+    const isSupported = MediaRecorder.isTypeSupported;
+    const supported = [];
+    types.forEach((type) => {
+        const mimeType = `${media}/${type}`;
+        codecs.forEach((codec) => [
+            `${mimeType};codecs=${codec}`,
+            `${mimeType};codecs=${codec.toUpperCase()}`,
+            // /!\ false positive /!\
+            // `${mimeType};codecs:${codec}`,
+            // `${mimeType};codecs:${codec.toUpperCase()}`
+        ].forEach(variation => {
+            if(isSupported(variation))
+                supported.push(variation);
+        }));
+        if (isSupported(mimeType))
+        supported.push(mimeType);
+    });
+    return supported;
+};
+
 function exportAsGIF(canvas, filename) {
     if (!window.crawlGenerator) {
         alert('Please start the crawl before exporting.');
@@ -319,6 +344,161 @@ function exportAsGIF(canvas, filename) {
 
     gif.render();
 };
+
+function exportAsWebM(canvas, filename) {
+    if (!window.crawlGenerator) {
+        alert('Please start the crawl before exporting.');
+        return;
+    }
+
+    addStatus('Exporting crawl as WebM... Please wait.');
+
+    const generator = window.crawlGenerator;
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = canvas.width;
+    captureCanvas.height = canvas.height;
+    const captureCtx = captureCanvas.getContext('2d');
+
+    const text = generator.text || '';
+    const fontSize = Number(generator.fontSize) || 24;
+    const textColor = generator.textColor || '#FFFFFF';
+    const bgColor = generator.bgColor || '#000000';
+    const lines = text.split('\n');
+    const useVdsMode = Boolean(generator.vdsMode);
+    const fontStyle = generator.fontStyle || 'normal';
+    const fontFamily = generator.fontFamily || 'Arial';
+    const font = `${fontStyle} ${fontSize}px ${fontFamily}`;
+    const lineHeight = fontSize + 10;
+
+    captureCtx.font = font;
+    captureCtx.textAlign = useVdsMode ? 'left' : 'center';
+    captureCtx.textBaseline = 'middle';
+    captureCtx.lineJoin = generator.outlineJoin || 'round';
+    const renderText = createTextRenderer(captureCtx, generator.outlineColor, generator.outlineWidth);
+    const vdsState = useVdsMode ? createVdsExportState(captureCtx, lines) : null;
+
+    const maxLineWidth = lines.reduce((maxWidth, line) => {
+        const width = captureCtx.measureText(line).width;
+        return width > maxWidth ? width : maxWidth;
+    }, 0);
+
+    const halfLineWidth = maxLineWidth / 2;
+    const startOffset = canvas.width + halfLineWidth;
+    const endOffset = -halfLineWidth;
+    const travelDistance = startOffset - endOffset || canvas.width;
+
+    const baseSpeed = Math.max(0.5, Math.abs(Number(generator.speed) || 0));
+    const recordedMsPerFrame = Number(generator.msPerFrame);
+    const fallbackMsPerFrame = 1000 / 60;
+    const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
+        ? recordedMsPerFrame
+        : fallbackMsPerFrame;
+    const MIN_CAPTURE_FPS = 60;
+    const maxFrameDelay = 1000 / MIN_CAPTURE_FPS;
+    const frameDelay = Math.max(1, Math.min(targetMsPerFrame, maxFrameDelay));
+    const pxPerFrame = baseSpeed * (frameDelay / targetMsPerFrame);
+    const defaultVdsDelay = (Number.isFinite(generator.vdsBaseDelayFrames) && generator.vdsBaseDelayFrames > 0)
+        ? generator.vdsBaseDelayFrames
+        : DEFAULT_VDS_BASE_DELAY;
+    const vdsDelay = useVdsMode && typeof generator.getEffectiveVdsDelay === 'function'
+        ? generator.getEffectiveVdsDelay(pxPerFrame)
+        : defaultVdsDelay;
+    const framesNeeded = Math.max(1, Math.ceil(travelDistance / pxPerFrame));
+
+    const drawFrame = (offsetX) => {
+        captureCtx.fillStyle = bgColor;
+        captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
+        captureCtx.fillStyle = textColor;
+        captureCtx.font = font;
+
+        if (useVdsMode) {
+            updateVdsExportState(vdsState, offsetX, captureCanvas.width, vdsDelay);
+            drawVdsExportFrame(
+                captureCtx,
+                vdsState,
+                offsetX,
+                captureCanvas.height / 2,
+                fontSize,
+                renderText
+            );
+            return;
+        }
+
+        lines.forEach((line, index) => {
+            const verticalOffset = index - (lines.length - 1) / 2;
+            const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
+            renderText(line, offsetX, y);
+        });
+    };
+
+    const stream = captureCanvas.captureStream(1000 / frameDelay);
+    const supportedMimeTypes = getSupportedMimeTypes('video', ['webm'], ['vp8', 'vp9', 'opus']);
+    const mimeType = supportedMimeTypes[0] || 'video/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    const recordedChunks = [];
+    let recordingFailed = false;
+
+    recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size) {
+            recordedChunks.push(event.data);
+        }
+    };
+
+    recorder.onstop = () => {
+        if (recordingFailed) {
+            recordedChunks.length = 0;
+            return;
+        }
+        if (!recordedChunks.length) {
+            addStatus('No frames recorded for WebM export.', 'WARN');
+            return;
+        }
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addStatus('Crawl exported successfully!');
+    };
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const track = stream.getVideoTracks()[0];
+    const requestFrame = track && typeof track.requestFrame === 'function'
+        ? () => track.requestFrame()
+        : () => {};
+
+    (async () => {
+        try {
+            recorder.start();
+            resetVdsExportState(vdsState);
+            let offsetX = startOffset;
+            for (let i = 0; i < framesNeeded; i++) {
+                drawFrame(offsetX);
+                requestFrame();
+                offsetX -= pxPerFrame;
+                if (offsetX < endOffset) {
+                    offsetX = startOffset;
+                    resetVdsExportState(vdsState);
+                }
+                await sleep(frameDelay);
+            }
+            if (recorder.state !== 'inactive') {
+                recorder.stop();
+            }
+        } catch (error) {
+            console.error('WebM export failed:', error);
+            recordingFailed = true;
+            addStatus('Failed to export crawl as WebM.', 'ERROR');
+            if (recorder.state !== 'inactive') {
+                recorder.stop();
+            }
+        }
+    })();
+}
 
 class TextCrawlGenerator {
     constructor(container) {
@@ -859,6 +1039,11 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         }
 
         else {
+            if(!text || text.trim() === '') {
+                alert('Please enter crawl text or a valid EAS header.');
+                return;
+            }
+
             window.crawlGenerator.setText(text);
         }
 
@@ -873,7 +1058,6 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setOutlineJoin(outlineJoin);
         window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
         window.crawlGenerator.setVDSMode(useVDSMode);
-
         window.crawlGenerator.start();
     }
 });
@@ -889,6 +1073,15 @@ document.getElementById('pauseCrawl').addEventListener('click', () => {
 document.getElementById('exportCrawlGIF').addEventListener('click', () => {
     if (window.crawlGenerator) {
         exportAsGIF(window.crawlGenerator.canvas, 'text_crawl.gif');
+    }
+    else {
+        alert('Please start the crawl before exporting.');
+    }
+});
+
+document.getElementById('exportCrawlVideo').addEventListener('click', () => {
+    if (window.crawlGenerator) {
+        exportAsWebM(window.crawlGenerator.canvas, 'text_crawl.webm');
     }
     else {
         alert('Please start the crawl before exporting.');
@@ -973,6 +1166,7 @@ document.getElementById('copyCrawlText').addEventListener('click', async () => {
         addStatus('Crawl text copied to clipboard!');
     } catch (err) {
         alert('Failed to copy text: ' + err);
+        addStatus('Failed to copy text: ' + err, 'ERROR');
     }
 });
 
@@ -1010,5 +1204,17 @@ if (savedSettings) {
         crawlModeSelect.dispatchEvent(event);
         crawlUseLocalTZ.dispatchEvent(event);
         crawlUseOverrideTZ.dispatchEvent(event);
+
+        const videoTypes = ["webm", "ogg", "mp4", "x-matroska"];
+        const audioTypes = ["webm", "ogg", "mp3", "x-matroska"];
+        const codecs = ["should-not-be-supported","vp9", "vp9.0", "vp8", "vp8.0", "avc1", "av1", "h265", "h.265", "h264", "h.264", "opus", "pcm", "aac", "mpeg", "mp4a"];
+
+        const supportedVideos = getSupportedMimeTypes("video", videoTypes, codecs);
+        const supportedAudios = getSupportedMimeTypes("audio", audioTypes, codecs);
+
+        console.log('-- Top supported Video : ', supportedVideos[0])
+        console.log('-- Top supported Audio : ', supportedAudios[0])
+        console.log('-- All supported Videos : ', supportedVideos)
+        console.log('-- All supported Audios : ', supportedAudios)
     });
 }

@@ -1,14 +1,12 @@
+/* ---------------------------------- CSS FILE ---------------------------------- */
+/* Element-level CSS */
+* {
+    box-sizing: border-box;
+}
+
 html {
     height: 100%;
     width: 100%;
-}
-
-#status {
-    font-family: Hack;
-}
-
-.control-panel button {
-    display: inline-block;
 }
 
 table {
@@ -19,23 +17,6 @@ table {
 
 table td {
     border: 2px solid black;
-}
-
-.title {
-    font-weight: bold;
-}
-
-.entry {
-    cursor: pointer;
-    user-select: none;
-}
-
-:root {
-    color-scheme: dark;
-}
-
-* {
-    box-sizing: border-box;
 }
 
 body {
@@ -65,10 +46,37 @@ h1 {
     text-transform: uppercase;
 }
 
-.tab-set {
-    display: flex;
-    gap: 10px;
+select,input,textarea,date {
+    background-color: #161616;
+    color: #f5f5f5;
+    border: 1px solid #303030;
 }
+
+main {
+    flex: 1 1 auto;
+    position: relative;
+    overflow: hidden;
+}
+
+pre {
+    white-space: pre-wrap;
+    background-color: #ecedec;
+    color: #000;
+    padding: 12px;
+    padding-right: 3vw;
+}
+
+button {
+    background-color: #ff7800;
+    color: #050505;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: 'Hack', monospace;
+}
+
+/* Pseudo-class and attribute CSS */
 
 button[data-tool] {
     border: 1px solid #303030;
@@ -91,31 +99,43 @@ button[data-tool].active {
     border-color: #ff7800;
 }
 
-main {
-    flex: 1 1 auto;
+span.checkmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     position: relative;
-    overflow: hidden;
+    background-color: #161616;
+    border: 2px solid #303030;
+    border-radius: 4px;
+    flex-shrink: 0;
 }
-
-.tool-panel {
-    position: absolute;
-    inset: 0;
-    overflow-y: auto;
-    padding: 24px clamp(18px, 2vw, 32px);
-    display: none;
-}
-
-.tool-panel.active {
-    display: block;
-}
-
 [data-mic-container] {
     margin-bottom: 8px;
 }
 
-#decoder-panel {
-    background: #000;
-    color: #fff;
+/* ID-level CSS */
+
+#status {
+    font-family: Hack;
+}
+
+#balconTable table,#balconTable th, #balconTable td {
+    border: 1px solid white;
+}
+
+#copy-text {
+    position: absolute;
+    bottom: 15vw;
+    right: 3vh;
+    background-color: #ff7800;
+    color: #050505;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    user-select: none;
 }
 
 #decoder-panel #output {
@@ -204,11 +224,6 @@ main {
     color: #ff4d4d;
 }
 
-#encoder-panel {
-    background: #0b0b0d;
-    color: #f0f0f0;
-}
-
 #encoder-panel a {
     color: #ff9a3c;
 }
@@ -232,6 +247,8 @@ main {
 #encoder-panel .control-panel button {
     display: inline-block;
 }
+
+/* Class-level CSS */
 
 .section-heading {
     font-size: 0.95rem;
@@ -263,19 +280,6 @@ main {
     line-height: 1.2;
 }
 
-span.checkmark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    background-color: #161616;
-    border: 2px solid #303030;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
 .custom-checkbox-container input[type="checkbox"]:focus-visible~span.checkmark {
     box-shadow: 0 0 0 2px rgba(255, 120, 0, 0.55);
 }
@@ -302,41 +306,46 @@ span.checkmark {
     opacity: 1;
 }
 
-#balconTable table,#balconTable th, #balconTable td {
-    border: 1px solid white;
+.shorter-hr {
+    border: none;
+    border-top: 1px solid #303030;
+    margin: 12px 0;
+    width: 30%;
 }
 
-pre {
-    white-space: pre-wrap;
-    background-color: #ecedec;
-    color: #000;
-    padding: 12px;
-    padding-right: 3vw;
+.control-panel button {
+    display: inline-block;
 }
 
-#copy-text {
-    position: absolute;
-    bottom: 15vw;
-    right: 3vh;
-    background-color: #ff7800;
-    color: #050505;
-    padding: 6px 12px;
-    border-radius: 4px;
+.title {
+    font-weight: bold;
+}
+
+.entry {
     cursor: pointer;
-    font-size: 0.9rem;
     user-select: none;
 }
 
-button {
-    background-color: #ff7800;
-    color: #050505;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-family: 'Hack', monospace;
+.tab-set {
+    display: flex;
+    gap: 10px;
 }
 
+.tool-panel {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 24px clamp(18px, 2vw, 32px);
+    display: none;
+}
+
+.tool-panel.active {
+    display: block;
+}
+
+/* Media Queries */
+
+/* Mobile devices */
 @media screen and (max-width: 1079px) {
     pre {
         padding-top: 3rem;
@@ -345,5 +354,104 @@ button {
     #copy-text {
         bottom: 72.5vh;
         right: 8vw;
+    }
+
+    .shorter-hr {
+        width: 100%;
+    }
+}
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+    * {
+        --orange: #ce6000;
+    }
+
+    body {
+        background: #f5f5f5;
+        color: #050505;
+    }
+
+    #encoder-panel a {
+        color: var(--orange);
+    }
+
+    a:visited {
+        color: #b34700;
+    }
+
+    .section-heading {
+        color: var(--orange);
+    }
+
+    header {
+        background: linear-gradient(140deg, #e0e0e0, #f0f0f0 65%, #d0d0d0);
+        border-bottom: 1px solid #c0c0c0;
+    }
+
+    button[data-tool] {
+        background: #e0e0e0;
+        border: 1px solid #b0b0b0;
+        color: #050505;
+    }
+
+    button[data-tool]:hover {
+        background: #d0d0d0;
+    }
+
+    button[data-tool].active {
+        background: var(--orange);
+        color: #050505;
+        border-color: var(--orange);
+    }
+
+    button {
+        background-color: var(--orange);
+        color: #050505;
+    }
+
+    .tool-panel {
+        background: #fff;
+        color: #050505;
+    }
+
+    .custom-checkbox-container span.checkmark {
+        background-color: #f0f0f0;
+        border: 2px solid #b0b0b0;
+    }
+
+    .custom-checkbox-container input[type="checkbox"]:checked~span.checkmark {
+        background-color: var(--orange);
+        border-color: var(--orange);
+    }
+
+    select,input,textarea,date {
+        background-color: #fff;
+        color: #050505;
+        border: 1px solid #b0b0b0;
+    }
+
+    pre {
+        background-color: #222;
+        color: #f5f5f5;
+    }
+
+    #decoder-panel .modalBox {
+        background-color: #f0f0f0;
+        border: 1px solid #b0b0b0;
+    }
+
+    #decoder-panel .level-meter__bars {
+        background: #e0e0e0;
+        border: 1px solid #b0b0b0;
+    }
+
+    #balconTable table, #balconTable th, #balconTable td {
+        border: 1px solid #050505;
+    }
+
+    #copy-text {
+        background-color: var(--orange);
+        color: #050505;
     }
 }
