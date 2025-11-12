@@ -3894,6 +3894,17 @@
         const decoder = new TextDecoder("utf-8");
         const responseText = decoder.decode(response);
         const audioMatch = responseText.match(/id="downloadlink"><a href="(.*)" download/i);
+        const jsonMatch = responseText.match(/<span id="jsonErrorMsg">(.*)</i);
+        if (jsonMatch && jsonMatch[1]) {
+            var cleanMatch = jsonMatch[1].replace(/.*Exact error: (.*)/, "$1");
+            if (cleanMatch) {
+                addStatus("TTS Generation Error: " + cleanMatch, "ERROR");
+            }
+            else {
+                addStatus("TTS Generation Error: " + jsonMatch[1], "ERROR");
+            }
+            return null;
+        }
         if (audioMatch && audioMatch[1]) {
             const audioSrc = audioMatch[1];
             const audioResponse = await fetch("https://wagspuzzle.space/tools/eas-tts/" + audioSrc);
@@ -4042,7 +4053,7 @@
 
                 else {
                     console.error("Unexpected response type:", xhr.getResponseHeader("Content-Type"), xhr.response);
-                    addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio from page...", "WARN");
+                    addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio or JSON error from page...", "WARN");
                     try {
                         getAudioFromPage(xhr.response).then((pcmRaw) => {
                             if (pcmRaw !== null) {
@@ -4260,6 +4271,7 @@
         es = spaces.checked;
 
         const ttsText = (document.getElementById('ttsText')?.value || '').trim();
+        if (!ttsText) { alert("TTS text is required."); return; }
         const ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
         const header = create_header_string(originator, event, locations, l, time, par);
