@@ -3916,6 +3916,11 @@
         return null;
     }
 
+    function checkZCZCIsValid(header) {
+        const zczcPattern = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})-?$/;
+        return zczcPattern.test(header);
+    }
+
     async function webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header) {
         addStatus("Generating TTS audio using web request, this may take a while...");
 
@@ -4270,11 +4275,16 @@
         em = extram.checked;
         es = spaces.checked;
 
+        if (!checkZCZCIsValid(rawinput.value) && usecustom) {
+            alert("Invalid ZCZC header format!", "ERROR");
+            return;
+        }
+
         const ttsText = (document.getElementById('ttsText')?.value || '').trim();
         const ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
         const header = create_header_string(originator, event, locations, l, time, par);
-        if (!ttsText && ttsVoice !== "EMNet") {
+        if (!ttsText && ttsVoice !== "EMNet" && document.getElementById('useTTS').checked) {
             alert("TTS text is required.");
             return;
         }
