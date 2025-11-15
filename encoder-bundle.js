@@ -4244,15 +4244,6 @@
         return false;
     }
 
-    function captureTimeselectInput() {
-        if (isTimeselectValueValid(timeselect.value)) {
-            lastValidTimeselectValue = timeselect.value.trim();
-        }
-    }
-
-    timeselect.addEventListener("change", guardTimeselectValue);
-    timeselect.addEventListener("blur", guardTimeselectValue);
-    timeselect.addEventListener("input", captureTimeselectInput);
     //updateLoc();
     function stime() {
         const currentValue = getLocalDT(new Date());
