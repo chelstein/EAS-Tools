@@ -65,6 +65,7 @@
                     <li>[FEST] Festvox Kal</li>
                     <li>[BAL] Loquendo Dave</li>
                     <li>[EMNet] EMNet</li>
+                    <li>[BAL/SPFY] Speechify Tom</li>
                 </ul>
                 <p>NOTE: <b>Except for the WebAssembly voice</b>, all voices listed here are processed by an outside server located at <a href="https://wagspuzzle.space/tools/eas-tts/">Wags' Puzzle Space</a>. This is because they require server-side processing to generate the speech audio, which is beyond the capabilities of a simple GitHub Pages site.</p>
                 <h3>Voice Descriptions</h3>
@@ -73,7 +74,7 @@
                 <p>When using the TTS feature, users should be aware of the following:</p>
                 <ul>
                     <li>The quality of the generated speech may vary depending on the selected voice. See below for pronunciation notes and examples.</li>
-                    <li>There is a limit of 5 requests per day for the server-side voices to prevent abuse. This limit resets daily at midnight Central Time. All processed audio is also cleared at this time, so make sure you download your audio before then.</li>
+                    <li>There is a limit of 20 requests per day for the server-side voices to prevent abuse. This limit resets daily at midnight Central Time. All processed audio is also cleared at this time, so make sure you download your audio before then.</li>
                 </ul>
                 <h3>Pronunciation Notes and Examples</h3>
                 <p>Here are some pronunciation notes and examples for the different voices available in EAS Tools:</p>
@@ -90,6 +91,7 @@
                     <li><b>[DT] DECTalk:</b> DECTalk has its own set of phoneme codes that can be used to adjust pronunciation. An example would be <code>[:phoneme on] [axs'owshiyeyt]</code>. This will pronounce the word "associate" like "uh-soh-shee-ayt" (to associate something with someone or something), not like "uh-soh-shee-at" (an associate/worker at a store). A full list of DECTalk phoneme codes can be found in the <a href="https://dectalk.github.io/dectalk/idh_ref_1_phoneme_interpretation_phoneme.htm">DECTalk documentation</a>.</li>
                     <li><b>[FEST] Festvox:</b> Festvox uses the Festival Speech Synthesis System, which has no way to override the pronunciation of words "on the fly" like other engines. You're limited to the pre-defined pronunciations in the voice model.</li>
                     <li><b>[EMNet] EMNet:</b> The EMNet voice uses a bunch of pre-recorded audio files and just combines them according to the header and time the alert expires, so there are no options (other than what timezone you wish to use).</li>
+                    <li><b>[BAL/SPFY] Speechify:</b> Speechify uses the same phoneme codes as Balabolka/Balcon, so you can use the same techniques above to adjust pronunciation. Note, however, that the requests to Tom will take longer depending on text length. Avoid sending ultra-long text through Tom, or your request may time out entirely.</li>
                 </ul>
                 <h3>Addendum: A full example of VoiceText Paul usage</h3>
                 <p>Here is a full example of how to use the VoiceText Paul voice with example VTML codes to adjust pronunciation, speed, and pitch:</p>
