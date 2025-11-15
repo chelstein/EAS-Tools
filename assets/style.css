@@ -390,6 +390,10 @@ span.checkmark {
         padding-top: 3rem;
     }
 
+    footer {
+        font-size: 0.7rem;
+    }
+
     #copy-text {
         bottom: 72.5vh;
         right: 8vw;

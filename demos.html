@@ -63,6 +63,8 @@
 
         // Function to extract display name from description
         function extractDisplayName(desc) {
+            // Replace slashes/other invalid Windows path characters with underscores
+            desc = desc.replace(/[\/\\:?<>|*"']/g, '_');
             // Remove leading [TAG]
             desc = desc.replace(/^\[[^\]]+\]\s*/, "").trim();
             // Remove trailing "(…)" comment
