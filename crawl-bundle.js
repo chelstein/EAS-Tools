@@ -5,7 +5,7 @@ This bundle of JS code is used to generate text crawl animations, similar to tho
 const fontLoader = async () => {
     const fontDir = './assets/fonts/';
     const fontsToLoad = [
-        { family: 'VCR EAS', file: 'vcreas.ttf' },
+        { family: 'VCREAS', file: 'VCREAS.ttf' },
         { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf' },
         { family: 'Akzidenz', file: 'Akzidenz.ttf' },
         { family: 'Helvetica Narrow', file: 'helvn.ttf' },
@@ -527,18 +527,46 @@ class TextCrawlGenerator {
         this.outlineColor = null;
         this.outlineWidth = 0;
         this.outlineJoin = 'round';
+        this.explicitWidth = null;
+        this.explicitHeight = null;
 
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
     }
 
     resizeCanvas() {
-        this.canvas.width = this.container.clientWidth;
-        this.canvas.height = this.container.clientHeight;
+        const width = Number.isFinite(this.explicitWidth) ? this.explicitWidth : this.container.clientWidth;
+        const height = Number.isFinite(this.explicitHeight) ? this.explicitHeight : this.container.clientHeight;
+        this._applyCanvasSize(width, height);
+    }
+
+    adjustSize(width, height) {
+        const normalizedWidth = this._normalizeExplicitDimension(width);
+        const normalizedHeight = this._normalizeExplicitDimension(height);
+        this.explicitWidth = normalizedWidth;
+        this.explicitHeight = normalizedHeight;
+        const targetWidth = Number.isFinite(normalizedWidth) ? normalizedWidth : this.container.clientWidth;
+        const targetHeight = Number.isFinite(normalizedHeight) ? normalizedHeight : this.container.clientHeight;
+        this._applyCanvasSize(targetWidth, targetHeight);
+    }
+
+    _applyCanvasSize(width, height) {
+        const safeWidth = Number.isFinite(width) && width > 0 ? Math.round(width) : 1;
+        const safeHeight = Number.isFinite(height) && height > 0 ? Math.round(height) : 1;
+        if (this.canvas.width === safeWidth && this.canvas.height === safeHeight) {
+            return;
+        }
+        this.canvas.width = safeWidth;
+        this.canvas.height = safeHeight;
         this.offsetX = this.canvas.width / 2;
         this.offsetY = this.canvas.height / 2;
         this.startFromRightInitialized = false;
         this._invalidateVdsState();
+    }
+
+    _normalizeExplicitDimension(value) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
     }
 
     setText(text) {
@@ -921,6 +949,20 @@ async function header_to_readable(rawHeader, tzLocal, tzName, endecMode) {
     }
 }
 
+function getRequestedCrawlDimensions() {
+    const widthInput = document.getElementById('crawlWidth');
+    const heightInput = document.getElementById('crawlHeight');
+    const width = widthInput ? Number(widthInput.value) : null;
+    const height = heightInput ? Number(heightInput.value) : null;
+    return { width, height };
+}
+
+function applyCrawlSizeToGenerator(generator = window.crawlGenerator) {
+    if (!generator) return;
+    const { width, height } = getRequestedCrawlDimensions();
+    generator.adjustSize(width, height);
+}
+
 document.getElementById('startCrawl').addEventListener('click', async () => {
     const crawlDisplay = document.getElementById('crawlDisplay');
     const text = document.getElementById('crawlText').value;
@@ -942,6 +984,8 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const outlineColor = document.getElementById('crawlOutlineColor').value;
     const outlineWidth = document.getElementById('crawlOutlineWidth').value;
     const outlineJoin = document.getElementById('crawlOutlineJoin').value;
+    const crawlWidth = document.getElementById('crawlWidth').value;
+    const crawlHeight = document.getElementById('crawlHeight').value;
 
     await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
 
@@ -963,7 +1007,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             fontStyle,
             outlineColor,
             outlineWidth,
-            outlineJoin
+            outlineJoin,
+            crawlWidth,
+            crawlHeight
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -987,7 +1033,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             fontStyle,
             outlineColor,
             outlineWidth,
-            outlineJoin
+            outlineJoin,
+            crawlWidth,
+            crawlHeight
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -1010,6 +1058,7 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             window.crawlGenerator.setText(text);
         }
 
+        applyCrawlSizeToGenerator(window.crawlGenerator);
         window.crawlGenerator.setSpeed(speed);
         window.crawlGenerator.setFontSize(fontSize);
         window.crawlGenerator.setTextColor(textColor);
@@ -1026,6 +1075,7 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
 
     else {
         window.crawlGenerator = new TextCrawlGenerator(crawlDisplay);
+        applyCrawlSizeToGenerator(window.crawlGenerator);
 
         if (rawHeader && crawlMode === 'header') {
             let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
@@ -1170,6 +1220,14 @@ document.getElementById('copyCrawlText').addEventListener('click', async () => {
     }
 });
 
+['crawlWidth', 'crawlHeight'].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const handler = () => applyCrawlSizeToGenerator();
+    input.addEventListener('input', handler);
+    input.addEventListener('change', handler);
+});
+
 const savedSettings = localStorage.getItem(localStorageKey);
 
 if (savedSettings) {
@@ -1192,6 +1250,12 @@ if (savedSettings) {
     document.getElementById('crawlOutlineColor').value = settings.outlineColor || '#000000';
     document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;
     document.getElementById('crawlOutlineJoin').value = settings.outlineJoin || 'round';
+    if (settings.crawlWidth !== undefined && settings.crawlWidth !== null) {
+        document.getElementById('crawlWidth').value = settings.crawlWidth;
+    }
+    if (settings.crawlHeight !== undefined && settings.crawlHeight !== null) {
+        document.getElementById('crawlHeight').value = settings.crawlHeight;
+    }
 
     addStatus('Loaded saved crawl settings!');
 

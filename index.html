@@ -358,7 +358,7 @@
                         <option value="Comic Sans MS">Comic Sans MS</option>
                         <option value="Hack">Hack</option>
                         <option value="STV5730A">STV5730A (EASyPLUS Font)</option>
-                        <option value="VCR EAS">VCR EAS (older EASyPLUS Font)</option>
+                        <option value="VCREAS">VCR EAS (older EASyPLUS Font)</option>
                         <option value="Geneva Blue">Geneva Blue</option>
                         <option value="Akzidenz">Akzidenz-Grotesk</option>
                         <option value="Helvetica Narrow">Helvetica Narrow</option>
@@ -375,6 +375,12 @@
                         <option value="italic">Italic</option>
                         <option value="italic bold">Bold Italic</option>
                     </select>
+                    <hr class="shorter-hr">
+                    <label for="crawlWidth">Crawl Width (pixels, 200-3840):</label>
+                    <input type="number" id="crawlWidth" min="200" max="3840" value="800">
+                    <br>
+                    <label for="crawlHeight">Crawl Height (pixels, 100-2160):</label>
+                    <input type="number" id="crawlHeight" min="100" max="2160" value="200">
                     <hr class="shorter-hr">
                     <label for="crawlBgColor">Background Color:</label>
                     <input type="color" id="crawlBgColor" value="#000000">
