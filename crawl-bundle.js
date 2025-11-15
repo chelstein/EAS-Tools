@@ -106,10 +106,12 @@ function resetVdsExportState(state) {
     });
 }
 
-function updateVdsExportState(state, offsetX, viewportWidth, frameDelay) {
+function updateVdsExportState(state, offsetX, viewportWidth, frameDelay, viewportInset = 0) {
     if (!state) return;
-    const viewportLeft = 0;
-    const viewportRight = viewportWidth;
+    const inset = Number.isFinite(viewportInset) ? viewportInset : 0;
+    const safeWidth = Math.max(0, Number(viewportWidth) || 0);
+    const viewportLeft = inset;
+    const viewportRight = inset + safeWidth;
 
     state.charMetrics.forEach((metrics, lineIdx) => {
         const width = state.lineWidths[lineIdx] || 0;
@@ -265,9 +267,15 @@ function exportAsGIF(canvas, filename) {
         return width > maxWidth ? width : maxWidth;
     }, 0);
 
+    const bounds = typeof generator._computeCrawlBounds === 'function'
+        ? generator._computeCrawlBounds(maxLineWidth)
+        : null;
+    const inset = bounds ? bounds.inset : 0;
     const halfLineWidth = maxLineWidth / 2;
-    const startOffset = canvas.width + halfLineWidth;
-    const endOffset = -halfLineWidth;
+    const startOffsetFallback = canvas.width + halfLineWidth;
+    const endOffsetFallback = -halfLineWidth;
+    const startOffset = bounds && Number.isFinite(bounds.start) ? bounds.start : startOffsetFallback;
+    const endOffset = bounds && Number.isFinite(bounds.end) ? bounds.end : endOffsetFallback;
     const travelDistance = startOffset - endOffset || canvas.width;
 
     const baseSpeed = Math.max(0.5, Math.abs(Number(generator.speed) || 0));
@@ -292,14 +300,36 @@ function exportAsGIF(canvas, filename) {
         quality: 10
     });
 
+    const clipWidth = captureCanvas.width - inset * 2;
+    const shouldClip = inset > 0 && clipWidth > 0;
+    const restartDelayMs = Number(generator.crawlRestartDelay);
+    const restartDelayFrames = (Number.isFinite(restartDelayMs) && restartDelayMs > 0)
+        ? Math.max(1, Math.round(restartDelayMs / frameDelay))
+        : 0;
+    const totalFrames = framesNeeded + restartDelayFrames;
+    let delayFramesRemaining = 0;
+
     const drawFrame = (offsetX) => {
         captureCtx.fillStyle = bgColor;
         captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
         captureCtx.fillStyle = textColor;
         captureCtx.font = font;
 
+        if (shouldClip) {
+            captureCtx.save();
+            captureCtx.beginPath();
+            captureCtx.rect(inset, 0, clipWidth, captureCanvas.height);
+            captureCtx.clip();
+        }
+
         if (useVdsMode) {
-            updateVdsExportState(vdsState, offsetX, captureCanvas.width, vdsDelay);
+            updateVdsExportState(
+                vdsState,
+                offsetX,
+                Math.max(0, captureCanvas.width - inset * 2),
+                vdsDelay,
+                inset
+            );
             drawVdsExportFrame(
                 captureCtx,
                 vdsState,
@@ -308,25 +338,43 @@ function exportAsGIF(canvas, filename) {
                 fontSize,
                 renderText
             );
-            return;
+        } else {
+            lines.forEach((line, index) => {
+                const verticalOffset = index - (lines.length - 1) / 2;
+                const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
+                renderText(line, offsetX, y);
+            });
         }
 
-        lines.forEach((line, index) => {
-            const verticalOffset = index - (lines.length - 1) / 2;
-            const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
-            renderText(line, offsetX, y);
-        });
+        if (shouldClip) {
+            captureCtx.restore();
+        }
     };
 
     resetVdsExportState(vdsState);
     let offsetX = startOffset;
-    for (let i = 0; i < framesNeeded; i++) {
+    for (let i = 0; i < totalFrames; i++) {
         drawFrame(offsetX);
         gif.addFrame(captureCanvas, { delay: frameDelay, copy: true });
+
+        if (delayFramesRemaining > 0) {
+            delayFramesRemaining--;
+            if (delayFramesRemaining === 0) {
+                offsetX = startOffset;
+                resetVdsExportState(vdsState);
+            }
+            continue;
+        }
+
         offsetX -= pxPerFrame;
         if (offsetX < endOffset) {
-            offsetX = startOffset;
-            resetVdsExportState(vdsState);
+            if (restartDelayFrames > 0) {
+                offsetX = endOffset;
+                delayFramesRemaining = restartDelayFrames;
+            } else {
+                offsetX = startOffset;
+                resetVdsExportState(vdsState);
+            }
         }
     }
 
@@ -382,9 +430,15 @@ function exportAsWebM(canvas, filename) {
         return width > maxWidth ? width : maxWidth;
     }, 0);
 
+    const bounds = typeof generator._computeCrawlBounds === 'function'
+        ? generator._computeCrawlBounds(maxLineWidth)
+        : null;
+    const inset = bounds ? bounds.inset : 0;
     const halfLineWidth = maxLineWidth / 2;
-    const startOffset = canvas.width + halfLineWidth;
-    const endOffset = -halfLineWidth;
+    const startOffsetFallback = canvas.width + halfLineWidth;
+    const endOffsetFallback = -halfLineWidth;
+    const startOffset = bounds && Number.isFinite(bounds.start) ? bounds.start : startOffsetFallback;
+    const endOffset = bounds && Number.isFinite(bounds.end) ? bounds.end : endOffsetFallback;
     const travelDistance = startOffset - endOffset || canvas.width;
 
     const baseSpeed = Math.max(0.5, Math.abs(Number(generator.speed) || 0));
@@ -404,6 +458,15 @@ function exportAsWebM(canvas, filename) {
         ? generator.getEffectiveVdsDelay(pxPerFrame)
         : defaultVdsDelay;
     const framesNeeded = Math.max(1, Math.ceil(travelDistance / pxPerFrame));
+    const restartDelayMs = Number(generator.crawlRestartDelay);
+    const restartDelayFrames = (Number.isFinite(restartDelayMs) && restartDelayMs > 0)
+        ? Math.max(1, Math.round(restartDelayMs / frameDelay))
+        : 0;
+    const totalFrames = framesNeeded + restartDelayFrames;
+
+    const clipWidth = captureCanvas.width - inset * 2;
+    const shouldClip = inset > 0 && clipWidth > 0;
+    let delayFramesRemaining = 0;
 
     const drawFrame = (offsetX) => {
         captureCtx.fillStyle = bgColor;
@@ -411,8 +474,21 @@ function exportAsWebM(canvas, filename) {
         captureCtx.fillStyle = textColor;
         captureCtx.font = font;
 
+        if (shouldClip) {
+            captureCtx.save();
+            captureCtx.beginPath();
+            captureCtx.rect(inset, 0, clipWidth, captureCanvas.height);
+            captureCtx.clip();
+        }
+
         if (useVdsMode) {
-            updateVdsExportState(vdsState, offsetX, captureCanvas.width, vdsDelay);
+            updateVdsExportState(
+                vdsState,
+                offsetX,
+                Math.max(0, captureCanvas.width - inset * 2),
+                vdsDelay,
+                inset
+            );
             drawVdsExportFrame(
                 captureCtx,
                 vdsState,
@@ -421,14 +497,17 @@ function exportAsWebM(canvas, filename) {
                 fontSize,
                 renderText
             );
-            return;
+        } else {
+            lines.forEach((line, index) => {
+                const verticalOffset = index - (lines.length - 1) / 2;
+                const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
+                renderText(line, offsetX, y);
+            });
         }
 
-        lines.forEach((line, index) => {
-            const verticalOffset = index - (lines.length - 1) / 2;
-            const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
-            renderText(line, offsetX, y);
-        });
+        if (shouldClip) {
+            captureCtx.restore();
+        }
     };
 
     const stream = captureCanvas.captureStream(1000 / frameDelay);
@@ -476,13 +555,26 @@ function exportAsWebM(canvas, filename) {
             recorder.start();
             resetVdsExportState(vdsState);
             let offsetX = startOffset;
-            for (let i = 0; i < framesNeeded; i++) {
+            for (let i = 0; i < totalFrames; i++) {
                 drawFrame(offsetX);
                 requestFrame();
-                offsetX -= pxPerFrame;
-                if (offsetX < endOffset) {
-                    offsetX = startOffset;
-                    resetVdsExportState(vdsState);
+                if (delayFramesRemaining > 0) {
+                    delayFramesRemaining--;
+                    if (delayFramesRemaining === 0) {
+                        offsetX = startOffset;
+                        resetVdsExportState(vdsState);
+                    }
+                } else {
+                    offsetX -= pxPerFrame;
+                    if (offsetX < endOffset) {
+                        if (restartDelayFrames > 0) {
+                            offsetX = endOffset;
+                            delayFramesRemaining = restartDelayFrames;
+                        } else {
+                            offsetX = startOffset;
+                            resetVdsExportState(vdsState);
+                        }
+                    }
                 }
                 await sleep(frameDelay);
             }
@@ -529,6 +621,9 @@ class TextCrawlGenerator {
         this.outlineJoin = 'round';
         this.explicitWidth = null;
         this.explicitHeight = null;
+        this.crawlInset = 0;
+        this.crawlRestartDelay = 1000;
+        this._restartDelayRemaining = 0;
 
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
@@ -567,6 +662,114 @@ class TextCrawlGenerator {
     _normalizeExplicitDimension(value) {
         const parsed = Number(value);
         return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+    }
+
+    _resolveCrawlInset() {
+        const inset = Number.isFinite(this.crawlInset) ? this.crawlInset : 0;
+        const halfWidth = Number.isFinite(this.canvas.width) ? this.canvas.width / 2 : 0;
+        return Math.max(0, Math.min(halfWidth, inset));
+    }
+
+    _getEffectiveInset(rawInset) {
+        const width = Number.isFinite(this.canvas.width) ? this.canvas.width : 0;
+        const baseInset = Number.isFinite(rawInset) ? Math.max(0, rawInset) : this._resolveCrawlInset();
+        if (!width || baseInset <= 0) {
+            return 0;
+        }
+        return baseInset * 2 < width ? baseInset : 0;
+    }
+
+    _computeCrawlBounds(maxLineWidth) {
+        const canvasWidth = Number.isFinite(this.canvas.width) ? this.canvas.width : 0;
+        const textWidth = Math.max(0, Number(maxLineWidth) || 0);
+        const halfTextWidth = textWidth / 2;
+        const inset = this._getEffectiveInset();
+        return {
+            start: canvasWidth + halfTextWidth,
+            end: -halfTextWidth,
+            inset,
+            textWidth
+        };
+    }
+
+    _applyCrawlClip(ctx, insetOverride) {
+        const inset = Number.isFinite(insetOverride) ? insetOverride : this._getEffectiveInset();
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        if (!ctx || typeof ctx.save !== 'function' || inset <= 0) {
+            return () => {};
+        }
+        const clipWidth = width - inset * 2;
+        if (clipWidth <= 0) {
+            return () => {};
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(inset, 0, clipWidth, height);
+        ctx.clip();
+        return () => ctx.restore();
+    }
+
+    _updateFrameTiming(timestamp) {
+        let delta = this.msPerFrame;
+        if (typeof timestamp === 'number') {
+            if (this.lastTimestamp !== null) {
+                const frameDelta = timestamp - this.lastTimestamp;
+                if (frameDelta > 0) {
+                    const smoothing = 0.1;
+                    this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * frameDelta;
+                    delta = frameDelta;
+                }
+            }
+            this.lastTimestamp = timestamp;
+        }
+        return delta > 0 ? delta : this.msPerFrame;
+    }
+
+    _handleRestartDelay(deltaMs, endThreshold, startOffset, resetCallback) {
+        const resolvedDelay = Number.isFinite(this.crawlRestartDelay) ? this.crawlRestartDelay : 0;
+        const safeDelta = Number.isFinite(deltaMs) ? deltaMs : this.msPerFrame;
+
+        if (this.offsetX < endThreshold) {
+            if (this._restartDelayRemaining <= 0) {
+                this._restartDelayRemaining = resolvedDelay;
+                this.offsetX = endThreshold;
+                return;
+            }
+
+            this.offsetX = endThreshold;
+            if (this._restartDelayRemaining > 0 && safeDelta > 0) {
+                this._restartDelayRemaining = Math.max(0, this._restartDelayRemaining - safeDelta);
+            }
+
+            if (this._restartDelayRemaining === 0) {
+                this.offsetX = startOffset;
+                if (typeof resetCallback === 'function') {
+                    resetCallback();
+                }
+            }
+            return;
+        }
+
+        this._restartDelayRemaining = 0;
+    }
+
+    setCrawlInset(inset) {
+        const parsed = Number(inset);
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 500) {
+            this.crawlInset = parsed;
+            this.startFromRightInitialized = false;
+            this._restartDelayRemaining = 0;
+            this._invalidateVdsState();
+        }
+    }
+
+    setCrawlRestartDelay(delay) {
+        const parsed = Number(delay);
+        if (Number.isFinite(parsed) && parsed >= 500 && parsed <= 60000) {
+            this.crawlRestartDelay = parsed;
+            this._restartDelayRemaining = 0;
+        }
     }
 
     setText(text) {
@@ -703,8 +906,9 @@ class TextCrawlGenerator {
     }
 
     _updateVdsCharacters(state, frameDelay) {
-        const viewportLeft = 0;
-        const viewportRight = this.canvas.width;
+        const inset = this._getEffectiveInset();
+        const viewportLeft = inset;
+        const viewportRight = Math.max(inset, this.canvas.width - inset);
 
         state.charMetrics.forEach((metrics, lineIdx) => {
             const width = state.lineWidths[lineIdx] || 0;
@@ -778,6 +982,7 @@ class TextCrawlGenerator {
             this.isAnimating = true;
             this.startFromRightInitialized = false;
             this.lastTimestamp = null;
+            this._restartDelayRemaining = 0;
             requestAnimationFrame((timestamp) => this.animate(timestamp));
         }
     }
@@ -796,133 +1001,108 @@ class TextCrawlGenerator {
             return width > maxWidth ? width : maxWidth;
         }, 0);
 
-        const startOffset = this.canvas.width + maxLineWidth / 2;
-        this.offsetX = Number.isFinite(startOffset) ? startOffset : this.canvas.width / 2;
+        const bounds = this._computeCrawlBounds(maxLineWidth);
+        this.offsetX = Number.isFinite(bounds.start) ? bounds.start : this.canvas.width / 2;
         this.offsetY = this.canvas.height / 2;
         this.startFromRightInitialized = false;
+        this._restartDelayRemaining = 0;
 
         this.ctx.fillStyle = this.bgColor;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = this.textColor;
         this.ctx.lineJoin = this.outlineJoin;
         const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
+        const releaseClip = this._applyCrawlClip(this.ctx, bounds.inset);
 
         lines.forEach((line, index) => {
             const verticalOffset = index - (lines.length - 1) / 2;
             const y = this.offsetY + verticalOffset * (this.fontSize + 10);
             renderText(line, this.offsetX, y);
         });
+        releaseClip();
     }
 
     pause() {
         this.isAnimating = false;
         this.lastTimestamp = null;
+        this._restartDelayRemaining = 0;
     }
 
     animate(timestamp) {
-        if(this.vdsMode) {
-            if (!this.isAnimating) return;
+        if (!this.isAnimating) return;
 
-            if (typeof timestamp === 'number') {
-                if (this.lastTimestamp !== null) {
-                    const delta = timestamp - this.lastTimestamp;
-                    if (delta > 0) {
-                        const smoothing = 0.1;
-                        this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * delta;
-                    }
-                }
-                this.lastTimestamp = timestamp;
-            }
+        const deltaMs = this._updateFrameTiming(timestamp);
 
-            this.ctx.fillStyle = this.bgColor;
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.fillStyle = this.textColor;
-            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
+        this.ctx.fillStyle = this.bgColor;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = this.textColor;
+        this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
+        this.ctx.textBaseline = 'middle';
+        this.ctx.lineJoin = this.outlineJoin;
+
+        if (this.vdsMode) {
             this.ctx.textAlign = 'left';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.lineJoin = this.outlineJoin;
             const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
-
             const lines = (this.text || '').split('\n');
             const state = this._ensureVdsState(lines);
             const maxLineWidth = state.maxLineWidth || 0;
-            const startOffset = this.canvas.width + maxLineWidth / 2;
+            const { start: startOffset, end: endOffset, inset } = this._computeCrawlBounds(maxLineWidth);
+            const releaseClip = this._applyCrawlClip(this.ctx, inset);
 
             if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
                 this.offsetX = startOffset;
                 this.startFromRightInitialized = true;
+                this._restartDelayRemaining = 0;
                 this._resetVdsCharacters(state);
             }
 
             const effectiveDelay = this.getEffectiveVdsDelay();
             this._updateVdsCharacters(state, effectiveDelay);
             this._drawVdsLines(state, renderText);
+            releaseClip();
 
             if (Number.isFinite(this.speed)) {
                 this.offsetX -= this.speed;
             }
 
-            if (this.offsetX < -maxLineWidth / 2) {
-                this.offsetX = startOffset;
+            this._handleRestartDelay(deltaMs, endOffset, startOffset, () => {
                 this._resetVdsCharacters(state);
-            }
+            });
 
             requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
             return;
         }
 
-        else {
-            if (!this.isAnimating) return;
+        this.ctx.textAlign = 'center';
+        const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
+        const lines = (this.text || '').split('\n');
+        const maxLineWidth = lines.reduce((maxWidth, line) => {
+            const width = this.ctx.measureText(line).width;
+            return width > maxWidth ? width : maxWidth;
+        }, 0);
+        const { start: startOffset, end: endOffset, inset } = this._computeCrawlBounds(maxLineWidth);
+        const releaseClip = this._applyCrawlClip(this.ctx, inset);
 
-            if (typeof timestamp === 'number') {
-                if (this.lastTimestamp !== null) {
-                    const delta = timestamp - this.lastTimestamp;
-                    if (delta > 0) {
-                        const smoothing = 0.1;
-                        this.msPerFrame = (1 - smoothing) * this.msPerFrame + smoothing * delta;
-                    }
-                }
-                this.lastTimestamp = timestamp;
-            }
-
-            this.ctx.fillStyle = this.bgColor;
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.fillStyle = this.textColor;
-            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.lineJoin = this.outlineJoin;
-            const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
-
-            const lines = this.text.split('\n');
-
-            const maxLineWidth = lines.reduce((maxWidth, line) => {
-                const width = this.ctx.measureText(line).width;
-                return width > maxWidth ? width : maxWidth;
-            }, 0);
-
-            const startOffset = this.canvas.width + maxLineWidth / 2;
-
-            if (!this.startFromRightInitialized) {
-                this.offsetX = startOffset;
-                this.startFromRightInitialized = true;
-            } else if (!Number.isFinite(this.offsetX)) {
-                this.offsetX = startOffset;
-            }
-
-            lines.forEach((line, index) => {
-                const verticalOffset = index - (lines.length - 1) / 2;
-                const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-                renderText(line, this.offsetX, y);
-            });
-
-            this.offsetX -= this.speed;
-            if (this.offsetX < -maxLineWidth / 2) {
-                this.offsetX = startOffset;
-            }
-
-            requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
+        if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
+            this.offsetX = startOffset;
+            this.startFromRightInitialized = true;
+            this._restartDelayRemaining = 0;
         }
+
+        lines.forEach((line, index) => {
+            const verticalOffset = index - (lines.length - 1) / 2;
+            const y = this.offsetY + verticalOffset * (this.fontSize + 10);
+            renderText(line, this.offsetX, y);
+        });
+        releaseClip();
+
+        if (Number.isFinite(this.speed)) {
+            this.offsetX -= this.speed;
+        }
+
+        this._handleRestartDelay(deltaMs, endOffset, startOffset);
+
+        requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
     }
 }
 
@@ -986,6 +1166,8 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const outlineJoin = document.getElementById('crawlOutlineJoin').value;
     const crawlWidth = document.getElementById('crawlWidth').value;
     const crawlHeight = document.getElementById('crawlHeight').value;
+    const crawlInset = document.getElementById('crawlInset').value;
+    const crawlRestartDelay = document.getElementById('crawlRestartDelay').value;
 
     await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
 
@@ -1009,7 +1191,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             outlineWidth,
             outlineJoin,
             crawlWidth,
-            crawlHeight
+            crawlHeight,
+            crawlInset,
+            crawlRestartDelay
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -1035,7 +1219,9 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
             outlineWidth,
             outlineJoin,
             crawlWidth,
-            crawlHeight
+            crawlHeight,
+            crawlInset,
+            crawlRestartDelay
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -1068,6 +1254,8 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setOutlineColor(outlineColor);
         window.crawlGenerator.setOutlineWidth(outlineWidth);
         window.crawlGenerator.setOutlineJoin(outlineJoin);
+        window.crawlGenerator.setCrawlInset(crawlInset);
+        window.crawlGenerator.setCrawlRestartDelay(crawlRestartDelay);
         window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
         window.crawlGenerator.setVDSMode(useVDSMode);
         window.crawlGenerator.start();
@@ -1106,6 +1294,8 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
         window.crawlGenerator.setOutlineColor(outlineColor);
         window.crawlGenerator.setOutlineWidth(outlineWidth);
         window.crawlGenerator.setOutlineJoin(outlineJoin);
+        window.crawlGenerator.setCrawlInset(crawlInset);
+        window.crawlGenerator.setCrawlRestartDelay(crawlRestartDelay);
         window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
         window.crawlGenerator.setVDSMode(useVDSMode);
         window.crawlGenerator.start();
@@ -1255,6 +1445,12 @@ if (savedSettings) {
     }
     if (settings.crawlHeight !== undefined && settings.crawlHeight !== null) {
         document.getElementById('crawlHeight').value = settings.crawlHeight;
+    }
+    if (settings.crawlInset !== undefined && settings.crawlInset !== null) {
+        document.getElementById('crawlInset').value = settings.crawlInset;
+    }
+    if (settings.crawlRestartDelay !== undefined && settings.crawlRestartDelay !== null) {
+        document.getElementById('crawlRestartDelay').value = settings.crawlRestartDelay;
     }
 
     addStatus('Loaded saved crawl settings!');
