@@ -72,4 +72,21 @@ if (cachedData) {
             console.error('Error fetching commit data:', error);
         });
     }
+} else {
+    fetch('https://api.github.com/repos/wagwan-piffting-blud/eas-tools/commits/main')
+        .then(response => response.json())
+        .then(data => {
+        const commitDate = new Date(data.commit.author.date);
+        lastUpdated.textContent = commitDateToRelativeString(commitDate);
+        lastCommitHash.innerHTML = `<a href="https://github.com/wagwan-piffting-blud/eas-tools/commit/${data.sha}">${data.sha.substring(0, 7)}</a>`;
+        // Cache the data in localStorage
+        localStorage.setItem('githubCommitData', JSON.stringify({
+            commitDate: lastUpdated.textContent,
+            commitHash: lastCommitHash.textContent,
+            timestamp: Date.now()
+        }));
+    })
+    .catch(error => {
+        console.error('Error fetching commit data:', error);
+    });
 }
