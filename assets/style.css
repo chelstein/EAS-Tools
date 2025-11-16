@@ -392,6 +392,8 @@ span.checkmark {
 
     footer {
         font-size: 0.7rem;
+        position: sticky;
+        bottom: 0;
     }
 
     #copy-text {

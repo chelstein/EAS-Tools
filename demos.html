@@ -34,7 +34,7 @@
         <main>
             <article style="padding-left: 2rem; padding-right: 2rem; padding-bottom: 2rem;">
                 <h2>Text-to-Speech (TTS) Voice Demos</h2>
-                <span>This page showcases <span id="voice-count"></span> various Text-to-Speech (TTS) voices that can be used for generating Emergency Alert System (EAS) messages. Click on the play buttons to hear each voice in action.</span>
+                <span>This page showcases the <span id="voice-count"></span> various Text-to-Speech (TTS) voices that can be used for generating Emergency Alert System (EAS) announcements.</span>
                 <section>
                     <h3>Available TTS Voices</h3>
                     <p>Select a voice to hear a demo:</p>
@@ -42,7 +42,7 @@
                         <!-- Voice list will be populated here by JavaScript -->
                     </ul>
                 </section>
-                <p>Click on the play buttons to hear each voice in action. Enjoy exploring the different TTS voices available!</p>
+                <p>Click on one of the play buttons to hear each voice in action. Choose the one you like best or fits your scenario!</p>
                 <button onclick="location.href='index.html'">Back to EAS Tools</button>
             </article>
         </main>
@@ -72,6 +72,79 @@
             return desc;
         }
 
+        function getDemoAudioSrc(labelText, overrideName = null) {
+            const displayName = (overrideName || extractDisplayName(labelText || '')).trim();
+            if (!displayName) {
+                throw new Error(`Unable to derive voice display name from label "${labelText}"`);
+            }
+            const encodedFileName = encodeURIComponent(`${displayName} Demo.wav`);
+            return `assets/demo_files/${encodedFileName}`;
+        }
+
+        function audioHandler(playButton, audioSrc) {
+            let audioInstance = null;
+
+            function resetActiveState(instance) {
+                if (instance && activeAudio === instance) {
+                    activeAudio = null;
+                    activeButton = null;
+                }
+                playButton.textContent = 'Play Demo';
+            }
+
+            function ensureAudio() {
+                if (!audioInstance) {
+                    audioInstance = new Audio(audioSrc);
+                    audioInstance.preload = 'auto';
+                    audioInstance.addEventListener('ended', () => {
+                        resetActiveState(audioInstance);
+                        audioInstance.currentTime = 0;
+                    });
+                    audioInstance.addEventListener('error', (event) => {
+                        console.error(`Error loading TTS demo from ${audioSrc}:`, event);
+                        resetActiveState(audioInstance);
+                        audioInstance = null;
+                    });
+                }
+
+                return audioInstance;
+            }
+
+            return async () => {
+                const audio = ensureAudio();
+
+                if (!audio.paused) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    resetActiveState(audio);
+                    return;
+                }
+
+                if (activeAudio && activeAudio !== audio) {
+                    activeAudio.pause();
+                    activeAudio.currentTime = 0;
+                    if (activeButton) {
+                        activeButton.textContent = 'Play Demo';
+                    }
+                    activeAudio = null;
+                    activeButton = null;
+                }
+
+                try {
+                    await audio.play();
+                    playButton.textContent = 'Stop Demo';
+                    activeAudio = audio;
+                    activeButton = playButton;
+                } catch (error) {
+                    console.error('Error playing TTS demo:', error);
+                    resetActiveState(audio);
+                    if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+                        audioInstance = null;
+                    }
+                }
+            };
+        }
+
         // Voice list - get JSON data from endpoint and populate the list
         async function fetchVoiceList() {
             try {
@@ -79,7 +152,7 @@
                 const data = await response.json();
                 const voiceList = document.getElementById('voice-list');
                 if (data.voices) {
-                    document.getElementById('voice-count').textContent = Object.keys(data.voices).length;
+                    document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 1; // +1 for WASM voice
                     //We need to add the WASM voice manually
                     const wasmListItem = document.createElement('li');
                     const wasmPlayButton = document.createElement('button');
@@ -89,44 +162,12 @@
                     wasmListItem.appendChild(wasmPlayButton);
                     wasmListItem.appendChild(document.createTextNode(' '));
                     wasmListItem.appendChild(wasmVoiceLabel);
-                    let wasmAudio = null;
-                    let wasmIsLoading = false;
-                    wasmPlayButton.onclick = async () => {
-                        try {
-                            if (wasmIsLoading) {
-                                return;
-                            }
-                            wasmIsLoading = true;
-                            if (!wasmAudio) {
-                                wasmAudio = new Audio('assets/demo_files/WASM Demo.wav');
-                                wasmAudio.addEventListener('ended', () => {
-                                    wasmPlayButton.textContent = 'Play Demo';
-                                    wasmAudio = null;
-                                    wasmIsLoading = false;
-                                });
-                            }
-                            if (wasmAudio.paused) {
-                                try {
-                                    await wasmAudio.play();
-                                    wasmPlayButton.textContent = 'Pause Demo';
-                                } catch (error) {
-                                    console.error('Error playing WASM demo:', error);
-                                    wasmIsLoading = false;
-                                }
-                            } else {
-                                wasmAudio.pause();
-                                wasmPlayButton.textContent = 'Play Demo';
-                                wasmAudio = null;
-                                wasmIsLoading = false;
-                            }
-                        } catch (error) {
-                            console.error('Error playing WASM demo:', error);
-                        }
-                    };
+                    const wasmAudioSrc = getDemoAudioSrc(wasmVoiceLabel.textContent, 'WASM');
+                    wasmPlayButton.onclick = audioHandler(wasmPlayButton, wasmAudioSrc);
                     voiceList.appendChild(wasmListItem);
                     for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
                         if (voiceName.includes('EMNet')) {
-                            continue; // Skip EMnet voice
+                            continue; // Skip EMnet voice, we apply special handling for it below
                         }
                         const listItem = document.createElement('li');
                         const playButton = document.createElement('button');
@@ -136,80 +177,22 @@
                         listItem.appendChild(playButton);
                         listItem.appendChild(document.createTextNode(' '));
                         listItem.appendChild(voiceLabel);
-                        const voiceDisplayName = extractDisplayName(voiceDesc);
-                        let audio = null;
-                        let isLoading = false;
-                        playButton.onclick = async () => {
-                            try {
-                                if (isLoading) {
-                                    return;
-                                }
-
-                                if (!audio) {
-                                    isLoading = true;
-                                    playButton.textContent = 'Loading...';
-                                    try {
-                                        const ttsResponse = await fetch(`assets/demo_files/${voiceDisplayName} Demo.wav`);
-                                        if (!ttsResponse.ok) {
-                                            throw new Error('Network response was not ok');
-                                        }
-                                        const audioBlob = await ttsResponse.blob();
-                                        const audioUrl = URL.createObjectURL(audioBlob);
-                                        audio = new Audio(audioUrl);
-                                        audio.addEventListener('ended', () => {
-                                            playButton.textContent = 'Play Demo';
-                                            audio.currentTime = 0;
-                                            if (activeAudio === audio) {
-                                                activeAudio = null;
-                                                activeButton = null;
-                                            }
-                                        });
-                                    } finally {
-                                        isLoading = false;
-                                        if (!audio) {
-                                            playButton.textContent = 'Play Demo';
-                                        }
-                                    }
-                                }
-
-                                if (!audio) {
-                                    return;
-                                }
-
-                                playButton.textContent = 'Play Demo';
-
-                                if (audio.paused) {
-                                    if (activeAudio && activeAudio !== audio) {
-                                        activeAudio.pause();
-                                        activeAudio.currentTime = 0;
-                                        if (activeButton) {
-                                            activeButton.textContent = 'Play Demo';
-                                        }
-                                    }
-
-                                    activeAudio = audio;
-                                    activeButton = playButton;
-                                    try {
-                                        await audio.play();
-                                        playButton.textContent = 'Pause Demo';
-                                    } catch (error) {
-                                        activeAudio = null;
-                                        activeButton = null;
-                                        playButton.textContent = 'Play Demo';
-                                        console.error('Error playing TTS demo:', error);
-                                    }
-                                } else {
-                                    audio.pause();
-                                    playButton.textContent = 'Play Demo';
-                                    activeAudio = null;
-                                    activeButton = null;
-                                }
-                            } catch (error) {
-                                console.error('Error playing TTS demo:', error);
-                            }
-                        };
+                        const audioSrc = getDemoAudioSrc(voiceDesc);
+                        playButton.onclick = audioHandler(playButton, audioSrc);
                         voiceList.appendChild(listItem);
                     }
+                    // Special handling for EMNet voice, same as WASM above
+                    const emnetListItem = document.createElement('li');
+                    const emnetPlayButton = document.createElement('button');
+                    emnetPlayButton.textContent = 'Play Demo';
+                    const emnetVoiceLabel = document.createElement('span');
+                    emnetVoiceLabel.textContent = '[EMNet] EMNet (uses ZCZC string as input)';
+                    emnetListItem.appendChild(emnetPlayButton);
+                    emnetListItem.appendChild(document.createTextNode(' '));
+                    emnetListItem.appendChild(emnetVoiceLabel);
+                    const emnetAudioSrc = getDemoAudioSrc(emnetVoiceLabel.textContent, 'EMNet');
+                    emnetPlayButton.onclick = audioHandler(emnetPlayButton, emnetAudioSrc);
+                    voiceList.appendChild(emnetListItem);
                 }
             } catch (error) {
                 console.error('Error fetching voice list:', error);
@@ -217,7 +200,5 @@
         }
 
         fetchVoiceList();
-
-
     </script>
 </html>

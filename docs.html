@@ -143,7 +143,11 @@ The current time is, 1, 37, PM, Central Standard Time.
                     if (data.voices) {
                         for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
                             const listItem = document.createElement('li');
-                            listItem.textContent = `${voiceDesc}`;
+                            if(voiceName === 'EMNet') {
+                                listItem.textContent = `[EMNet] EMNet (uses ZCZC string as input)`;
+                            } else {
+                                listItem.textContent = `${voiceDesc}`;
+                            }
                             voiceList.appendChild(listItem);
                         }
                     } else {
