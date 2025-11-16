@@ -1,6 +1,6 @@
 # Emergency Alert System (EAS) Tools
 
-Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file.
+Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file. Also includes a Text Crawl Generator for creating EAS‑style scrolling text graphics.
 
 > ⚠️ **Legal & ethics notice**
 > This project is for **educational, hobbyist, and lab use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
@@ -9,17 +9,18 @@ Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser.
 
 ## ✨ Features
 
-* **In‑browser SAME decoder** (AFSK 520.833 bps; mark ≈ 2083.3 Hz / space ≈ 1562.5 Hz)
-  * Live microphone input with device selection
-  * Level meter & real‑time header parsing
-  * Displays originator, event, FIPS (region/state/county), issuance time, and raw header text
-* **SAME encoder**
-  * Build headers via a form or paste an existing header string
-  * Generates proper **header bursts**, **attention tones (1050 Hz / 853+960 Hz where applicable)**, and **EOM**
-  * Injects TTS voice (via WASM/web TTS Service) for **audio playback** (optional)
-  * Exports a **WAV** you can download
-* **Zero backend**: everything runs locally, including the WASM TTS voice; no audio leaves your machine/browser unless you use the outside TTS service (all other features are 100% local)
-* Works as a **static site** (ideal for GitHub Pages / Netlify / local file server)
+* **Decoder**
+  * Real‑time decoding of EAS/SAME headers from microphone input
+  * Visual audio meter for signal strength
+  * Parsed header information: alert type, issuer, affected locations, issue/expiration times, sender ID, and human‑readable text
+* **Encoder**
+  * Form‑based SAME header generation with validation
+  * Text‑to‑speech synthesis of alert message (using WebAssembly voice/outside TTS service)
+  * Downloadable WAV file of generated EAS audio (SAME tones + message)
+* **Text Crawl Generator**
+  * Create scrolling text crawl graphics for EAS alerts
+  * Customize most aspects of the crawl appearance
+  * Downloadable GIF/WEBM of generated text crawl
 
 ---
 
@@ -38,10 +39,14 @@ Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser.
    ```bash
    # Python 3
    python -m http.server 8080
+
+   # or Node.js (install http-server if needed: `npm install -g http-server`)
+   http-server -p 8080
+
    # then open http://localhost:8080 in your browser
    ```
 
-   > Browsers require a **secure context** for microphone (`getUserMedia`). `https://` or `http://localhost` works; opening `index.html` with a `file://` URL usually won’t.
+   > Browsers require a **secure context** for microphone (`getUserMedia`). `https://` or `http://localhost:8080` works; opening `index.html` with a `file://` URL usually won’t.
 
 ---
 
@@ -51,68 +56,69 @@ Web‑based **EAS / SAME Decoder & Encoder** that runs entirely in your browser.
 
 1. Go to **Decoder** tab
 2. Choose your **microphone** (device selector)
-3. Grant permission when prompted
+3. Grant permission and select your microphone when prompted
 4. Play an EAS/SAME tone; watch the meter & parsed headers
 
 What you’ll see:
 
 * **Raw header** (e.g., `ZCZC-...-...-...`)
-* Parsed **originator**, **event code**, **FIPS location(s)**, **alert duration**, **issue time (UTC)**, **sender**
+* Parsed data about the alert:
+  * **Type**: "Tornado Warning", "Required Weekly Test", etc.
+  * **Issuer**: "National Weather Service", "Civil Authorities", etc.
+  * **Affected Locations**: County names ("Los Angeles County", "Orange County", etc.)
+  * **Issue Date**: Date & time of issuance
+  * **Expires On**: Date & time of expiration
+  * **Time until expiration**: "EXPIRED" if expired, or date and time of expiration
+  * **Sender ID**: 8 character sender identifier (e.g., "KOAX/NWS")
+  * **Human-Readable Alert Text**: The message associated with the alert
 
 ### Encoder
 
-1. Switch to **Encoder** tab
-2. Fill out the form (or toggle **Custom header** and paste a valid SAME header)
-3. Click **Generate** to synthesize audio
-4. Click **Save as WAV** to download
+1. Go to **Encoder** tab
+2. Fill out the form fields (or paste an existing header in the **Use custom SAME Header** box)
+3. (Optional) Enter a message for TTS voice synthesis
+4. Click **Generate**
+5. (Optional) Click **Play Samples** to listen in‑browser
+6. (Optional) Click **Save as wav file** to save the generated EAS audio file
 
-#### Deep‑linking
+### Text Crawl Generator
 
-You can pre‑open the encoder with a header via a query param:
+1. Go to **Text Crawl Generator** tab and choose a **Select Crawl Text Source** mode. Keep **Custom Text** to type a message directly or pick **Generate from EAS Header using EAS2Text** to auto-build the crawl from a raw SAME header.
+2. Provide the content for the mode you picked:
+   * **Custom Text**: Enter any crawl copy in the multiline box.
+   * **EAS2Text**: Paste the raw header, then decide whether to use the local timezone, override it manually, and optionally emulate a specific ENDEC profile for text phrasing.
+3. Dial in **Crawl Settings** to match the target look:
+   * Speed, VDS mode, and frame delay control motion cadence.
+   * Font family/style/size, canvas width & height, inset, restart delay, and the background/text/outline colors let you mimic different station styles.
+4. Use the control buttons to run or export the crawl:
+   * **Start/Pause/Stop** handle playback; output appears live in the preview bar and is summarized in the status line.
+   * **Export as GIF** or **Export as video (.webm)** capture the crawl, while **Copy Crawl Text** copies the resolved crawl text for reuse.
 
-```
-index.html?header=ZCZC-...your SAME header...
-```
+### Navigation
 
-The app activates the **Encoder** tab and attempts to parse/populate fields.
-
----
-
-## 🔧 Technical notes
-
-* **AudioWorklet** (`processor.js`) ships samples from the Worklet thread to the decoder
-* **Decoder** (`decoder-bundle.js`)
-  * Band‑pass filters around SAME mark/space
-  * AFSK demodulation, bit/byte framing, header detection (0xAB sync), and header parsing
-* **Encoder** (`encoder-bundle.js`)
-  * Builds SAME bursts + attention tones, concatenates audio, and writes a **WAV** (via `assets/wavefile.js`)
-  * Optional TTS voice synthesis (via WASM or external service)
-* **Resampling** via `assets/wave-resampler.js` as needed
-* Default tuning targets common sample rates (44.1 kHz / 48 kHz)
-
-> The repository includes **bundled** encoder/decoder files for convenience. There is no build step required to run. If you plan to modify the DSP or UI logic, you can work directly in the bundles or introduce your own build pipeline.
-
----
-
-## 🧪 Tips & troubleshooting
-
-* **No mic in the list?** Ensure you’re on `https://` (or `http://localhost`) and granted mic permission
-* **Levels but no decode?**
-  * Check input levels / environmental noise
-  * Verify mark/space frequency fidelity; some devices apply AGC/filters
-* **Safari issues**: AudioWorklet support and mic policies vary by version; Chrome/Edge are recommended
+Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, and **Text Crawl Generator** tools. You can also link to a specific tab using URL parameters:
+* `?tool=decoder` – Opens the **Decoder** tab
+* `?tool=encoder` – Opens the **Encoder** tab
+* `?tool=crawl` – Opens the **Text Crawl Generator** tab
 
 ---
 
 ## 📜 Credits & third‑party
 
-* UI fonts: **Hack** (via `assets/fonts` + `assets/hack.css`)
+* UI fonts: **Hack** (via `assets/hack.css`)
 * WAV writer: **wavefile.js** (bundled in `assets/`)
 * Resampling: **wave‑resampler.js** (bundled in `assets/`)
+* gif.js: **gif.js** (bundled in `assets/gif.js/`)
+* WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/`)
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
   * [Mab879 C++ SAME Encoder](https://github.com/Mab879/eas_encoder)
   * [Anon64 EAS Header Generator](https://anon64.bitkit.us/eas-gen/)
+  * [wavefile.js](https://rochars.github.io/wavefile/)
+  * [wave‑resampler.js](https://github.com/rochars/wave-resampler)
+  * [piper.tts.js](https://github.com/Mintplex-Labs/piper-tts-web)
+  * [gif.js](https://github.com/jnordberg/gif.js)
+  * CryptoDude3 GitHub Pages site (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.
 
@@ -126,6 +132,6 @@ This project is licensed under **GPL‑3.0** (see [`LICENSE`](./LICENSE)).
 
 ## 📍 Disclaimers
 
-## This tool decodes and synthesizes EAS/SAME signals for **lab, testing, and educational** purposes only. You are responsible for complying with all laws, regulations, and organizational policies applicable to your use. The author is NOT responsible for ANY misuse of this software toolkit.
+This tool decodes and synthesizes EAS/SAME signals for **lab, testing, and educational** purposes only. You are responsible for complying with all laws, regulations, and organizational policies applicable to your use. The author is NOT responsible for ANY misuse of this software toolkit.
 
-## GenAI Disclosure Notice: Portions of this repository have been generated using Generative AI tools (ChatGPT, ChatGPT Codex).
+## GenAI Disclosure Notice: Portions of this repository have been generated using Generative AI tools (ChatGPT, ChatGPT Codex, GitHub Copilot).
