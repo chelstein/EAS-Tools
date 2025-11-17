@@ -3938,7 +3938,7 @@
         let ttsText = window.ttsText || "";
         const usesBalPhonemes = /<\s*\/?\s*(silence|pron|phoneme)/i.test(ttsText);
         const usesVtmlTags = /<\s*\/?\s*vtml/i.test(ttsText);
-        const usesDtPhonemes = /\[\s*phoneme/i.test(ttsText);
+        const usesDtPhonemes = /\[:phoneme/i.test(ttsText);
 
         if (normalizedBackend.includes("bal")) {
             if (usesVtmlTags || usesDtPhonemes) {
