@@ -3868,6 +3868,8 @@
         create_eom_tones();
     }
 
+    const voiceBackendMap = {};
+
     async function getVoiceList() {
         const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true";
         const response = await fetch(url);
@@ -3881,6 +3883,15 @@
                 voiceListElement.appendChild(option);
             }
             else {
+                const backendMatch = voiceName.match(/\[(.*?)\]/);
+                let backend = backendMatch ? backendMatch[1] : "Unknown";
+                if(voiceName.toLowerCase().includes("bal/spfy")) {
+                    backend = "BAL";
+                }
+                if (!voiceBackendMap[backend]) {
+                    voiceBackendMap[backend] = [];
+                }
+                voiceBackendMap[backend].push(voiceId);
                 const option = document.createElement("option");
                 option.value = voiceId;
                 option.textContent = voiceName;
@@ -3897,7 +3908,7 @@
         const jsonMatch = responseText.match(/<span id="jsonErrorMsg">(.*)</i);
         if (jsonMatch && jsonMatch[1]) {
             var cleanMatch = jsonMatch[1].replace(/.*Exact error: (.*)/, "$1");
-            if (cleanMatch) {
+            if (cleanMatch != '') {
                 addStatus("TTS Generation Error: " + cleanMatch, "ERROR");
             }
             else {
@@ -3921,7 +3932,60 @@
         return zczcPattern.test(header);
     }
 
-    async function webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header) {
+    async function validateTtsText() {
+        const requiredBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(window.ttsVoice));
+        const normalizedBackend = requiredBackend ? requiredBackend.toLowerCase() : "";
+        let ttsText = window.ttsText || "";
+        const usesBalPhonemes = /<\s*\/?\s*(silence|pron|phoneme)/i.test(ttsText);
+        const usesVtmlTags = /<\s*\/?\s*vtml/i.test(ttsText);
+        const usesDtPhonemes = /\[\s*phoneme/i.test(ttsText);
+
+        if (normalizedBackend.includes("bal")) {
+            if (usesVtmlTags || usesDtPhonemes) {
+                alert("BAL backend cannot include VT or DT phoneme markup.");
+                return false;
+            }
+            if (usesBalPhonemes && !/<(silence|pron|phoneme).*/i.test(ttsText)) {
+                alert("TTS Text contains invalid BAL phonemes or formatting.");
+                return false;
+            }
+            if (ttsText.match(/“|”/)) {
+                // We can try and fix the smart quotes
+                ttsText = ttsText.replace(/“|”/g, '"');
+                window.ttsText = ttsText;
+                return true;
+            }
+        }
+        else if (normalizedBackend.includes("vt")) {
+            if (usesBalPhonemes || usesDtPhonemes) {
+                alert("VT backend cannot include BAL or DT phoneme markup.");
+                return false;
+            }
+            if (usesVtmlTags && !/<vtml.*/i.test(ttsText)) {
+                alert("TTS Text contains invalid VT phonemes or formatting.");
+                return false;
+            }
+            if (ttsText.match(/“|”/)) {
+                // We can try and fix the smart quotes
+                ttsText = ttsText.replace(/“|”/g, '"');
+                window.ttsText = ttsText;
+                return true;
+            }
+        }
+        else if (normalizedBackend.includes("dt")) {
+            if (usesBalPhonemes || usesVtmlTags) {
+                alert("DT backend cannot include BAL or VT phoneme markup.");
+                return false;
+            }
+            if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) {
+                alert("TTS Text contains invalid DT phonemes or formatting.");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async function webTTSGenerate(useOverrideTZ, header) {
         addStatus("Generating TTS audio using web request, this may take a while...");
 
         return new Promise((resolve) => {
@@ -3965,8 +4029,8 @@
             const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit";
 
             const params = new URLSearchParams();
-            params.append("text", ttsVoice === "EMNet" ? header : ttsText);
-            params.append("voice", ttsVoice);
+            params.append("text", window.ttsVoice === "EMNet" ? header : window.ttsText);
+            params.append("voice", window.ttsVoice);
             params.append("useOverrideTZ", useOverrideTZ ?? "UTC");
 
             xhr.open("POST", url, true);
@@ -4097,15 +4161,15 @@
     }
 
 
-    async function create_alert_async(header, ttsText, ttsVoice, useOverrideTZ) {
+    async function create_alert_async(header, useOverrideTZ) {
         document.getElementById("generate").disabled = true;
         addStatus("Generating EAS...");
 
         create_header_tones(header);
         if (tone) { create_nwr_tone(); } else { create_wat(); }
 
-        if (ttsVoice === "wasm") {
-            const pcmRaw = await getPiperPcm(ttsText, SAMPLE_RATE);
+        if (window.ttsVoice === "wasm") {
+            const pcmRaw = await getPiperPcm(window.ttsText, SAMPLE_RATE);
             if (pcmRaw) {
                 const pcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
@@ -4116,8 +4180,17 @@
             }
         }
 
-        else if (ttsVoice !== null && ttsVoice !== undefined && ttsVoice !== "") {
-            await webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header);
+        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "") {
+            if (!await validateTtsText()) {
+                addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
+                document.getElementById("generate").disabled = false;
+                generate_silence(SAMPLE_RATE);
+                return;
+            }
+
+            else {
+                await webTTSGenerate(useOverrideTZ, header);
+            }
         }
 
         else {
@@ -4129,7 +4202,7 @@
         document.getElementById("generate").disabled = false;
     }
 
-    async function create_raw_alert_async(header, ttsText, ttsVoice, useOverrideTZ) {
+    async function create_raw_alert_async(header, useOverrideTZ) {
         document.getElementById("generate").disabled = true;
         addStatus("Generating EAS...");
 
@@ -4148,8 +4221,17 @@
             }
         }
 
-        else if (ttsVoice !== null && ttsVoice !== undefined && ttsVoice !== "") {
-            await webTTSGenerate(ttsText, ttsVoice, useOverrideTZ, header);
+        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "") {
+            if (!await validateTtsText()) {
+                addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
+                document.getElementById("generate").disabled = false;
+                generate_silence(SAMPLE_RATE);
+                return;
+            }
+
+            else {
+                await webTTSGenerate(useOverrideTZ, header);
+            }
         }
 
         else {
@@ -4260,6 +4342,7 @@
     }
     function updateVoiceOptions(t) {
         const selectedVoice = t.value;
+        window.ttsVoice = (selectedVoice || '').trim();
         const overrideTZElements = document.getElementsByClassName('overrideTZ');
         const ttsTextElements = document.getElementsByClassName('ttsText');
 
@@ -4297,6 +4380,10 @@
             splay.innerHTML = "Stop";
         } else { play.stop(); splay.innerHTML = "Play Samples"; } isPlaying = !isPlaying;
     });
+
+    window.ttsText = (document.getElementById('ttsText')?.value || '').trim();
+    window.ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
+
     async function generateEas() {
         samples.length = 0;
         startTime = performance.now();
@@ -4324,18 +4411,16 @@
             return;
         }
 
-        const ttsText = (document.getElementById('ttsText')?.value || '').trim();
-        const ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
         const header = create_header_string(originator, event, locations, l, time, par);
-        if (!ttsText && ttsVoice !== "EMNet" && document.getElementById('useTTS').checked) {
+        if (!window.ttsText && window.ttsVoice !== "EMNet" && document.getElementById('useTTS').checked) {
             alert("TTS text is required.");
             return;
         }
         if (usecustom) {
-            await create_raw_alert_async(rawinput.value, ttsText, ttsVoice, useOverrideTZ);
+            await create_raw_alert_async(rawinput.value, useOverrideTZ);
         } else {
-            await create_alert_async(header, ttsText, ttsVoice, useOverrideTZ);
+            await create_alert_async(header, useOverrideTZ);
         }
 
         saveb.style.display = "inline-block";
@@ -4398,6 +4483,9 @@
         var t = regionselect.value.toString() + stateselect.value.toString() + countyselect.value.toString(); if (locations.indexOf(t) < 0) {
             locations.push(t); saveLocs(); updateTable();
         } else { addStatus("You can't add the same location code twice!"); }
+    }
+    function updateText(ttsTextValue) {
+        window.ttsText = ttsTextValue;
     }
     function pop() { locations.pop(); updateLoc(); }
     function updateTable() {
@@ -4600,6 +4688,10 @@
     const voiceSelect = document.getElementById('ttsVoice');
     if (voiceSelect) {
         voiceSelect.addEventListener('change', (event) => updateVoiceOptions(event.target));
+    }
+    const ttsTextInput = document.getElementById('ttsText');
+    if (ttsTextInput) {
+        ttsTextInput.addEventListener('change', (event) => updateText(event.target.value));
     }
     customHeader.dispatchEvent(new Event('change'));
     tts.dispatchEvent(new Event('change'));
