@@ -68,135 +68,148 @@
             <section id="encoder-panel" class="tool-panel" aria-labelledby="tab-encoder">
                 <h2 class="section-heading">SAME Encoder</h2>
                 <hr>
-                <label for="events">Select EAS Event Type:</label>
-                <select id="events">
-                    <optgroup label="Weather-Related Events">
-                        <option value="BZW">Blizzard Warning</option>
-                        <option value="CFA">Coastal Flood Watch</option>
-                        <option value="CFW">Coastal Flood Warning</option>
-                        <option value="DSW">Dust Storm Warning</option>
-                        <option value="EWW">Extreme Wind Warning</option>
-                        <option value="FFA">Flash Flood Watch</option>
-                        <option value="FFW">Flash Flood Warning</option>
-                        <option value="FFS">Flash Flood Statement</option>
-                        <option value="FLA">Flood Watch</option>
-                        <option value="FLW">Flood Warning</option>
-                        <option value="FLS">Flood Statement</option>
-                        <option value="HWA">High Wind Watch</option>
-                        <option value="HWW">High Wind Warning</option>
-                        <option value="HUA">Hurricane Watch</option>
-                        <option value="HUW">Hurricane Warning</option>
-                        <option value="HLS">Hurricane Statement</option>
-                        <option value="SVA">Severe Thunderstorm Watch</option>
-                        <option value="SVR">Severe Thunderstorm Warning</option>
-                        <option value="SVS">Severe Weather Statement</option>
-                        <option value="SQW">Snow Squall Warning</option>
-                        <option value="SMW">Special Marine Warning</option>
-                        <option value="SPS">Special Weather Statement</option>
-                        <option value="SSA">Storm Surge Watch</option>
-                        <option value="SSW">Storm Surge Warning</option>
-                        <option value="TOA">Tornado Watch</option>
-                        <option value="TOR" selected>Tornado Warning</option>
-                        <option value="TRA">Tropical Storm Watch</option>
-                        <option value="TRW">Tropical Storm Warning</option>
-                        <option value="TSA">Tsunami Watch</option>
-                        <option value="TSW">Tsunami Warning</option>
-                        <option value="WSA">Winter Storm Watch</option>
-                        <option value="WSW">Winter Storm Warning</option>
-                    </optgroup>
-                    <optgroup label="Non-Weather-Related Events">
-                        <option value="AVA">Avalanche Watch</option>
-                        <option value="AVW">Avalanche Warning</option>
-                        <option value="BLU">Blue Alert</option>
-                        <option value="CAE">Child Abduction Emergency</option>
-                        <option value="CDW">Civil Danger Warning</option>
-                        <option value="CEM">Civil Emergency Message</option>
-                        <option value="EQW">Earthquake Warning</option>
-                        <option value="EVI">Evacuation Immediate</option>
-                        <option value="FRW">Fire Warning</option>
-                        <option value="HMW">Hazardous Materials Warning</option>
-                        <option value="LEW">Law Enforcement Warning</option>
-                        <option value="LAE">Local Area Emergency</option>
-                        <option value="MEP">Missing Endangered Person</option>
-                        <option value="TOE">911 Telephone Outage Emergency</option>
-                        <option value="NUW">Nuclear Power Plant Warning</option>
-                        <option value="RHW">Radiological Hazard Warning</option>
-                        <option value="SPW">Shelter in Place Warning</option>
-                        <option value="VOW">Volcano Warning</option>
-                    </optgroup>
-                    <optgroup label="Administrative Events">
-                        <option value="ADR">Administrative Message</option>
-                        <option value="EAN">Emergency Action Notification</option>
-                        <option value="DMO">Practice/Demo Warning</option>
-                        <option value="RMT">Required Monthly Test</option>
-                        <option value="RWT">Required Weekly Test</option>
-                    </optgroup>
+                <label for="encoderMode">Select EAS Header Generation Mode:</label>
+                <select id="encoderMode">
+                    <option value="builder" selected>Build your own EAS Header</option>
+                    <option value="header">Generate from EAS Header String</option>
                 </select>
                 <br>
-                <br>
-                <label for="originators">Select Originator:</label>
-                <select id="originators">
-                    <option value="EAS">Emergency Alert System</option>
-                    <option value="CIV">Civil Authorities</option>
-                    <option value="WXR" selected>National Weather Service</option>
-                    <option value="PEP">Primary Entry Point</option>
-                </select>
-                <br>
-                <br>
-                Time the alert is effective for:
-                <br>
-                <label for="hr">Hr:</label>
-                <select id="hr" class="small" value="00">
-                    <option value="00">00</option>
-                    <option value="01">01</option>
-                    <option value="02">02</option>
-                    <option value="03">03</option>
-                    <option value="04">04</option>
-                    <option value="05">05</option>
-                    <option value="06">06</option>
-                    <option value="07">07</option>
-                    <option value="08">08</option>
-                </select>
-                &emsp;
-                <label for="min">Min:</label>
-                <select id="min">
-                    <option>00</option>
-                    <option>15</option>
-                    <option>30</option>
-                    <option selected>45</option>
-                </select>
-                <br>
-                <br>
-                <label for="time">Select Start Date and Time:</label>
-                <input type="datetime-local" id="time">&nbsp;<button type="button" data-encoder-now>Now</button>
-                <br>
-                <br>
-                <label for="par">Sender ID (8 characters long):</label>
-                <input id="par" minlength="8" value="senderid">
-                <br>
-                <br>
-                <label for="state">State:</label>
-                <select id="stateselect"></select>
-                <label for="county">County:</label>
-                <select id="countyselect"></select>
-                <label for="region">Region:</label>
-                <select id="rgselect"></select>
-                <button type="button" data-encoder-add-loc>Add</button>
-                <br>
-                (Click a county in the table below to remove it)
-                <br>
-                <table id="fips">
-                    <tbody>
-                        <tr class="title">
-                            <td>County</td>
-                            <td>State</td>
-                            <td>Region</td>
-                            <td>FIPS Code</td>
-                        </tr>
-                    </tbody>
-                    <tbody id="container"></tbody>
-                </table>
-                <div id="locs"></div>
+                <hr>
+                <div id="customEncoder">
+                    <label for="events">Select EAS Event Type:</label>
+                    <select id="events">
+                        <optgroup label="Weather-Related Events">
+                            <option value="BZW">Blizzard Warning</option>
+                            <option value="CFA">Coastal Flood Watch</option>
+                            <option value="CFW">Coastal Flood Warning</option>
+                            <option value="DSW">Dust Storm Warning</option>
+                            <option value="EWW">Extreme Wind Warning</option>
+                            <option value="FFA">Flash Flood Watch</option>
+                            <option value="FFW">Flash Flood Warning</option>
+                            <option value="FFS">Flash Flood Statement</option>
+                            <option value="FLA">Flood Watch</option>
+                            <option value="FLW">Flood Warning</option>
+                            <option value="FLS">Flood Statement</option>
+                            <option value="HWA">High Wind Watch</option>
+                            <option value="HWW">High Wind Warning</option>
+                            <option value="HUA">Hurricane Watch</option>
+                            <option value="HUW">Hurricane Warning</option>
+                            <option value="HLS">Hurricane Statement</option>
+                            <option value="SVA">Severe Thunderstorm Watch</option>
+                            <option value="SVR">Severe Thunderstorm Warning</option>
+                            <option value="SVS">Severe Weather Statement</option>
+                            <option value="SQW">Snow Squall Warning</option>
+                            <option value="SMW">Special Marine Warning</option>
+                            <option value="SPS">Special Weather Statement</option>
+                            <option value="SSA">Storm Surge Watch</option>
+                            <option value="SSW">Storm Surge Warning</option>
+                            <option value="TOA">Tornado Watch</option>
+                            <option value="TOR" selected>Tornado Warning</option>
+                            <option value="TRA">Tropical Storm Watch</option>
+                            <option value="TRW">Tropical Storm Warning</option>
+                            <option value="TSA">Tsunami Watch</option>
+                            <option value="TSW">Tsunami Warning</option>
+                            <option value="WSA">Winter Storm Watch</option>
+                            <option value="WSW">Winter Storm Warning</option>
+                        </optgroup>
+                        <optgroup label="Non-Weather-Related Events">
+                            <option value="AVA">Avalanche Watch</option>
+                            <option value="AVW">Avalanche Warning</option>
+                            <option value="BLU">Blue Alert</option>
+                            <option value="CAE">Child Abduction Emergency</option>
+                            <option value="CDW">Civil Danger Warning</option>
+                            <option value="CEM">Civil Emergency Message</option>
+                            <option value="EQW">Earthquake Warning</option>
+                            <option value="EVI">Evacuation Immediate</option>
+                            <option value="FRW">Fire Warning</option>
+                            <option value="HMW">Hazardous Materials Warning</option>
+                            <option value="LEW">Law Enforcement Warning</option>
+                            <option value="LAE">Local Area Emergency</option>
+                            <option value="MEP">Missing Endangered Person</option>
+                            <option value="TOE">911 Telephone Outage Emergency</option>
+                            <option value="NUW">Nuclear Power Plant Warning</option>
+                            <option value="RHW">Radiological Hazard Warning</option>
+                            <option value="SPW">Shelter in Place Warning</option>
+                            <option value="VOW">Volcano Warning</option>
+                        </optgroup>
+                        <optgroup label="Administrative Events">
+                            <option value="ADR">Administrative Message</option>
+                            <option value="EAN">Emergency Action Notification</option>
+                            <option value="DMO">Practice/Demo Warning</option>
+                            <option value="RMT">Required Monthly Test</option>
+                            <option value="RWT">Required Weekly Test</option>
+                        </optgroup>
+                    </select>
+                    <br>
+                    <br>
+                    <label for="originators">Select Originator:</label>
+                    <select id="originators">
+                        <option value="EAS">Emergency Alert System</option>
+                        <option value="CIV">Civil Authorities</option>
+                        <option value="WXR" selected>National Weather Service</option>
+                        <option value="PEP">Primary Entry Point</option>
+                    </select>
+                    <br>
+                    <br>
+                    Time the alert is effective for:
+                    <br>
+                    <label for="hr">Hr:</label>
+                    <select id="hr" class="small" value="00">
+                        <option value="00">00</option>
+                        <option value="01">01</option>
+                        <option value="02">02</option>
+                        <option value="03">03</option>
+                        <option value="04">04</option>
+                        <option value="05">05</option>
+                        <option value="06">06</option>
+                        <option value="07">07</option>
+                        <option value="08">08</option>
+                    </select>
+                    &emsp;
+                    <label for="min">Min:</label>
+                    <select id="min">
+                        <option>00</option>
+                        <option>15</option>
+                        <option>30</option>
+                        <option selected>45</option>
+                    </select>
+                    <br>
+                    <br>
+                    <label for="time">Select Start Date and Time:</label>
+                    <input type="datetime-local" id="time">&nbsp;<button type="button" data-encoder-now>Now</button>
+                    <br>
+                    <br>
+                    <label for="par">Sender ID (8 characters long):</label>
+                    <input id="par" minlength="8" value="senderid">
+                    <br>
+                    <br>
+                    <label for="state">State:</label>
+                    <select id="stateselect"></select>
+                    <label for="county">County:</label>
+                    <select id="countyselect"></select>
+                    <label for="region">Region:</label>
+                    <select id="rgselect"></select>
+                    <button type="button" data-encoder-add-loc>Add</button>
+                    <br>
+                    (Click a county in the table below to remove it)
+                    <br>
+                    <table id="fips">
+                        <tbody>
+                            <tr class="title">
+                                <td>County</td>
+                                <td>State</td>
+                                <td>Region</td>
+                                <td>FIPS Code</td>
+                            </tr>
+                        </tbody>
+                        <tbody id="container"></tbody>
+                    </table>
+                    <div id="locs"></div>
+                </div>
+                <div id="stringEncoder" style="display: none;">
+                    <label for="sh">Enter SAME Header here:</label>&nbsp;
+                    <input type="text" id="cheader" name="sh" style="width: 50vw;" placeholder="ZCZC-WXR-TOR..."></input>
+                </div>
                 <br>
                 <label for="att">Select Attention Tone:</label>
                 <select id="att">
@@ -219,63 +232,64 @@
                 <br>
                 <label for="clip">Clip Signal (for authenticity):</label>
                 <input type="checkbox" id="clip" checked>
-                <br>
-                <br>
-                <label for="useCustomHeader">Use custom SAME Header:</label>
-                <input type="checkbox" data-encoder-custom id="useCustomHeader">
-                <div id="samediv" style="display: none;">
-                    <br>
-                    <label for="sh">Enter SAME Header here:</label>&nbsp;
-                    <input type="text" id="cheader" name="sh" style="width: 50vw;" placeholder="ZCZC-WXR-TOR..."></input>
+                <hr>
+                <label for="announcementType">Select Announcement Type:</label>
+                <select id="announcementType">
+                    <option value="none" selected>No Announcement</option>
+                    <option value="tts">Text-to-Speech Announcement</option>
+                    <option value="custom">Custom Audio Announcement</option>
+                </select>
+                <div id="tts" style="display: none;">
+                    <div id="ttsDiv">
+                        <br>
+                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak…"></textarea>
+                        <br class="ttsText">
+                        <br class="ttsText">
+                        <label for="ttsVoice">Select Voice:</label>
+                        <select id="ttsVoice" name="ttsVoice">
+                            <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
+                        </select>
+                        <br class="overrideTZ">
+                        <br class="overrideTZ">
+                        <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
+                        <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
+                            <option value="UTC">UTC</option>
+                            <option value="AST">AST (Atlantic Standard Time)</option>
+                            <option value="EST">EST (Eastern Standard Time)</option>
+                            <option value="EDT">EDT (Eastern Daylight Time)</option>
+                            <option value="CST">CST (Central Standard Time)</option>
+                            <option value="CDT">CDT (Central Daylight Time)</option>
+                            <option value="MST">MST (Mountain Standard Time)</option>
+                            <option value="MDT">MDT (Mountain Daylight Time)</option>
+                            <option value="PST">PST (Pacific Standard Time)</option>
+                            <option value="PDT">PDT (Pacific Daylight Time)</option>
+                            <option value="AKST">AKST (Alaska Standard Time)</option>
+                            <option value="AKDT">AKDT (Alaska Daylight Time)</option>
+                            <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
+                            <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
+                            <option value="SST">SST (Samoa Standard Time)</option>
+                            <option value="CHST">CHST (Chamorro Standard Time)</option>
+                        </select>
+                    </div>
                 </div>
-                <br>
-                <br>
-                <label for="useTTS">Spoken message (see <a href="docs.html">documentation</a> for tips):</label>
-                <input type="checkbox" data-encoder-tts id="useTTS">
-                <div id="ttsDiv" style="display: none;">
+                <div id="customAudioDiv" style="display: none;">
                     <br>
-                    <textarea id="ttsText" class="ttsText" rows="10" cols="50" placeholder="Type the message to speak…"></textarea>
-                    <br class="ttsText">
-                    <br class="ttsText">
-                    <label for="ttsVoice">Select Voice:</label>
-                    <select id="ttsVoice" name="ttsVoice">
-                        <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
-                    </select>
-                    <br class="overrideTZ">
-                    <br class="overrideTZ">
-                    <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
-                    <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
-                        <option value="UTC">UTC</option>
-                        <option value="AST">AST (Atlantic Standard Time)</option>
-                        <option value="EST">EST (Eastern Standard Time)</option>
-                        <option value="EDT">EDT (Eastern Daylight Time)</option>
-                        <option value="CST">CST (Central Standard Time)</option>
-                        <option value="CDT">CDT (Central Daylight Time)</option>
-                        <option value="MST">MST (Mountain Standard Time)</option>
-                        <option value="MDT">MDT (Mountain Daylight Time)</option>
-                        <option value="PST">PST (Pacific Standard Time)</option>
-                        <option value="PDT">PDT (Pacific Daylight Time)</option>
-                        <option value="AKST">AKST (Alaska Standard Time)</option>
-                        <option value="AKDT">AKDT (Alaska Daylight Time)</option>
-                        <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
-                        <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
-                        <option value="SST">SST (Samoa Standard Time)</option>
-                        <option value="CHST">CHST (Chamorro Standard Time)</option>
-                    </select>
+                    <label for="customAudioFile">Upload Custom Audio File (WAV format):</label>
+                    <input type="file" id="customAudioFile" accept=".wav,audio/wav,audio/wave,audio/x-wav">
                 </div>
                 <hr>
                 <div class="control-panel">
                     <button type="button" data-encoder-generate id="generate">Generate</button>
-                    <button type="button" id="play">Play Samples</button>
                     <button type="button" id="save" style="display: none;">Save as wav file</button>
                     <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Logs</button>
+                    <br>
+                    <br>
+                    <audio id="audioPlayback" controls style="width: 28vw; display: none;"></audio>
                 </div>
                 <hr>
                 <p id="status"></p>
-                <br>
-                <div>
-                    Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, <a href="https://anon64.bitkit.us/eas-gen/">Anon64 EAS Header Generator</a>, and CryptoDude3 GitHub Pages (removed) for original inspiration
-                </div>
+                <hr>
+                <p>Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, <a href="https://anon64.bitkit.us/eas-gen/">Anon64 EAS Header Generator</a>, and CryptoDude3 GitHub Pages (removed) for original inspiration</p>
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
                 <h2 class="section-heading">Text Crawl Generator</h2>

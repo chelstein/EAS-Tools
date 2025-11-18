@@ -3469,21 +3469,11 @@
         }
     }
 
-    function changeSampleRate(nr) {
-        SAMPLE_RATE = nr;
-        afsklen = SAMPLE_RATE * 0.00192;
-    }
-
     function generate_afsk(message) {
         for (let i = 0; i < message.length; i++) {
             generate_afsk_tone(message[i]);
         }
     }
-    /*function generate_afsk(m) {
-      var r = count(m);
-      m.forEach(e => { e[0] ? generate_tone(MARK_FREQ, afsklen * e[1]) : generate_tone(SPACE_FREQ, afsklen * e[1]); });
-    }*/
-    //add clipping built in to generate tone function nearly halves gen time
 
     //cache the two frequencies
     function generate_tone(freq, length) {
@@ -3522,12 +3512,6 @@
         }
     }
 
-    /*function generate_silence(length) {
-      const l = samples.length;
-      for (let i = 0; i < length; i++) {
-        samples[l+i] = 0;
-      }
-    }*/
     function generate_silence(length) {
         for (let i = 0; i < length; i++) {
             samples.push(0);
@@ -3538,12 +3522,14 @@
     const ORT_WASM_BASE = 'assets/piper-tts/onnxruntime-web/';
 
     const PIPER_VOICE_ID = 'en_US-joe-medium';
+
     const PIPER_VOICE = {
         modelUrl: 'assets/piper-tts/voices/en_US-joe-medium.onnx',
         configUrl: 'assets/piper-tts/voices/en_US-joe-medium.onnx.json',
     };
 
     let __piperLoading = null;
+
     async function ensurePiperLoaded() {
         if (window.PiperTTS?.pcmFor || window.PiperTTS?.predict) return;
 
@@ -3565,6 +3551,7 @@
 
         const HF_URL_HINT = '/rhasspy/piper-voices/resolve';
         const origFetch = window.fetch.bind(window);
+
         window.fetch = async (input, init) => {
             const url = typeof input === 'string' ? input : (input?.url || '');
             if (url.includes(HF_URL_HINT) || /voices(\.json)?$/.test(url)) {
@@ -3576,33 +3563,36 @@
         };
 
         if (window.PiperTTS?.init) {
-            try { await window.PiperTTS.init({ voiceId: PIPER_VOICE_ID, warmup: false }); } catch { }
+            try {
+                await window.PiperTTS.init({ voiceId: PIPER_VOICE_ID, warmup: false });
+            } catch {
+                addStatus('PiperTTS: init failed.', "ERROR");
+            }
         }
     }
 
     function dbToLin(db) { return Math.pow(10, db / 20); }
 
-    function normalizeTtsPcm(pcm, {
-        targetDb = -3,
-        maxGainDb = 24,
-        softClip = true,
-        softClipK = 1.5
-    } = {}) {
+    function normalizeTtsPcm(pcm, { targetDb = -3, maxGainDb = 24, softClip = true, softClipK = 1.5 } = {}) {
         if (!pcm || !pcm.length) return pcm;
 
         let peak = 0;
+
         for (let i = 0; i < pcm.length; i++) {
             const a = Math.abs(pcm[i]);
             if (a > peak) peak = a;
         }
+
         if (peak <= 1e-8) return pcm;
 
         const target = dbToLin(targetDb);
         let gain = target / peak;
         const maxGain = dbToLin(maxGainDb);
+
         if (gain > maxGain) gain = maxGain;
 
         const out = new Float32Array(pcm.length);
+
         if (softClip) {
             const k = softClipK;
             const denom = Math.tanh(k);
@@ -3610,19 +3600,23 @@
                 const x = pcm[i] * gain;
                 out[i] = Math.tanh(k * x) / denom;
             }
-        } else {
+        }
+
+        else {
             for (let i = 0; i < pcm.length; i++) {
                 let x = pcm[i] * gain;
                 if (x > 0.999) x = 0.999; else if (x < -0.999) x = -0.999;
                 out[i] = x;
             }
         }
+
         return out;
     }
 
 
     async function getPiperPcm(text, targetRate) {
         if (!text || !text.trim()) return null;
+
         await ensurePiperLoaded();
 
         addStatus("Generating TTS audio... this may take a while, especially if your text is longer than a few sentences.");
@@ -3632,9 +3626,12 @@
         }
 
         let wavBlob = null;
+
         if (window.PiperTTS?.synthToWavBlob) {
             wavBlob = await window.PiperTTS.synthToWavBlob(text);
-        } else {
+        }
+
+        else {
             addStatus('PiperTTS: no synthToWavBlob/pcmFor found.', "WARN");
             return null;
         }
@@ -3643,9 +3640,11 @@
             const WaveFile = window.wavefile.WaveFile;
             const ab = await wavBlob.arrayBuffer();
             let w = new WaveFile(new Uint8Array(ab));
+
             if (w.fmt.sampleRate !== targetRate) {
                 w.toSampleRate(targetRate, { algorithm: 'sinc' });
             }
+
             w.toBitDepth('32f');
             const f64 = w.getSamples();
             return new Float32Array(f64);
@@ -3653,13 +3652,17 @@
 
         if (window.PiperTTS?.wavBlobToPcm) {
             const { pcm, sampleRate } = await window.PiperTTS.wavBlobToPcm(wavBlob);
+
             if (sampleRate === targetRate) return pcm;
+
             const ratio = sampleRate / targetRate, out = new Float32Array(Math.round(pcm.length / ratio));
+
             for (let i = 0; i < out.length; i++) {
                 const x = i * ratio, xi = Math.floor(x), xf = x - xi;
                 const a = pcm[xi] ?? 0, b = pcm[xi + 1] ?? a;
                 out[i] = a + (b - a) * xf;
             }
+
             return out;
         }
 
@@ -3677,45 +3680,20 @@
         }
     }
 
-    function playSample() {
-        const audioBuffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
-        const channelData = audioBuffer.getChannelData(0);
-        for (let i = 0; i < samples.length; i++) {
-            channelData[i] = samples[i];
-        }
-        const source = context.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(gain);
-        source.start();
-        source.onended = function () {
-            splay.innerHTML = "Play Samples";
-            isPlaying = false;
-            addStatus("Playback finished.");
-        }
-        addStatus("Playing sample...");
-        return source;
-    }
-
-    function create_raw_alert(h) {
-        create_header_tones(h);
-        if (tone) {
-            create_nwr_tone();
-        } else {
-            create_wat();
-        }
-        generate_silence(SAMPLE_RATE);
-        create_eom_tones();
-    }
-
     // END encode/audio.js
     // BEGIN encode/utils.js
     var wav = new wavefile.WaveFile();
+
     function zero_pad_int(num, totalLength) {
         return num.toString().padStart(totalLength, '0');
     }
+
     function getDay(date) { return zero_pad_int(Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24), 3); }
+
     function getHour(date) { return zero_pad_int(date.getUTCHours(), 2); }
+
     function getMinute(date) { return zero_pad_int(date.getUTCMinutes(), 2); }
+
     function bytetobits(byteArray) {
         const bitsArray = [];
         for (let i = 0; i < byteArray.length; i++) {
@@ -3726,23 +3704,21 @@
         }
         return bitsArray;
     }
+
     function genPreamble() {
         const byteArray = new Uint8Array(16);
         byteArray.fill(PREAMBLE);
         return byteArray;
     }
+
     function extraspace() { generate_afsk(Array(15).fill(0, 0, 15)); }
+
     function preamble() {
         return bytetobits(genPreamble());
     }
-    function generateBitArray(text) {
-        const textEncoder = new TextEncoder();
-        const pre = genPreamble();
-        const array = textEncoder.encode(text);
-        const combinedArray = Uint8Array.from([...pre, ...array]);
-        return bytetobits(combinedArray);
-    }
+
     function extramarks() { generate_afsk([1, 1, 1, 1, 1, 1]); }
+
     function getLocalDT(currentLocalDateTime) {
         const year = currentLocalDateTime.getFullYear();
         const month = ('0' + (currentLocalDateTime.getMonth() + 1)).slice(-2);
@@ -3751,6 +3727,7 @@
         const minutes = ('0' + currentLocalDateTime.getMinutes()).slice(-2);
         return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
+
     function genArray(str) {
         let pre = preamble();
         let byteData = [];
@@ -3766,20 +3743,7 @@
         let b = pre.concat(byteData);
         return b;
     }
-    function rawGen(str) {
-        let byteData = [];
-        for (let j = 0; j < str.length; j++) {
-            for (let i = 0; i < 8; i++) {
-                if ((str.charCodeAt(j) >> i) & 1) {
-                    byteData.push(1);
-                } else {
-                    byteData.push(0);
-                }
-            }
-        }
-        return byteData;
-    }
-    function clipSignal(t) { samples = samples.map(e => { if (Math.abs(e) > t) { e = (e > 0) ? t : -t; } return e; }); }
+
     function getMinNodes() {
         var m = [0, 15, 30, 45]; if (hr > 0) {
             var m = [0, 30];
@@ -3787,6 +3751,7 @@
         var nodes = [];
         m.forEach(e => { var o = document.createElement("option"); o.innerHTML = e.toString().padStart(2, "0"); o.value = e; nodes.push(o); }); return nodes;
     }
+
     function saveToWav() {
         addStatus("Generating wav file...");
         wav.fromScratch(1, SAMPLE_RATE, '32', samples.map(e => {
@@ -3811,6 +3776,7 @@
             generate_silence(SAMPLE_RATE);
         }
     }
+
     function create_header_tones(header) {
         var he = genArray(header);
         //generate_silence(SAMPLE_RATE);
@@ -3822,6 +3788,7 @@
             generate_silence(SAMPLE_RATE);
         }
     }
+
     function create_header_string(origin, event, locations, length, date, par) {
         var h = "";
         h += HEADER;
@@ -3853,21 +3820,6 @@
         generate_tone(1050, SAMPLE_RATE * tlen);
     }
 
-    function create_alert(origin, event, locations, length, date, par) {
-        var h = create_header_string(origin, event, locations, length, date, par);
-        create_header_tones(h);
-        if (tone) { create_nwr_tone(); } else { create_wat(); }
-        generate_silence(SAMPLE_RATE);
-        create_eom_tones();
-    }
-
-    function create_raw_alert(h) {
-        create_header_tones(h);
-        if (tone) { create_nwr_tone(); } else { create_wat(); }
-        generate_silence(SAMPLE_RATE);
-        create_eom_tones();
-    }
-
     const voiceBackendMap = {};
 
     async function getVoiceList() {
@@ -3875,6 +3827,7 @@
         const response = await fetch(url);
         const data = await response.json();
         const voiceListElement = document.getElementById("ttsVoice");
+
         for (const [voiceId, voiceName] of Object.entries(data.voices)) {
             if (voiceName.toLowerCase().includes("emnet")) {
                 const option = document.createElement("option");
@@ -3882,15 +3835,19 @@
                 option.textContent = "[EMNet] EMNet (uses generated headers as input)";
                 voiceListElement.appendChild(option);
             }
+
             else {
                 const backendMatch = voiceName.match(/\[(.*?)\]/);
                 let backend = backendMatch ? backendMatch[1] : "Unknown";
+
                 if(voiceName.toLowerCase().includes("bal/spfy")) {
                     backend = "BAL";
                 }
+
                 if (!voiceBackendMap[backend]) {
                     voiceBackendMap[backend] = [];
                 }
+
                 voiceBackendMap[backend].push(voiceId);
                 const option = document.createElement("option");
                 option.value = voiceId;
@@ -3906,6 +3863,7 @@
         const responseText = decoder.decode(response);
         const audioMatch = responseText.match(/id="downloadlink"><a href="(.*)" download/i);
         const jsonMatch = responseText.match(/<span id="jsonErrorMsg">(.*)</i);
+
         if (jsonMatch && jsonMatch[1]) {
             var cleanMatch = jsonMatch[1].replace(/.*Exact error: (.*)/, "$1");
             if (cleanMatch != '') {
@@ -3916,6 +3874,7 @@
             }
             return null;
         }
+
         if (audioMatch && audioMatch[1]) {
             const audioSrc = audioMatch[1];
             const audioResponse = await fetch("https://wagspuzzle.space/tools/eas-tts/" + audioSrc);
@@ -3924,6 +3883,7 @@
             const buffer = await audioContext.decodeAudioData(audioArrayBuffer);
             return buffer;
         }
+
         return null;
     }
 
@@ -3945,10 +3905,12 @@
                 alert("BAL backend cannot include VT or DT phoneme markup.");
                 return false;
             }
+
             if (usesBalPhonemes && !/<(silence|pron|phoneme).*/i.test(ttsText)) {
                 alert("TTS Text contains invalid BAL phonemes or formatting.");
                 return false;
             }
+
             if (ttsText.match(/“|”/)) {
                 // We can try and fix the smart quotes
                 ttsText = ttsText.replace(/“|”/g, '"');
@@ -3961,10 +3923,12 @@
                 alert("VT backend cannot include BAL or DT phoneme markup.");
                 return false;
             }
+
             if (usesVtmlTags && !/<vtml.*/i.test(ttsText)) {
                 alert("TTS Text contains invalid VT phonemes or formatting.");
                 return false;
             }
+
             if (ttsText.match(/“|”/)) {
                 // We can try and fix the smart quotes
                 ttsText = ttsText.replace(/“|”/g, '"');
@@ -3977,6 +3941,7 @@
                 alert("DT backend cannot include BAL or VT phoneme markup.");
                 return false;
             }
+
             if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) {
                 alert("TTS Text contains invalid DT phonemes or formatting.");
                 return false;
@@ -3985,11 +3950,31 @@
         return true;
     }
 
+    const resamplePcm = (pcm, sourceRate, targetRate) => {
+        if (sourceRate === targetRate) {
+            return pcm;
+        }
+
+        const ratio = sourceRate / targetRate;
+        const newLength = Math.max(1, Math.round(pcm.length / ratio));
+        const resampled = new Float32Array(newLength);
+        for (let i = 0; i < newLength; i++) {
+            const position = i * ratio;
+            const index = Math.floor(position);
+            const nextIndex = Math.min(index + 1, pcm.length - 1);
+            const frac = position - index;
+            resampled[i] = pcm[index] + (pcm[nextIndex] - pcm[index]) * frac;
+        }
+
+        return resampled;
+    };
+
     async function webTTSGenerate(useOverrideTZ, header) {
         addStatus("Generating TTS audio using web request, this may take a while...");
 
         return new Promise((resolve) => {
             let settled = false;
+
             const safeResolve = () => {
                 if (!settled) {
                     settled = true;
@@ -4006,23 +3991,6 @@
                 console.error("Error decoding TTS audio:", error);
                 addStatus("Error decoding TTS audio. There will instead be silence.", "ERROR");
                 finishWithSilence();
-            };
-
-            const resamplePcm = (pcm, sourceRate, targetRate) => {
-                if (sourceRate === targetRate) {
-                    return pcm;
-                }
-                const ratio = sourceRate / targetRate;
-                const newLength = Math.max(1, Math.round(pcm.length / ratio));
-                const resampled = new Float32Array(newLength);
-                for (let i = 0; i < newLength; i++) {
-                    const position = i * ratio;
-                    const index = Math.floor(position);
-                    const nextIndex = Math.min(index + 1, pcm.length - 1);
-                    const frac = position - index;
-                    resampled[i] = pcm[index] + (pcm[nextIndex] - pcm[index]) * frac;
-                }
-                return resampled;
             };
 
             const xhr = new XMLHttpRequest();
@@ -4047,32 +4015,41 @@
                         if (payload instanceof ArrayBuffer) {
                             return Promise.resolve(payload);
                         }
+
                         if (payload instanceof Blob) {
                             return payload.arrayBuffer();
                         }
+
                         if (typeof payload === "string") {
                             const withoutPrefix = payload.replace(/^data:audio\/[\w.+-]+;base64,/, "");
                             const candidate = withoutPrefix.replace(/\s/g, "");
+
                             return new Promise((resolvePayload, rejectPayload) => {
                                 try {
                                     const binary = atob(candidate);
                                     const buffer = new ArrayBuffer(binary.length);
                                     const bytes = new Uint8Array(buffer);
+
                                     for (let i = 0; i < binary.length; i++) {
                                         bytes[i] = binary.charCodeAt(i);
                                     }
+
                                     resolvePayload(buffer);
                                     return;
                                 } catch (error) {
                                     try {
                                         const buffer = new ArrayBuffer(withoutPrefix.length);
                                         const bytes = new Uint8Array(buffer);
+
                                         for (let i = 0; i < withoutPrefix.length; i++) {
                                             bytes[i] = withoutPrefix.charCodeAt(i) & 0xff;
                                         }
+
                                         resolvePayload(buffer);
                                         return;
-                                    } catch (fallbackError) {
+                                    }
+
+                                    catch (fallbackError) {
                                         rejectPayload(error);
                                     }
                                 }
@@ -4092,11 +4069,15 @@
                             if (typeof audioContext.close === "function") {
                                 audioContext.close().catch(() => {});
                             }
+
                             const pcm = resamplePcm(buffer.getChannelData(0), buffer.sampleRate, SAMPLE_RATE);
-                            const normalizedPcm = normalizeTtsPcm(pcm, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
+
+                            const normalizedPcm = normalizeTtsPcm(pcm, { targetDb: 3, maxGainDb: 24, softClip: cl, softClipK: 1.6 });
+
                             generate_silence(Math.floor(SAMPLE_RATE * 0.25));
                             appendPcmToSamples(normalizedPcm);
                             generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+
                             safeResolve();
                         }).catch((error) => {
                             if (typeof audioContext.close === "function") {
@@ -4109,29 +4090,37 @@
 
                 else if (xhr.getResponseHeader("Content-Type") === "application/json") {
                     let responseJSON = {};
+
                     try {
                         const decoder = new TextDecoder("utf-8");
                         responseJSON = JSON.parse(decoder.decode(xhr.response));
-                    } catch (error) {
+                    }
+
+                    catch (error) {
                         console.error("Failed to parse JSON response:", error);
                     }
+
                     console.error("Request failed with status:", xhr.status, xhr.response);
                     addStatus("Error fetching TTS audio. The server said: '" + responseJSON.error + "'. There will instead be silence.", "ERROR");
+
                     finishWithSilence();
                 }
 
                 else {
                     console.error("Unexpected response type:", xhr.getResponseHeader("Content-Type"), xhr.response);
+
                     addStatus("Unexpected response type while fetching TTS audio. Trying to fall back to getting audio or JSON error from page...", "WARN");
+
                     try {
                         getAudioFromPage(xhr.response).then((pcmRaw) => {
                             if (pcmRaw !== null) {
-                                const normalizedPcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
+                                const normalizedPcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: cl, softClipK: 1.6 });
                                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
                                 appendPcmToSamples(normalizedPcm);
                                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
                                 safeResolve();
                             }
+
                             else {
                                 addStatus("Failed to find audio in TTS HTML response. There will instead be silence.", "ERROR");
                                 finishWithSilence();
@@ -4141,7 +4130,9 @@
                             addStatus("Failed to get audio from page. There will instead be silence.", "ERROR");
                             finishWithSilence();
                         });
-                    } catch (error) {
+                    }
+
+                    catch (error) {
                         console.error("Failed to decode response:", error);
                         addStatus("Failed to decode TTS HTML response. There will instead be silence.", "ERROR");
                         finishWithSilence();
@@ -4160,27 +4151,29 @@
         });
     }
 
-
-    async function create_alert_async(header, useOverrideTZ) {
+    async function create_alert_async(header, useOverrideTZ, { allowCustomAudio = false } = {}) {
         document.getElementById("generate").disabled = true;
         addStatus("Generating EAS...");
 
         create_header_tones(header);
         if (tone) { create_nwr_tone(); } else { create_wat(); }
+        const appendAnnouncement = (pcmRaw) => {
+            const pcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: cl, softClipK: 1.6 });
+            generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+            appendPcmToSamples(pcm);
+            generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+        };
 
-        if (window.ttsVoice === "wasm") {
+        if (window.ttsVoice === "wasm" && window.announcementType === "tts") {
             const pcmRaw = await getPiperPcm(window.ttsText, SAMPLE_RATE);
             if (pcmRaw) {
-                const pcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
-                generate_silence(Math.floor(SAMPLE_RATE * 0.25));
-                appendPcmToSamples(pcm);
-                generate_silence(Math.floor(SAMPLE_RATE * 0.25));
+                appendAnnouncement(pcmRaw);
             } else {
                 generate_silence(SAMPLE_RATE);
             }
         }
 
-        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "") {
+        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "" && window.announcementType === "tts") {
             if (!await validateTtsText()) {
                 addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
                 document.getElementById("generate").disabled = false;
@@ -4193,44 +4186,21 @@
             }
         }
 
-        else {
-            generate_silence(SAMPLE_RATE);
-        }
-
-        create_eom_tones();
-
-        document.getElementById("generate").disabled = false;
-    }
-
-    async function create_raw_alert_async(header, useOverrideTZ) {
-        document.getElementById("generate").disabled = true;
-        addStatus("Generating EAS...");
-
-        create_header_tones(header);
-        if (tone) { create_nwr_tone(); } else { create_wat(); }
-
-        if (ttsVoice === "wasm") {
-            const pcmRaw = await getPiperPcm(ttsText, SAMPLE_RATE);
-            if (pcmRaw) {
-                const pcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: true, softClipK: 1.6 });
+        else if (allowCustomAudio && window.announcementType === "custom") {
+            let customAudioFile = document.getElementById("customAudioFile").files[0];
+            if (customAudioFile) {
+                const arrayBuffer = await customAudioFile.arrayBuffer();
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const buffer = await audioContext.decodeAudioData(arrayBuffer);
+                const pcmRaw = buffer.getChannelData(0);
+                const pcm = resamplePcm(pcmRaw, buffer.sampleRate, SAMPLE_RATE);
                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
                 appendPcmToSamples(pcm);
                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
-            } else {
-                generate_silence(SAMPLE_RATE);
             }
-        }
-
-        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "") {
-            if (!await validateTtsText()) {
-                addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
-                document.getElementById("generate").disabled = false;
-                generate_silence(SAMPLE_RATE);
-                return;
-            }
-
             else {
-                await webTTSGenerate(useOverrideTZ, header);
+                addStatus("You must select a custom audio file when using Custom Audio! There will instead be silence.", "ERROR");
+                generate_silence(SAMPLE_RATE);
             }
         }
 
@@ -4252,7 +4222,6 @@
     var timeselect = document.getElementById("time");
     var parinput = document.getElementById("par");
     var statuselem = document.getElementById("status");
-    var splay = document.getElementById("play");
     var saveb = document.getElementById("save");
     var clr = document.getElementById("clr");
     var tl = document.getElementById("tlen");
@@ -4285,7 +4254,6 @@
     var cl = false;
     var tone = NWR;
     var tlen = 10;
-    var usecustom = false;
     let startTime = null;
     let showTime = localStorage["showTime"];//i use this for debugging
     let lastValidTimeselectValue = "";
@@ -4332,14 +4300,9 @@
         timeselect.value = currentValue;
         lastValidTimeselectValue = currentValue;
     }
+
     stime();
-    function updateCustom(t) {
-        samediv.style.display = t ? "block" : "none";
-        usecustom = t;
-    }
-    function updateTts(t) {
-        ttsDiv.style.display = t ? "block" : "none";
-    }
+
     function updateVoiceOptions(t) {
         const selectedVoice = t.value;
         window.ttsVoice = (selectedVoice || '').trim();
@@ -4366,23 +4329,18 @@
             }
         }
     }
+
     hrselect.addEventListener("change", function () {
         hr = parseInt(hrselect.value);
         minselect.innerHTML = "";
         var nodes = getMinNodes();
         nodes.forEach(e => { minselect.appendChild(e); });
     });
-    var isPlaying = false;
-    splay.addEventListener("click", function () {
-        if (samples.length < 1) { addStatus("You have to generate the samples first!"); return; }
-        if (!isPlaying) {
-            play = playSample();
-            splay.innerHTML = "Stop";
-        } else { play.stop(); splay.innerHTML = "Play Samples"; } isPlaying = !isPlaying;
-    });
 
     window.ttsText = (document.getElementById('ttsText')?.value || '').trim();
     window.ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
+
+    const audioPlayback = document.getElementById("audioPlayback");
 
     async function generateEas() {
         samples.length = 0;
@@ -4405,41 +4363,51 @@
         tone = parseInt(att.value);
         em = extram.checked;
         es = spaces.checked;
+        var usesCustomHeader = (window.useCustom && window.mode === "header");
 
-        if (!checkZCZCIsValid(rawinput.value) && usecustom) {
+        if(!rawinput.value && usesCustomHeader) {
+            alert("ZCZC header cannot be empty!");
+            return;
+        }
+
+        else if (!checkZCZCIsValid(rawinput.value) && usesCustomHeader) {
             alert("Invalid ZCZC header format!");
             return;
         }
 
         const useOverrideTZ = (document.getElementById('useOverrideTZ')?.value || '').trim();
         const header = create_header_string(originator, event, locations, l, time, par);
-        if (!window.ttsText && window.ttsVoice !== "EMNet" && document.getElementById('useTTS').checked) {
+
+        if (!window.ttsText && window.ttsVoice !== "EMNet" && window.announcementType === "tts") {
             alert("TTS text is required.");
             return;
         }
-        if (usecustom) {
-            await create_raw_alert_async(rawinput.value, useOverrideTZ);
-        } else {
-            await create_alert_async(header, useOverrideTZ);
-        }
+
+        const allowCustomAudio = window.announcementType === "custom";
+        await create_alert_async(usesCustomHeader ? rawinput.value : header, useOverrideTZ, { allowCustomAudio });
+
+        var elapsedMs = performance.now() - startTime;
+        var minutes = Math.floor(elapsedMs / 60000);
+        var seconds = Math.floor((elapsedMs % 60000) / 1000);
+        var hundredths = Math.floor((elapsedMs % 1000) / 10);
+        var timeTaken = ", Time taken to generate: " + (minutes.toString().padStart(2, "0") === "00" ? "" : minutes.toString().padStart(2, "0") + ":") + seconds.toString().padStart(2, "0") + "." + hundredths.toString().padStart(2, "0") + (minutes.toString().padStart(2, "0") !== "00" ? "m" : "s");
 
         saveb.style.display = "inline-block";
-        addStatus("EAS Generated! Samples: " + samples.length + (showTime ? ("  Time: " + (performance.now() - startTime).toFixed(2) + "ms") : ""));
-        addStatus("Generated header: " + (usecustom ? rawinput.value : header));
+        addStatus("EAS Generated! Samples: " + samples.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (showTime ? timeTaken : ""));
+        addStatus("Generated header: " + ((window.useCustom && window.mode === "header") ? rawinput.value : header));
+
+        audioPlayback.src = null;
+        wav.fromScratch(1, SAMPLE_RATE, '32', samples.map(e => {
+            return e * (2147483647 / 2);
+        }));
+        const wavBuffer = wav.toBuffer().buffer;
+        const wavBlob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
+        audioPlayback.src = URL.createObjectURL(wavBlob);
+        audioPlayback.style.display = "block";
+        audioPlayback.controls = true;
+        audioPlayback.autoplay = false;
     }
 
-    function gen_header() {
-        var par = parinput.value;
-        if (par.length != 8) { addStatus("Sender ID must be 8 characters long!", "ERROR"); return; }
-        if (locations.length < 1) { addStatus("There must be at least one location!", "ERROR"); return; }
-        if (!guardTimeselectValue()) { return; }
-        var time = new Date(timeselect.value);
-        var originator = originators.value;
-        var event = events.value;
-        var min = parseInt(minselect.value);
-        var l = hr.toString().padStart(2, "0") + min.toString().padStart(2, "0");
-        return create_header_string(originator, event, locations, l, time, par);
-    }
     function addStatus(stat, type = "LOG") {
         var new_status = document.createElement("div");
         var d = new Date();
@@ -4447,47 +4415,24 @@
         statuselem.appendChild(new_status);
         clr.style.display = "inline-block";
     }
+
     function resetStatus() {
         statuselem.innerHTML = "";
         clr.style.display = "none";
     }
-    /*function updateLoc() {
-      var i = "Locations: ";
-      for (var j = 0; j < locations.length; j++) {
-        i += zero_pad_int(locations[j].toString(), 6);
-        if (!(j === locations.length - 1)) { i += ","; }
-      }
-      locs.innerHTML = i;
-    }*/
-    function count(bits) {
-        let result = [];
-        let currentBit = bits[0];
-        let count = 1;
 
-        for (let i = 1; i < bits.length; i++) {
-            if (bits[i] === currentBit) {
-                count++;
-            } else {
-                result.push([currentBit, count]);
-                currentBit = bits[i];
-                count = 1;
-            }
-        }
-
-        result.push([currentBit, count]);
-
-        return result;
-    }
     function saveLocs() { localStorage["locs"] = JSON.stringify(locations); }
+
     function addLoc() {
         var t = regionselect.value.toString() + stateselect.value.toString() + countyselect.value.toString(); if (locations.indexOf(t) < 0) {
             locations.push(t); saveLocs(); updateTable();
         } else { addStatus("You can't add the same location code twice!"); }
     }
+
     function updateText(ttsTextValue) {
         window.ttsText = ttsTextValue;
     }
-    function pop() { locations.pop(); updateLoc(); }
+
     function updateTable() {
         var fcont = document.getElementById("container");
         var fipstable = document.getElementById("fips");
@@ -4511,39 +4456,84 @@
         }
     }
     updateTable();
-    //very poorly formatted code below, beware!
-    stateselect.innerHTML = ""; stateselect.addEventListener("change", function () {
+
+    stateselect.innerHTML = "";
+
+    stateselect.addEventListener("change", function() {
         updateCounties(stateselect.value);
-    }); Object.keys(state).sort().forEach(e => { var option = document.createElement("option"); option.innerHTML = state[e]; option.setAttribute("value", e); stateselect.appendChild(option); }); function updateCounties(state) { countyselect.innerHTML = ""; if (state !== "00") { let entState = document.createElement("option"); entState.value = "000"; entState.innerText = "Entire State"; countyselect.appendChild(entState); } Object.keys(county[state]).sort().forEach(e => { var option = document.createElement("option"); option.innerHTML = county[state][e]; option.setAttribute("value", e); countyselect.appendChild(option); }); } updateCounties("00");
-    regionselect.innerHTML = ""; Object.keys(rgn).sort().forEach(e => { var option = document.createElement("option"); option.innerHTML = rgn[e]; option.setAttribute("value", e); regionselect.appendChild(option); });
+    });
+
+    Object.keys(state).sort().forEach(e => {
+        var option = document.createElement("option");
+        option.innerHTML = state[e];
+        option.setAttribute("value", e);
+        stateselect.appendChild(option);
+    });
+
+    function updateCounties(state) {
+        countyselect.innerHTML = "";
+        if (state !== "00") {
+            let entState = document.createElement("option");
+            entState.value = "000";
+            entState.innerText = "Entire State";
+            countyselect.appendChild(entState);
+        }
+        Object.keys(county[state]).sort().forEach(e => {
+            var option = document.createElement("option");
+            option.innerHTML = county[state][e];
+            option.setAttribute("value", e);
+            countyselect.appendChild(option);
+        });
+    }
+
+    updateCounties("00");
+
+    regionselect.innerHTML = "";
+
+    Object.keys(rgn).sort().forEach(e => {
+        var option = document.createElement("option");
+        option.innerHTML = rgn[e];
+        option.setAttribute("value", e);
+        regionselect.appendChild(option);
+    });
+
     function parseSameHeaderParam(rawHeader) {
         if (!rawHeader) {
             return null;
         }
+
         const sanitized = rawHeader.replace(/[ -]/g, '').toUpperCase();
+
         const match = sanitized.match(/ZCZC-[^\s]*/);
+
         if (!match) {
             return null;
         }
+
         const line = match[0];
         const segments = line.split('-').filter(Boolean);
+
         if (segments.length < 5) {
             return null;
         }
+
         const origin = segments[1];
         const eventCode = segments[2];
         const locationsList = [];
         let durationText = null;
         let index = 3;
+
         for (; index < segments.length; index++) {
             const segment = segments[index];
             if (!segment) {
                 continue;
             }
+
             if (segment.startsWith('+')) {
                 durationText = segment.slice(1);
                 break;
             }
+
             if (segment.includes('+')) {
                 const parts = segment.split('+');
                 if (parts[0]) {
@@ -4552,13 +4542,17 @@
                 durationText = parts[1] || '';
                 break;
             }
+
             locationsList.push(segment);
         }
+
         if (durationText == null) {
             return null;
         }
+
         const issue = segments[index + 1] || '';
         const station = segments[index + 2] || '';
+
         return {
             origin,
             event: eventCode,
@@ -4573,19 +4567,23 @@
         if (!parsed) {
             return;
         }
+
         const { origin, event: eventCode, locations: locationList, duration, issue, station } = parsed;
+
         if (originators && origin) {
             const originOption = Array.from(originators.options || []).find(opt => opt.value === origin);
             if (originOption) {
                 originators.value = origin;
             }
         }
+
         if (events && eventCode) {
             const eventOption = Array.from(events.options || []).find(opt => opt.value === eventCode);
             if (eventOption) {
                 events.value = eventCode;
             }
         }
+
         if (Array.isArray(locationList) && locationList.length) {
             const validLocations = locationList.filter(code => /^\d{6}$/.test(code));
             if (validLocations.length) {
@@ -4595,6 +4593,7 @@
                 updateTable();
             }
         }
+
         if (typeof duration === 'string' && /^\d{4}$/.test(duration) && hrselect && minselect) {
             const minutes = parseInt(duration, 10);
             if (!Number.isNaN(minutes)) {
@@ -4617,6 +4616,7 @@
                 }
             }
         }
+
         if (issue && /^\d{7}$/.test(issue) && timeselect) {
             const dayOfYear = parseInt(issue.slice(0, 3), 10);
             const hour = parseInt(issue.slice(3, 5), 10);
@@ -4630,6 +4630,7 @@
                 lastValidTimeselectValue = timeselect.value;
             }
         }
+
         if (station && station.trim().length && parinput) {
             const cleanedStation = station.trim().toUpperCase();
             if (cleanedStation.length === 8) {
@@ -4642,19 +4643,25 @@
     const headerParam = params.get("header");
     if (headerParam) {
         const trimmedHeader = headerParam.trim();
-        const customToggle = document.querySelector("#useCustomHeader");
-        if (customToggle) {
-            customToggle.checked = true;
+        const encoderModeSelect = document.getElementById("encoderMode");
+
+        if (encoderModeSelect) {
+            encoderModeSelect.value = "header";
         }
-        updateCustom(true);
+
+        window.useCustom = true;
         const headerField = document.querySelector("#cheader");
+
         if (headerField) {
             headerField.value = trimmedHeader;
         }
+
         const parsedHeader = parseSameHeaderParam(trimmedHeader);
         if (parsedHeader) {
             applyHeaderDetails(parsedHeader);
-        } else {
+        }
+
+        else {
             addStatus("Unable to parse SAME header from query string.", "WARN");
         }
     }
@@ -4665,35 +4672,75 @@
     if (nowButton) {
         nowButton.addEventListener('click', () => stime());
     }
+
     const addLocButton = document.querySelector('[data-encoder-add-loc]');
     if (addLocButton) {
         addLocButton.addEventListener('click', () => addLoc());
     }
+
     const generateButton = document.querySelector('[data-encoder-generate]');
     if (generateButton) {
         generateButton.addEventListener('click', () => generateEas());
     }
+
     const clearButton = document.querySelector('[data-encoder-clear]');
     if (clearButton) {
         clearButton.addEventListener('click', () => resetStatus());
     }
-    const customHeader = document.getElementById('useCustomHeader');
-    if (customHeader) {
-        customHeader.addEventListener('change', (event) => updateCustom(event.target.checked));
-    }
-    const tts = document.getElementById('useTTS');
-    if (tts) {
-        tts.addEventListener('change', (event) => updateTts(event.target.checked));
-    }
+
     const voiceSelect = document.getElementById('ttsVoice');
     if (voiceSelect) {
         voiceSelect.addEventListener('change', (event) => updateVoiceOptions(event.target));
     }
+
     const ttsTextInput = document.getElementById('ttsText');
     if (ttsTextInput) {
         ttsTextInput.addEventListener('change', (event) => updateText(event.target.value));
     }
-    customHeader.dispatchEvent(new Event('change'));
-    tts.dispatchEvent(new Event('change'));
+
+    const encoderModeSelect = document.getElementById("encoderMode");
+    const announcementTypeSelect = document.getElementById("announcementType");
+    const customHeader = document.getElementById("customEncoder");
+    const stringEncoder = document.getElementById("stringEncoder");
+    const ttsOuterDiv = document.getElementById("tts");
+    const customAnnouncementDiv = document.getElementById("customAudioDiv");
+
+    encoderModeSelect.addEventListener("change", function () {
+        window.mode = encoderModeSelect.value;
+
+        if (window.mode === "builder") {
+            customHeader.style.display = "block";
+            stringEncoder.style.display = "none";
+            window.useCustom = false;
+        }
+
+        else {
+            customHeader.style.display = "none";
+            stringEncoder.style.display = "block";
+            window.useCustom = true;
+        }
+    });
+
+    announcementTypeSelect.addEventListener("change", function () {
+        window.announcementType = announcementTypeSelect.value;
+
+        if (window.announcementType === "tts") {
+            ttsOuterDiv.style.display = "block";
+            customAnnouncementDiv.style.display = "none";
+        }
+
+        else if (window.announcementType === "custom") {
+            ttsOuterDiv.style.display = "none";
+            customAnnouncementDiv.style.display = "block";
+        }
+
+        else {
+            ttsOuterDiv.style.display = "none";
+            customAnnouncementDiv.style.display = "none";
+        }
+    });
+
+    encoderModeSelect.dispatchEvent(new Event('change'));
+    announcementTypeSelect.dispatchEvent(new Event('change'));
     getVoiceList();
 })();
