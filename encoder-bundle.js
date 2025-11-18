@@ -3824,37 +3824,46 @@
 
     async function getVoiceList() {
         const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true";
-        const response = await fetch(url);
-        const data = await response.json();
         const voiceListElement = document.getElementById("ttsVoice");
 
-        for (const [voiceId, voiceName] of Object.entries(data.voices)) {
-            if (voiceName.toLowerCase().includes("emnet")) {
-                const option = document.createElement("option");
-                option.value = voiceId;
-                option.textContent = "[EMNet] EMNet (uses generated headers as input)";
-                voiceListElement.appendChild(option);
-            }
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
 
-            else {
-                const backendMatch = voiceName.match(/\[(.*?)\]/);
-                let backend = backendMatch ? backendMatch[1] : "Unknown";
-
-                if(voiceName.toLowerCase().includes("bal/spfy")) {
-                    backend = "BAL";
+            for (const [voiceId, voiceName] of Object.entries(data.voices)) {
+                if (voiceName.toLowerCase().includes("emnet")) {
+                    const option = document.createElement("option");
+                    option.value = voiceId;
+                    option.textContent = "[EMNet] EMNet (uses generated headers as input)";
+                    voiceListElement.appendChild(option);
                 }
 
-                if (!voiceBackendMap[backend]) {
-                    voiceBackendMap[backend] = [];
-                }
+                else {
+                    const backendMatch = voiceName.match(/\[(.*?)\]/);
+                    let backend = backendMatch ? backendMatch[1] : "Unknown";
 
-                voiceBackendMap[backend].push(voiceId);
-                const option = document.createElement("option");
-                option.value = voiceId;
-                option.textContent = voiceName;
-                voiceListElement.appendChild(option);
+                    if(voiceName.toLowerCase().includes("bal/spfy")) {
+                        backend = "BAL";
+                    }
+
+                    if (!voiceBackendMap[backend]) {
+                        voiceBackendMap[backend] = [];
+                    }
+
+                    voiceBackendMap[backend].push(voiceId);
+                    const option = document.createElement("option");
+                    option.value = voiceId;
+                    option.textContent = voiceName;
+                    voiceListElement.appendChild(option);
+                }
             }
         }
+
+        catch (error) {
+            console.error("Error fetching voice list:", error);
+            addStatus("Error fetching voice list: " + error.message + ". There will not be any voices available from the TTS service, only the in-browser WebAssembly voice.", "ERROR");
+        }
+
         voiceListElement.dispatchEvent(new Event('change'));
     }
 

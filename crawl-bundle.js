@@ -252,7 +252,10 @@ function exportAsGIF(canvas, filename) {
     const useVdsMode = Boolean(generator.vdsMode);
     const fontStyle = generator.fontStyle || 'normal';
     const fontFamily = generator.fontFamily || 'Arial';
-    const font = `${fontStyle} ${fontSize}px ${fontFamily}`;
+    const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
+        ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
+        : fontFamily;
+    const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
     const lineHeight = fontSize + 10;
 
     captureCtx.font = font;
