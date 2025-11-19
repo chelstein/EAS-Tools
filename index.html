@@ -284,7 +284,7 @@
                     <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Logs</button>
                     <br>
                     <br>
-                    <audio id="audioPlayback" controls style="width: 28vw; display: none;"></audio>
+                    <audio id="audioPlayback" controls></audio>
                 </div>
                 <hr>
                 <p id="status"></p>
@@ -390,20 +390,52 @@
                         <option value="italic bold">Bold Italic</option>
                     </select>
                     <hr class="shorter-hr">
-                    <label for="crawlWidth">Crawl Width (pixels, 200-3840):</label>
-                    <input type="number" id="crawlWidth" min="200" max="3840" value="800">
+                    <div id="crawlGetAndSetDiv" style="display: none;">
+                        <label for="crawlGetAndSetWH">Get/Set Width/Height from image below: </label>
+                        <button type="button" id="crawlGetAndSetWH">Get/Set</button>
+                        <br>
+                    </div>
+                    <label for="crawlWidth">Crawl Width (pixels, 0-3840):</label>
+                    <input type="number" id="crawlWidth" min="0" max="3840" value="800">
                     <br>
-                    <label for="crawlHeight">Crawl Height (pixels, 100-2160):</label>
-                    <input type="number" id="crawlHeight" min="100" max="2160" value="200">
+                    <label for="crawlHeight">Crawl Height (pixels, 0-2160):</label>
+                    <input type="number" id="crawlHeight" min="0" max="2160" value="200">
                     <br>
                     <label for="crawlInset">Crawl Inset (pixels, 0-500):</label>
                     <input type="number" id="crawlInset" min="0" max="500" value="0">
                     <br>
+                    <label for="crawlTopLeftPixel">Crawl Top-Left Location (X [left/right], Y [up/down]):</label>
+                    <input type="number" id="crawlTopLeftPixelX" min="0" max="3840" value="0">
+                    <input type="number" id="crawlTopLeftPixelY" min="0" max="2160" value="0">
+                    <br>
                     <label for="crawlRestartDelay">Crawl Restart Delay (milliseconds, 500-60000 in steps of 500):</label>
                     <input type="number" id="crawlRestartDelay" min="500" max="60000" value="1000" step="500">
                     <hr class="shorter-hr">
-                    <label for="crawlBgColor">Background Color:</label>
-                    <input type="color" id="crawlBgColor" value="#000000">
+                    <label for="crawlBackgroundMode">Background Mode:</label>
+                    <select id="crawlBackgroundMode">
+                        <option value="solid" selected>Solid Color Background</option>
+                        <option value="transparent">Transparent Background</option>
+                        <option value="image">Custom Image Background</option>
+                        <option value="premade">Premade/Common Background Images</option>
+                    </select>
+                    <div id="crawlBackgroundColorDiv">
+                        <br>
+                        <label for="crawlBgColor">Background Color:</label>
+                        <input type="color" id="crawlBgColor" value="#000000">
+                    </div>
+                    <div id="crawlBackgroundImageDiv" style="display: none;">
+                        <br>
+                        <label for="crawlBackgroundImageFile">Upload Background Image File:</label>
+                        <input type="file" id="crawlBackgroundImageFile" accept="image/*">
+                    </div>
+                    <div id="crawlBackgroundPremadeDiv" style="display: none;">
+                        <br>
+                        <label for="crawlBackgroundPremadeSelect">Select Premade/Common Background Image:</label>
+                        <select id="crawlBackgroundPremadeSelect">
+                            <option value="image:assets/screens/xfinity.png">Comcast/Xfinity "EMERGENCY ALERT"</option>
+                            <option value="image:assets/screens/directv.jpg">DirecTV</option>
+                        </select>
+                    </div>
                     <br>
                     <label for="crawlTextColor">Text Color: &ensp;&ensp;&ensp;&ensp;&ensp;</label>
                     <input type="color" id="crawlTextColor" value="#FFFFFF">
@@ -422,7 +454,7 @@
                     </select>
                 </div>
                 <hr>
-                <div class="control-panel">
+                <div class="control-panel" style="position: sticky; top: 0; padding-top: 10px; padding-bottom: 10px; z-index: 10;">
                     <button type="button" id="startCrawl">Start Crawl</button>
                     <button type="button" id="pauseCrawl">Pause Crawl</button>
                     <button type="button" id="stopCrawl">Stop/Reset Crawl</button>
@@ -430,6 +462,13 @@
                     <button type="button" id="exportCrawlVideo">Export as video (.webm)</button>
                     <button type="button" id="copyCrawlText">Copy Crawl Text to Clipboard</button>
                     <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
+                    <div id="crawlExportProgressDiv" class="crawl-export-progress" style="display: none; background-color: rgba(0, 0, 0, 0.75);">
+                        <label for="crawlExportProgress">Export Progress: <span id="crawlExportProgressLabel">0%</span></label>
+                        <div class="crawl-export-progress__row">
+                            <progress id="crawlExportProgress" value="0" max="1"></progress>
+                            <button type="button" id="cancelCrawlExport">Cancel Export</button>
+                        </div>
+                    </div>
                 </div>
                 <hr>
                 <p id="status-crawl"></p>

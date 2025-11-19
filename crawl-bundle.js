@@ -2,6 +2,18 @@
 This bundle of JS code is used to generate text crawl animations, similar to those seen in real EAS alerts. It provides functionality to create, customize, and render scrolling text effects on a web page. Users can customize the text content, speed, font size, colors, and other visual aspects of the crawl animation. The generated crawl can be previewed in real-time and exported as a GIF for use in various applications. This tool is particularly useful for creating authentic-looking EAS alert simulations for training, testing, or entertainment purposes.
 */
 
+const TARGET_FRAME_MS = 1000 / 60;
+const TARGET_FRAMES_PER_SECOND = 1000 / TARGET_FRAME_MS;
+const PREMADE_BACKGROUND_LAYOUTS = Object.freeze({
+    'assets/screens/xfinity.png': { topLeft: { x: 0, y: 475 } },
+    'assets/screens/directv.jpg': { topLeft: { x: 0, y: 1200 } }
+});
+const ALLOWED_CRAWL_BACKGROUND_MODES = new Set(['solid', 'transparent', 'image', 'premade']);
+
+function normalizeCrawlBackgroundMode(value) {
+    return ALLOWED_CRAWL_BACKGROUND_MODES.has(value) ? value : 'solid';
+}
+
 const fontLoader = async () => {
     const fontDir = './assets/fonts/';
     const fontsToLoad = [
@@ -208,7 +220,6 @@ function createTextRenderer(ctx, outlineColor, outlineWidth) {
 // Source - https://stackoverflow.com/a/64656254
 // Posted by Fennec, modified by community. See post 'Timeline' for change history
 // Retrieved 2025-11-11, License - CC BY-SA 4.0
-
 function getSupportedMimeTypes(media, types, codecs) {
     const isSupported = MediaRecorder.isTypeSupported;
     const supported = [];
@@ -230,6 +241,194 @@ function getSupportedMimeTypes(media, types, codecs) {
     return supported;
 };
 
+function drawGeneratorBackground(ctx, generator, width, height) {
+    if (!ctx || !generator) {
+        return;
+    }
+    const safeWidth = Number.isFinite(width) && width > 0 ? width : 0;
+    const safeHeight = Number.isFinite(height) && height > 0 ? height : 0;
+    if (!safeWidth || !safeHeight) {
+        ctx.clearRect(0, 0, safeWidth, safeHeight);
+        return;
+    }
+    const video = generator.bgVideo;
+    const image = generator.bgImage;
+    if (video) {
+        const haveCurrentData = typeof HTMLMediaElement !== 'undefined'
+            ? HTMLMediaElement.HAVE_CURRENT_DATA
+            : 2;
+        if (video.readyState >= haveCurrentData) {
+            ctx.drawImage(video, 0, 0, safeWidth, safeHeight);
+            return;
+        }
+    }
+    if (image) {
+        ctx.drawImage(image, 0, 0, safeWidth, safeHeight);
+        return;
+    }
+    if (generator._transparentBg) {
+        ctx.clearRect(0, 0, safeWidth, safeHeight);
+        return;
+    }
+    const fill = generator.bgColor || '#000000';
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, 0, safeWidth, safeHeight);
+}
+
+function getGeneratorSpeedPerSecond(generator) {
+    if (!generator) {
+        return 0;
+    }
+    const cached = generator._speedPerSecond;
+    if (Number.isFinite(cached)) {
+        return cached;
+    }
+    const raw = Number(generator.speed);
+    return Number.isFinite(raw) ? raw * TARGET_FRAMES_PER_SECOND : 0;
+}
+
+function setProgressBarValue(progressBar, ratio) {
+    if (!progressBar) {
+        return;
+    }
+    const normalized = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+    progressBar.value = normalized;
+}
+
+const PROGRESS_MINIMUM_STEP = 0.0005;
+const PROGRESS_RATIO_EPSILON = 1e-6;
+
+function resolveProgressStepRatio(increment) {
+    const numeric = Number(increment);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return 0.01;
+    }
+    const normalized = numeric <= 1 ? numeric : numeric / 100;
+    return Math.min(1, Math.max(PROGRESS_MINIMUM_STEP, normalized));
+}
+
+function resolveProgressFractionDigits(stepRatio) {
+    const percentStep = stepRatio * 100;
+    if (percentStep >= 1) {
+        return 0;
+    }
+    const digits = Math.ceil(Math.abs(Math.log10(percentStep)));
+    return Math.max(1, Math.min(3, digits));
+}
+
+function formatProgressPercent(ratio, fractionDigits) {
+    if (ratio <= 0) {
+        return '0%';
+    }
+    if (ratio >= 1 - PROGRESS_RATIO_EPSILON) {
+        return '100%';
+    }
+    const percent = ratio * 100;
+    if (!Number.isFinite(fractionDigits) || fractionDigits <= 0) {
+        return `${Math.round(percent)}%`;
+    }
+    return `${percent.toFixed(fractionDigits)}%`;
+}
+
+function createExportProgressReporter(label, increment = 0.001) {
+    const step = resolveProgressStepRatio(increment);
+    const fractionDigits = resolveProgressFractionDigits(step);
+    const progressBar = document.getElementById('crawlExportProgress');
+    const progressDiv = document.getElementById('crawlExportProgressDiv');
+    const progressLabel = document.getElementById('crawlExportProgressLabel');
+
+    if (progressBar && progressDiv && progressLabel) {
+        setProgressBarValue(progressBar, 0);
+        progressDiv.style.display = 'block';
+        progressLabel.textContent = '0%';
+
+        let nextThreshold = step;
+        return (value) => {
+            const raw = Number(value);
+            if (!Number.isFinite(raw)) {
+                return;
+            }
+            const ratio = raw <= 1 ? raw : raw / 100;
+            const clampedRatio = Math.max(0, Math.min(1, ratio));
+            setProgressBarValue(progressBar, clampedRatio);
+            if (clampedRatio + PROGRESS_RATIO_EPSILON >= nextThreshold || clampedRatio >= 1 - PROGRESS_RATIO_EPSILON) {
+                progressLabel.textContent = formatProgressPercent(clampedRatio, fractionDigits);
+                nextThreshold = Math.min(1, clampedRatio + step);
+            }
+        };
+    }
+}
+
+const crawlExportController = (() => {
+    const progressDiv = document.getElementById('crawlExportProgressDiv');
+    const progressBar = document.getElementById('crawlExportProgress');
+    const progressLabel = document.getElementById('crawlExportProgressLabel');
+    const cancelButton = document.getElementById('cancelCrawlExport');
+    let activeToken = null;
+
+    const hideProgress = () => {
+        if (progressDiv) {
+            progressDiv.style.display = 'none';
+        }
+        setProgressBarValue(progressBar, 0);
+        if (progressLabel) {
+            progressLabel.textContent = '0%';
+        }
+    };
+
+    if (cancelButton) {
+        cancelButton.disabled = true;
+        cancelButton.addEventListener('click', () => {
+            if (activeToken && typeof activeToken.cancel === 'function') {
+                activeToken.cancel();
+            }
+        });
+    }
+    hideProgress();
+
+    return {
+        createToken(onCancel) {
+            const token = {
+                cancelled: false,
+                cancel() {
+                    if (this.cancelled) {
+                        return;
+                    }
+                    this.cancelled = true;
+                    if (cancelButton && activeToken === token) {
+                        cancelButton.disabled = true;
+                    }
+                    if (typeof onCancel === 'function') {
+                        try {
+                            onCancel();
+                        } catch (error) {
+                            console.error('Error cancelling crawl export:', error);
+                        }
+                    }
+                }
+            };
+            activeToken = token;
+            if (cancelButton) {
+                cancelButton.disabled = typeof onCancel !== 'function';
+            }
+            return token;
+        },
+        clear(token) {
+            if (token && token !== activeToken) {
+                return;
+            }
+            activeToken = null;
+            if (cancelButton) {
+                cancelButton.disabled = true;
+            }
+            hideProgress();
+        },
+        isCancelled(token) {
+            return Boolean(token && token.cancelled);
+        }
+    };
+})();
+
 function exportAsGIF(canvas, filename) {
     if (!window.crawlGenerator) {
         alert('Please start the crawl before exporting.');
@@ -237,6 +436,7 @@ function exportAsGIF(canvas, filename) {
     }
 
     addStatus('Exporting crawl as GIF... Please wait.');
+    const startTime = performance.now();
 
     const generator = window.crawlGenerator;
     const captureCanvas = document.createElement('canvas');
@@ -247,7 +447,6 @@ function exportAsGIF(canvas, filename) {
     const text = generator.text || '';
     const fontSize = Number(generator.fontSize) || 24;
     const textColor = generator.textColor || '#FFFFFF';
-    const bgColor = generator.bgColor || '#000000';
     const lines = text.split('\n');
     const useVdsMode = Boolean(generator.vdsMode);
     const fontStyle = generator.fontStyle || 'normal';
@@ -269,6 +468,11 @@ function exportAsGIF(canvas, filename) {
         const width = captureCtx.measureText(line).width;
         return width > maxWidth ? width : maxWidth;
     }, 0);
+    const translation = (typeof generator._computeTopLeftTranslation === 'function')
+        ? generator._computeTopLeftTranslation(maxLineWidth, lines.length)
+        : { x: 0, y: 0 };
+    const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+    const translationY = Number.isFinite(translation.y) ? translation.y : 0;
 
     const bounds = typeof generator._computeCrawlBounds === 'function'
         ? generator._computeCrawlBounds(maxLineWidth)
@@ -279,28 +483,42 @@ function exportAsGIF(canvas, filename) {
     const endOffsetFallback = -halfLineWidth;
     const startOffset = bounds && Number.isFinite(bounds.start) ? bounds.start : startOffsetFallback;
     const endOffset = bounds && Number.isFinite(bounds.end) ? bounds.end : endOffsetFallback;
-    const travelDistance = startOffset - endOffset || canvas.width;
+    const adjustedStartOffset = startOffset - translationX;
+    const adjustedEndOffset = endOffset - translationX;
+    const travelDistance = adjustedStartOffset - adjustedEndOffset || canvas.width;
 
-    const baseSpeed = Math.max(0.5, Math.abs(Number(generator.speed) || 0));
     const recordedMsPerFrame = Number(generator.msPerFrame);
-    const fallbackMsPerFrame = 1000 / 60;
+    const fallbackMsPerFrame = TARGET_FRAME_MS;
     const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
         ? recordedMsPerFrame
         : fallbackMsPerFrame;
     const MIN_GIF_DELAY = 20; // browsers commonly clamp GIF frames below ~20ms
     const frameDelay = Math.max(MIN_GIF_DELAY, Math.round(targetMsPerFrame));
-    const pxPerFrame = baseSpeed * (frameDelay / targetMsPerFrame);
+    const speedPerSecond = getGeneratorSpeedPerSecond(generator);
+    const pxPerSecond = Math.max(0.5, Math.abs(speedPerSecond));
+    const pxPerFrameMagnitude = pxPerSecond * (frameDelay / 1000);
+    const pxPerFrameSigned = speedPerSecond >= 0 ? pxPerFrameMagnitude : -pxPerFrameMagnitude;
     const defaultVdsDelay = (Number.isFinite(generator.vdsBaseDelayFrames) && generator.vdsBaseDelayFrames > 0)
         ? generator.vdsBaseDelayFrames
         : DEFAULT_VDS_BASE_DELAY;
     const vdsDelay = useVdsMode && typeof generator.getEffectiveVdsDelay === 'function'
-        ? generator.getEffectiveVdsDelay(pxPerFrame)
+        ? generator.getEffectiveVdsDelay(pxPerFrameMagnitude)
         : defaultVdsDelay;
-    const framesNeeded = Math.max(1, Math.ceil(travelDistance / pxPerFrame));
+    const framesNeeded = Math.max(1, Math.ceil(travelDistance / Math.max(pxPerFrameMagnitude, 0.01)));
 
     const gif = new GIF({
-        workers: 2,
-        quality: 10
+        workers: 5,
+        quality: 4
+    });
+    let userCancelledGifExport = false;
+    const gifCancelToken = crawlExportController.createToken(() => {
+        userCancelledGifExport = true;
+        if (gif && typeof gif.abort === 'function') {
+            gif.abort();
+        } else {
+            crawlExportController.clear(gifCancelToken);
+            addStatus('GIF export canceled.', 'WARN');
+        }
     });
 
     const clipWidth = captureCanvas.width - inset * 2;
@@ -309,16 +527,19 @@ function exportAsGIF(canvas, filename) {
     const restartDelayFrames = (Number.isFinite(restartDelayMs) && restartDelayMs > 0)
         ? Math.max(1, Math.round(restartDelayMs / frameDelay))
         : 0;
-    const totalFrames = framesNeeded + restartDelayFrames;
+    let totalFrames = framesNeeded + restartDelayFrames;
     let delayFramesRemaining = 0;
+    const reportProgress = createExportProgressReporter('GIF export');
+    const captureProgressPortion = 0.25;
+
+    let showTime = localStorage["showTime"];
 
     const clearFrame = () => {
         captureCtx.save();
         captureCtx.setTransform(1, 0, 0, 1, 0, 0);
         captureCtx.globalAlpha = 1;
         captureCtx.globalCompositeOperation = 'copy';
-        captureCtx.fillStyle = bgColor;
-        captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
+        drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
         captureCtx.restore();
         captureCtx.globalCompositeOperation = 'source-over';
     };
@@ -327,6 +548,9 @@ function exportAsGIF(canvas, filename) {
         clearFrame();
         captureCtx.fillStyle = textColor;
         captureCtx.font = font;
+
+        const translatedOffsetX = offsetX + translationX;
+        const centerY = captureCanvas.height / 2 + translationY;
 
         if (shouldClip) {
             captureCtx.save();
@@ -338,7 +562,7 @@ function exportAsGIF(canvas, filename) {
         if (useVdsMode) {
             updateVdsExportState(
                 vdsState,
-                offsetX,
+                translatedOffsetX,
                 Math.max(0, captureCanvas.width - inset * 2),
                 vdsDelay,
                 inset
@@ -346,16 +570,16 @@ function exportAsGIF(canvas, filename) {
             drawVdsExportFrame(
                 captureCtx,
                 vdsState,
-                offsetX,
-                captureCanvas.height / 2,
+                translatedOffsetX,
+                centerY,
                 fontSize,
                 renderText
             );
         } else {
             lines.forEach((line, index) => {
                 const verticalOffset = index - (lines.length - 1) / 2;
-                const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
-                renderText(line, offsetX, y);
+                const y = centerY + verticalOffset * lineHeight;
+                renderText(line, translatedOffsetX, y);
             });
         }
 
@@ -365,33 +589,55 @@ function exportAsGIF(canvas, filename) {
     };
 
     resetVdsExportState(vdsState);
-    let offsetX = startOffset;
+    let offsetX = adjustedStartOffset;
     for (let i = 0; i < totalFrames; i++) {
         drawFrame(offsetX);
         gif.addFrame(captureCanvas, { delay: frameDelay, copy: true });
+        reportProgress(((i + 1) / totalFrames) * captureProgressPortion);
 
         if (delayFramesRemaining > 0) {
             delayFramesRemaining--;
             if (delayFramesRemaining === 0) {
-                offsetX = startOffset;
+                offsetX = adjustedStartOffset;
                 resetVdsExportState(vdsState);
             }
             continue;
         }
 
-        offsetX -= pxPerFrame;
-        if (offsetX < endOffset) {
+        offsetX -= pxPerFrameSigned;
+        if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) || (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
             if (restartDelayFrames > 0) {
-                offsetX = endOffset;
+                offsetX = adjustedEndOffset;
                 delayFramesRemaining = restartDelayFrames;
             } else {
-                offsetX = startOffset;
+                offsetX = adjustedStartOffset;
                 resetVdsExportState(vdsState);
             }
         }
     }
 
+    gif.on('progress', function(progress) {
+        const clampedProgress = Math.max(0, Math.min(0.999, progress));
+        const remainingPortion = 1 - captureProgressPortion;
+        reportProgress(captureProgressPortion + clampedProgress * remainingPortion);
+    });
+
+    gif.on('abort', function() {
+        const wasUserCancelled = userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken);
+        crawlExportController.clear(gifCancelToken);
+        addStatus(
+            wasUserCancelled ? 'GIF export canceled.' : 'GIF export aborted unexpectedly.',
+            wasUserCancelled ? 'WARN' : 'ERROR'
+        );
+    });
+
     gif.on('finished', function(blob) {
+        const wasCancelled = crawlExportController.isCancelled(gifCancelToken);
+        if (wasCancelled) {
+            crawlExportController.clear(gifCancelToken);
+            return;
+        }
+        reportProgress(1);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -400,19 +646,22 @@ function exportAsGIF(canvas, filename) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        addStatus('Crawl exported successfully!');
+
+        crawlExportController.clear(gifCancelToken);
+        addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
     });
 
     gif.render();
 };
 
-function exportAsWebM(canvas, filename) {
+async function exportAsWebM(canvas, filename) {
     if (!window.crawlGenerator) {
         alert('Please start the crawl before exporting.');
         return;
     }
 
     addStatus('Exporting crawl as WebM... Please wait.');
+    const startTime = performance.now();
 
     const generator = window.crawlGenerator;
     const captureCanvas = document.createElement('canvas');
@@ -423,7 +672,6 @@ function exportAsWebM(canvas, filename) {
     const text = generator.text || '';
     const fontSize = Number(generator.fontSize) || 24;
     const textColor = generator.textColor || '#FFFFFF';
-    const bgColor = generator.bgColor || '#000000';
     const lines = text.split('\n');
     const useVdsMode = Boolean(generator.vdsMode);
     const fontStyle = generator.fontStyle || 'normal';
@@ -445,6 +693,11 @@ function exportAsWebM(canvas, filename) {
         const width = captureCtx.measureText(line).width;
         return width > maxWidth ? width : maxWidth;
     }, 0);
+    const translation = (typeof generator._computeTopLeftTranslation === 'function')
+        ? generator._computeTopLeftTranslation(maxLineWidth, lines.length)
+        : { x: 0, y: 0 };
+    const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+    const translationY = Number.isFinite(translation.y) ? translation.y : 0;
 
     const bounds = typeof generator._computeCrawlBounds === 'function'
         ? generator._computeCrawlBounds(maxLineWidth)
@@ -455,42 +708,49 @@ function exportAsWebM(canvas, filename) {
     const endOffsetFallback = -halfLineWidth;
     const startOffset = bounds && Number.isFinite(bounds.start) ? bounds.start : startOffsetFallback;
     const endOffset = bounds && Number.isFinite(bounds.end) ? bounds.end : endOffsetFallback;
-    const travelDistance = startOffset - endOffset || canvas.width;
+    const adjustedStartOffset = startOffset - translationX;
+    const adjustedEndOffset = endOffset - translationX;
+    const travelDistance = adjustedStartOffset - adjustedEndOffset || canvas.width;
 
-    const baseSpeed = Math.max(0.5, Math.abs(Number(generator.speed) || 0));
     const recordedMsPerFrame = Number(generator.msPerFrame);
-    const fallbackMsPerFrame = 1000 / 60;
+    const fallbackMsPerFrame = TARGET_FRAME_MS;
     const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
         ? recordedMsPerFrame
         : fallbackMsPerFrame;
     const MIN_CAPTURE_FPS = 60;
     const captureFrameDelay = 1000 / MIN_CAPTURE_FPS;
     const frameDelay = Math.max(1, Math.min(targetMsPerFrame, captureFrameDelay));
-    const pxPerFrame = baseSpeed * (frameDelay / targetMsPerFrame);
+    const speedPerSecond = getGeneratorSpeedPerSecond(generator);
+    const pxPerSecond = Math.max(0.5, Math.abs(speedPerSecond));
+    const pxPerFrameMagnitude = pxPerSecond * (frameDelay / 1000);
+    const pxPerFrameSigned = speedPerSecond >= 0 ? pxPerFrameMagnitude : -pxPerFrameMagnitude;
     const defaultVdsDelay = (Number.isFinite(generator.vdsBaseDelayFrames) && generator.vdsBaseDelayFrames > 0)
         ? generator.vdsBaseDelayFrames
         : DEFAULT_VDS_BASE_DELAY;
     const vdsDelay = useVdsMode && typeof generator.getEffectiveVdsDelay === 'function'
-        ? generator.getEffectiveVdsDelay(pxPerFrame)
+        ? generator.getEffectiveVdsDelay(pxPerFrameMagnitude)
         : defaultVdsDelay;
-    const framesNeeded = Math.max(1, Math.ceil(travelDistance / pxPerFrame));
+    const framesNeeded = Math.max(1, Math.ceil(travelDistance / Math.max(pxPerFrameMagnitude, 0.01)));
     const restartDelayMs = Number(generator.crawlRestartDelay);
     const restartDelayFrames = (Number.isFinite(restartDelayMs) && restartDelayMs > 0)
         ? Math.max(1, Math.round(restartDelayMs / frameDelay))
         : 0;
-    const totalFrames = framesNeeded + restartDelayFrames;
+    let totalFrames = framesNeeded + restartDelayFrames;
 
     const clipWidth = captureCanvas.width - inset * 2;
     const shouldClip = inset > 0 && clipWidth > 0;
     let delayFramesRemaining = 0;
+    const reportProgress = createExportProgressReporter('WebM export');
+    const captureProgressPortion = 0.9;
+
+    let showTime = localStorage["showTime"];
 
     const clearFrame = () => {
         captureCtx.save();
         captureCtx.setTransform(1, 0, 0, 1, 0, 0);
         captureCtx.globalAlpha = 1;
         captureCtx.globalCompositeOperation = 'copy';
-        captureCtx.fillStyle = bgColor;
-        captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
+        drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
         captureCtx.restore();
         captureCtx.globalCompositeOperation = 'source-over';
     };
@@ -499,6 +759,9 @@ function exportAsWebM(canvas, filename) {
         clearFrame();
         captureCtx.fillStyle = textColor;
         captureCtx.font = font;
+
+        const translatedOffsetX = offsetX + translationX;
+        const centerY = captureCanvas.height / 2 + translationY;
 
         if (shouldClip) {
             captureCtx.save();
@@ -510,7 +773,7 @@ function exportAsWebM(canvas, filename) {
         if (useVdsMode) {
             updateVdsExportState(
                 vdsState,
-                offsetX,
+                translatedOffsetX,
                 Math.max(0, captureCanvas.width - inset * 2),
                 vdsDelay,
                 inset
@@ -518,16 +781,16 @@ function exportAsWebM(canvas, filename) {
             drawVdsExportFrame(
                 captureCtx,
                 vdsState,
-                offsetX,
-                captureCanvas.height / 2,
+                translatedOffsetX,
+                centerY,
                 fontSize,
                 renderText
             );
         } else {
             lines.forEach((line, index) => {
                 const verticalOffset = index - (lines.length - 1) / 2;
-                const y = captureCanvas.height / 2 + verticalOffset * lineHeight;
-                renderText(line, offsetX, y);
+                const y = centerY + verticalOffset * lineHeight;
+                renderText(line, translatedOffsetX, y);
             });
         }
 
@@ -552,15 +815,48 @@ function exportAsWebM(canvas, filename) {
         }
     };
 
+    let recorderStopResolver;
+    const recorderStopped = new Promise((resolve) => {
+        recorderStopResolver = resolve;
+    });
+    const resolveRecorderStopped = () => {
+        if (recorderStopResolver) {
+            recorderStopResolver();
+            recorderStopResolver = null;
+        }
+    };
+    const webmCancelToken = crawlExportController.createToken(() => {
+        if (recorder.state !== 'inactive') {
+            recorder.stop();
+        } else {
+            crawlExportController.clear(webmCancelToken);
+            addStatus('WebM export canceled.', 'WARN');
+            resolveRecorderStopped();
+        }
+    });
+
     recorder.onstop = () => {
+        const wasCancelled = crawlExportController.isCancelled(webmCancelToken);
         if (recordingFailed) {
             recordedChunks.length = 0;
+            crawlExportController.clear(webmCancelToken);
+            resolveRecorderStopped();
+            return;
+        }
+        if (wasCancelled) {
+            recordedChunks.length = 0;
+            crawlExportController.clear(webmCancelToken);
+            addStatus('WebM export canceled.', 'WARN');
+            resolveRecorderStopped();
             return;
         }
         if (!recordedChunks.length) {
+            crawlExportController.clear(webmCancelToken);
             addStatus('No frames recorded for WebM export.', 'WARN');
+            resolveRecorderStopped();
             return;
         }
+        reportProgress(1);
         const blob = new Blob(recordedChunks, { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -570,7 +866,9 @@ function exportAsWebM(canvas, filename) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        addStatus('Crawl exported successfully!');
+        crawlExportController.clear(webmCancelToken);
+        addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
+        resolveRecorderStopped();
     };
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
@@ -600,38 +898,50 @@ function exportAsWebM(canvas, filename) {
         : () => {};
     const waitForNextFrame = createFrameScheduler(frameDelay);
 
-    (async () => {
+    const renderCapture = async () => {
         try {
             recorder.start();
             resetVdsExportState(vdsState);
-            let offsetX = startOffset;
+            let offsetX = adjustedStartOffset;
             for (let i = 0; i < totalFrames; i++) {
+                if (crawlExportController.isCancelled(webmCancelToken)) {
+                    break;
+                }
                 drawFrame(offsetX);
                 requestFrame();
+                reportProgress(((i + 1) / totalFrames) * captureProgressPortion);
                 if (delayFramesRemaining > 0) {
                     delayFramesRemaining--;
                     if (delayFramesRemaining === 0) {
-                        offsetX = startOffset;
+                        offsetX = adjustedStartOffset;
                         resetVdsExportState(vdsState);
                     }
                 } else {
-                    offsetX -= pxPerFrame;
-                    if (offsetX < endOffset) {
+                    offsetX -= pxPerFrameSigned;
+                    if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) || (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
                         if (restartDelayFrames > 0) {
-                            offsetX = endOffset;
+                            offsetX = adjustedEndOffset;
                             delayFramesRemaining = restartDelayFrames;
                         } else {
-                            offsetX = startOffset;
+                            offsetX = adjustedStartOffset;
                             resetVdsExportState(vdsState);
                         }
                     }
                 }
+                if (crawlExportController.isCancelled(webmCancelToken)) {
+                    break;
+                }
                 if (i < totalFrames - 1) {
                     await waitForNextFrame();
+                    if (crawlExportController.isCancelled(webmCancelToken)) {
+                        break;
+                    }
                 }
             }
             if (recorder.state !== 'inactive') {
                 recorder.stop();
+            } else {
+                resolveRecorderStopped();
             }
         } catch (error) {
             console.error('WebM export failed:', error);
@@ -639,9 +949,14 @@ function exportAsWebM(canvas, filename) {
             addStatus('Failed to export crawl as WebM.', 'ERROR');
             if (recorder.state !== 'inactive') {
                 recorder.stop();
+            } else {
+                crawlExportController.clear(webmCancelToken);
+                resolveRecorderStopped();
             }
         }
-    })();
+    };
+
+    await Promise.all([renderCapture(), recorderStopped]);
 }
 
 class TextCrawlGenerator {
@@ -653,9 +968,11 @@ class TextCrawlGenerator {
         this.container.appendChild(this.canvas);
         this.text = "Hello from Wags!";
         this.speed = 2;
+        this._speedPerSecond = this._computeSpeedPerSecond(this.speed);
         this.fontSize = 24;
         this.textColor = "#FFFFFF";
         this.bgColor = "#000000";
+        this._transparentBg = false;
         this.isAnimating = false;
         this.offsetX = this.canvas.width;
         this.offsetY = this.canvas.height;
@@ -671,11 +988,16 @@ class TextCrawlGenerator {
         this.outlineColor = null;
         this.outlineWidth = 0;
         this.outlineJoin = 'round';
+        this.bgImage = null;
+        this.bgVideo = null;
         this.explicitWidth = null;
         this.explicitHeight = null;
         this.crawlInset = 0;
         this.crawlRestartDelay = 1000;
         this._restartDelayRemaining = 0;
+        this._topLeftOffsetX = 0;
+        this._topLeftOffsetY = 0;
+        this._topLeftActive = false;
 
         window.addEventListener('resize', () => this.resizeCanvas());
         this.resizeCanvas();
@@ -744,6 +1066,54 @@ class TextCrawlGenerator {
         };
     }
 
+    _computeTopLeftTranslation(blockWidth, lineCount) {
+        if (!this._topLeftActive) {
+            return { x: 0, y: 0 };
+        }
+        const parseValue = (value) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+        const safeWidth = Math.max(0, Number(blockWidth) || 0);
+        const safeLineCount = Math.max(1, Number(lineCount) || 1);
+        const lineHeight = this.fontSize + 10;
+        const blockHeight = safeLineCount * lineHeight;
+        const canvasWidth = Number.isFinite(this.canvas.width) ? this.canvas.width : 0;
+        const canvasHeight = Number.isFinite(this.canvas.height) ? this.canvas.height : 0;
+        const defaultLeft = canvasWidth / 2 - safeWidth / 2;
+        const defaultTop = canvasHeight / 2 - blockHeight / 2;
+        const targetX = parseValue(this._topLeftOffsetX);
+        const targetY = parseValue(this._topLeftOffsetY);
+        const deltaX = Number.isFinite(targetX) ? targetX - defaultLeft : -defaultLeft;
+        const deltaY = Number.isFinite(targetY) ? targetY - defaultTop : -defaultTop;
+        return {
+            x: Number.isFinite(deltaX) ? deltaX : 0,
+            y: Number.isFinite(deltaY) ? deltaY : 0
+        };
+    }
+
+    _runWithTopLeftTranslation(translation, drawFn) {
+        if (typeof drawFn !== 'function') {
+            return;
+        }
+        const shiftX = translation && Number.isFinite(translation.x) ? translation.x : 0;
+        const shiftY = translation && Number.isFinite(translation.y) ? translation.y : 0;
+        if (shiftX === 0 && shiftY === 0) {
+            drawFn();
+            return;
+        }
+        const originalX = this.offsetX;
+        const originalY = this.offsetY;
+        this.offsetX = originalX + shiftX;
+        this.offsetY = originalY + shiftY;
+        try {
+            drawFn();
+        } finally {
+            this.offsetX = originalX;
+            this.offsetY = originalY;
+        }
+    }
+
     _applyCrawlClip(ctx, insetOverride) {
         const inset = Number.isFinite(insetOverride) ? insetOverride : this._getEffectiveInset();
         const width = this.canvas.width;
@@ -778,6 +1148,22 @@ class TextCrawlGenerator {
         return delta > 0 ? delta : this.msPerFrame;
     }
 
+    _computeSpeedPerSecond(value) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed * TARGET_FRAMES_PER_SECOND : 0;
+    }
+
+    _getFrameSpeedStep(deltaMs) {
+        const perSecond = Number.isFinite(this._speedPerSecond)
+            ? this._speedPerSecond
+            : this._computeSpeedPerSecond(this.speed);
+        if (!perSecond) {
+            return 0;
+        }
+        const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : this.msPerFrame;
+        return perSecond * (safeDelta / 1000);
+    }
+
     _handleRestartDelay(deltaMs, endThreshold, startOffset, resetCallback) {
         const resolvedDelay = Number.isFinite(this.crawlRestartDelay) ? this.crawlRestartDelay : 0;
         const safeDelta = Number.isFinite(deltaMs) ? deltaMs : this.msPerFrame;
@@ -804,6 +1190,16 @@ class TextCrawlGenerator {
         }
 
         this._restartDelayRemaining = 0;
+    }
+
+    setTopLeftOffsetX(offsetX) {
+        this._topLeftOffsetX = offsetX;
+        this._topLeftActive = true;
+    }
+
+    setTopLeftOffsetY(offsetY) {
+        this._topLeftOffsetY = offsetY;
+        this._topLeftActive = true;
     }
 
     setCrawlInset(inset) {
@@ -842,6 +1238,7 @@ class TextCrawlGenerator {
         const parsed = Number(speed);
         if (Number.isFinite(parsed)) {
             this.speed = parsed;
+            this._speedPerSecond = this._computeSpeedPerSecond(parsed);
         }
     }
 
@@ -860,6 +1257,67 @@ class TextCrawlGenerator {
 
     setBgColor(color) {
         this.bgColor = color;
+        this._transparentBg = this._isTransparentColor(color);
+    }
+
+    _isTransparentColor(color) {
+        if (typeof color !== 'string') {
+            return false;
+        }
+        const normalized = color.trim().toLowerCase();
+        if (normalized === 'transparent') {
+            return true;
+        }
+        if (!normalized.startsWith('rgba(')) {
+            return false;
+        }
+        const channels = normalized.slice(5, -1).split(',');
+        if (channels.length < 4) {
+            return false;
+        }
+        const alpha = Number(channels[3]);
+        return Number.isFinite(alpha) && alpha <= 0;
+    }
+
+    _clearBackground() {
+        if (!this.ctx) {
+            return;
+        }
+
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const video = this.bgVideo;
+
+        if (video && Number.isFinite(width) && Number.isFinite(height)) {
+            const haveCurrentData = typeof HTMLMediaElement !== 'undefined'
+                ? HTMLMediaElement.HAVE_CURRENT_DATA
+                : 2;
+            if (video.readyState >= haveCurrentData) {
+                this.ctx.drawImage(video, 0, 0, width, height);
+                return;
+            }
+        }
+
+        if (this.bgImage && Number.isFinite(width) && Number.isFinite(height)) {
+            this.ctx.drawImage(this.bgImage, 0, 0, width, height);
+            return;
+        }
+
+        if (this._transparentBg) {
+            this.ctx.clearRect(0, 0, width, height);
+            return;
+        }
+        const fill = this.bgColor || '#000000';
+        this.ctx.fillStyle = fill;
+        this.ctx.fillRect(0, 0, width, height);
+    }
+
+    setBgImage(image) {
+        this.bgImage = image;
+    }
+
+    setBgVideo(video) {
+        this.bgVideo = video;
     }
 
     setOutlineColor(color) {
@@ -1059,17 +1517,19 @@ class TextCrawlGenerator {
         this.startFromRightInitialized = false;
         this._restartDelayRemaining = 0;
 
-        this.ctx.fillStyle = this.bgColor;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this._clearBackground();
         this.ctx.fillStyle = this.textColor;
         this.ctx.lineJoin = this.outlineJoin;
         const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
         const releaseClip = this._applyCrawlClip(this.ctx, bounds.inset);
 
-        lines.forEach((line, index) => {
-            const verticalOffset = index - (lines.length - 1) / 2;
-            const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-            renderText(line, this.offsetX, y);
+        const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
+        this._runWithTopLeftTranslation(translation, () => {
+            lines.forEach((line, index) => {
+                const verticalOffset = index - (lines.length - 1) / 2;
+                const y = this.offsetY + verticalOffset * (this.fontSize + 10);
+                renderText(line, this.offsetX, y);
+            });
         });
         releaseClip();
     }
@@ -1093,8 +1553,7 @@ class TextCrawlGenerator {
 
         const deltaMs = this._updateFrameTiming(timestamp);
 
-        this.ctx.fillStyle = this.bgColor;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this._clearBackground();
         this.ctx.fillStyle = this.textColor;
         this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
         this.ctx.textBaseline = 'middle';
@@ -1106,26 +1565,34 @@ class TextCrawlGenerator {
             const lines = (this.text || '').split('\n');
             const state = this._ensureVdsState(lines);
             const maxLineWidth = state.maxLineWidth || 0;
-            const { start: startOffset, end: endOffset, inset } = this._computeCrawlBounds(maxLineWidth);
+            const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
+            const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+            const bounds = this._computeCrawlBounds(maxLineWidth);
+            const { start: startOffset, end: endOffset, inset } = bounds;
+            const adjustedStartOffset = startOffset - translationX;
+            const adjustedEndOffset = endOffset - translationX;
             const releaseClip = this._applyCrawlClip(this.ctx, inset);
 
             if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
-                this.offsetX = startOffset;
+                this.offsetX = adjustedStartOffset;
                 this.startFromRightInitialized = true;
                 this._restartDelayRemaining = 0;
                 this._resetVdsCharacters(state);
             }
 
             const effectiveDelay = this.getEffectiveVdsDelay();
-            this._updateVdsCharacters(state, effectiveDelay);
-            this._drawVdsLines(state, renderText);
+            this._runWithTopLeftTranslation(translation, () => {
+                this._updateVdsCharacters(state, effectiveDelay);
+                this._drawVdsLines(state, renderText);
+            });
             releaseClip();
 
-            if (Number.isFinite(this.speed)) {
-                this.offsetX -= this.speed;
+            const frameStep = this._getFrameSpeedStep(deltaMs);
+            if (frameStep) {
+                this.offsetX -= frameStep;
             }
 
-            this._handleRestartDelay(deltaMs, endOffset, startOffset, () => {
+            this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset, () => {
                 this._resetVdsCharacters(state);
             });
 
@@ -1140,27 +1607,35 @@ class TextCrawlGenerator {
             const width = this.ctx.measureText(line).width;
             return width > maxWidth ? width : maxWidth;
         }, 0);
-        const { start: startOffset, end: endOffset, inset } = this._computeCrawlBounds(maxLineWidth);
+        const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
+        const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+        const bounds = this._computeCrawlBounds(maxLineWidth);
+        const { start: startOffset, end: endOffset, inset } = bounds;
+        const adjustedStartOffset = startOffset - translationX;
+        const adjustedEndOffset = endOffset - translationX;
         const releaseClip = this._applyCrawlClip(this.ctx, inset);
 
         if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
-            this.offsetX = startOffset;
+            this.offsetX = adjustedStartOffset;
             this.startFromRightInitialized = true;
             this._restartDelayRemaining = 0;
         }
 
-        lines.forEach((line, index) => {
-            const verticalOffset = index - (lines.length - 1) / 2;
-            const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-            renderText(line, this.offsetX, y);
+        this._runWithTopLeftTranslation(translation, () => {
+            lines.forEach((line, index) => {
+                const verticalOffset = index - (lines.length - 1) / 2;
+                const y = this.offsetY + verticalOffset * (this.fontSize + 10);
+                renderText(line, this.offsetX, y);
+            });
         });
         releaseClip();
 
-        if (Number.isFinite(this.speed)) {
-            this.offsetX -= this.speed;
+        const frameStep = this._getFrameSpeedStep(deltaMs);
+        if (frameStep) {
+            this.offsetX -= frameStep;
         }
 
-        this._handleRestartDelay(deltaMs, endOffset, startOffset);
+        this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset);
 
         requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
     }
@@ -1203,6 +1678,209 @@ function applyCrawlSizeToGenerator(generator = window.crawlGenerator) {
     generator.adjustSize(width, height);
 }
 
+function getFileFromInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input || !input.files || !input.files[0]) {
+        return null;
+    }
+    return input.files[0];
+}
+
+async function loadImageFromInput(inputId) {
+    const file = getFileFromInput(inputId);
+    if (!file) return null;
+    return new Promise((resolve) => {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(img);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(null);
+        };
+        img.src = objectUrl;
+    });
+}
+
+function parseBackgroundSelectionValue(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const colonIndex = value.indexOf(':');
+    if (colonIndex <= 0) {
+        return null;
+    }
+    const type = value.slice(0, colonIndex).trim();
+    const source = value.slice(colonIndex + 1).trim();
+    if (!source || type !== 'image') {
+        return null;
+    }
+    return { type, source };
+}
+
+function setNumericInputValue(id, value, options = {}) {
+    const input = document.getElementById(id);
+    if (!input || !Number.isFinite(value)) {
+        return false;
+    }
+    const { allowZero = false } = options;
+    const normalized = Math.round(value);
+    if (!allowZero && normalized <= 0) {
+        return false;
+    }
+    if (allowZero && normalized < 0) {
+        return false;
+    }
+    const nextValue = String(normalized);
+    if (input.value === nextValue) {
+        return false;
+    }
+    input.value = nextValue;
+    return true;
+}
+
+function getPremadeTopLeft(path) {
+    const layout = PREMADE_BACKGROUND_LAYOUTS[path];
+    const x = layout && layout.topLeft && Number(layout.topLeft.x);
+    const y = layout && layout.topLeft && Number(layout.topLeft.y);
+    return {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0
+    };
+}
+
+async function loadImageFromSource(src) {
+    if (!src) return null;
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
+}
+
+async function loadMediaElementFromSource(type, source) {
+    if (type === 'image') {
+        return loadImageFromSource(source);
+    }
+    return null;
+}
+
+function updateCrawlControlsFromAsset(meta = {}, options = {}) {
+    const generator = options.generator || window.crawlGenerator;
+    const { width, height, inset, topLeft } = meta;
+    let sizeAvailable = false;
+
+    if (Number.isFinite(width) && width > 0) {
+        setNumericInputValue('crawlWidth', width, { allowZero: false });
+        sizeAvailable = true;
+    }
+
+    if (Number.isFinite(height) && height > 0) {
+        setNumericInputValue('crawlHeight', height, { allowZero: false });
+        sizeAvailable = true;
+    }
+
+    if (sizeAvailable) {
+        applyCrawlSizeToGenerator(generator);
+    }
+
+    if (Number.isFinite(inset)) {
+        setNumericInputValue('crawlInset', inset, { allowZero: true });
+        if (generator) {
+            generator.setCrawlInset(inset);
+        }
+    }
+
+    if (topLeft && typeof topLeft === 'object') {
+        if (Number.isFinite(topLeft.x)) {
+            setNumericInputValue('crawlTopLeftPixelX', topLeft.x, { allowZero: true });
+            if (generator) {
+                generator.setTopLeftOffsetX(topLeft.x);
+            }
+        }
+        if (Number.isFinite(topLeft.y)) {
+            setNumericInputValue('crawlTopLeftPixelY', topLeft.y, { allowZero: true });
+            if (generator) {
+                generator.setTopLeftOffsetY(topLeft.y);
+            }
+        }
+    }
+
+    return sizeAvailable;
+}
+
+let premadeSizingRequestToken = 0;
+async function requestPremadeBackgroundSizing() {
+    const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
+    if (!premadeSelect) return;
+    const descriptor = parseBackgroundSelectionValue(premadeSelect.value);
+    if (!descriptor) return;
+    const requestId = ++premadeSizingRequestToken;
+    const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
+    if (!media || requestId !== premadeSizingRequestToken) {
+        return;
+    }
+    const modeSelect = document.getElementById('crawlBackgroundMode');
+    if (!modeSelect || modeSelect.value !== 'premade') {
+        return;
+    }
+    const width = media.naturalWidth;
+    const height = media.naturalHeight;
+    const topLeft = getPremadeTopLeft(descriptor.source);
+    updateCrawlControlsFromAsset({ width, height, inset: 0, topLeft });
+}
+
+async function loadCrawlBackgroundAssets(mode) {
+    if (mode === 'image') {
+        const image = await loadImageFromInput('crawlBackgroundImageFile');
+        return {
+            image,
+            width: image ? image.naturalWidth : null,
+            height: image ? image.naturalHeight : null
+        };
+    }
+
+    if (mode === 'premade') {
+        const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
+
+        if (premadeSelect) {
+            const descriptor = parseBackgroundSelectionValue(premadeSelect.value);
+            if (descriptor) {
+                if (descriptor && descriptor.type === 'image') {
+                    const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
+                    if (media) {
+                        const topLeft = getPremadeTopLeft(descriptor.source);
+                        return {
+                            image: media,
+                            width: media ? media.naturalWidth : null,
+                            height: media ? media.naturalHeight : null,
+                            inset: 0,
+                            topLeft,
+                            source: descriptor.source
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    return { image: null, width: null, height: null };
+}
+
+function applyBackgroundToGenerator(generator, mode, assets) {
+    if (!generator) return;
+    const resolvedAssets = assets || {};
+    generator.setBgImage(null);
+    generator.setBgVideo(null);
+
+    if (resolvedAssets.image && (mode === 'image' || mode === 'premade')) {
+        generator.setBgImage(resolvedAssets.image);
+    }
+}
+
 let pauseClicks = 0;
 
 document.getElementById('startCrawl').addEventListener('click', async () => {
@@ -1212,7 +1890,7 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const speed = document.getElementById('crawlSpeed').value;
     const fontSize = document.getElementById('crawlFontSize').value;
     const textColor = document.getElementById('crawlTextColor').value;
-    const bgColor = document.getElementById('crawlBgColor').value;
+    let bgColor = document.getElementById('crawlBgColor').value;
     const crawlMode = document.getElementById('crawlMode').value;
     const useLocalTZ = document.getElementById('crawlUseLocalTZ').checked;
     const useOverrideTZ = document.getElementById('crawlUseOverrideTZ').value;
@@ -1230,145 +1908,117 @@ document.getElementById('startCrawl').addEventListener('click', async () => {
     const crawlHeight = document.getElementById('crawlHeight').value;
     const crawlInset = document.getElementById('crawlInset').value;
     const crawlRestartDelay = document.getElementById('crawlRestartDelay').value;
+    const crawlBackgroundMode = document.getElementById('crawlBackgroundMode').value;
+    const crawlTopLeftOffsetX = document.getElementById('crawlTopLeftPixelX').value;
+    const crawlTopLeftOffsetY = document.getElementById('crawlTopLeftPixelY').value;
+
+    if (crawlBackgroundMode === 'transparent') {
+        bgColor = 'transparent';
+    }
 
     await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
 
-    if (rawHeader && crawlMode === 'header') {
-        const settings = {
-            text,
-            speed,
-            fontSize,
-            textColor,
-            bgColor,
-            crawlMode,
-            rawHeader,
-            useLocalTZ,
-            useOverrideTZ,
-            endecMode,
-            useVDSMode,
-            vdsFrameDelay,
-            fontFamily,
-            fontStyle,
-            outlineColor,
-            outlineWidth,
-            outlineJoin,
-            crawlWidth,
-            crawlHeight,
-            crawlInset,
-            crawlRestartDelay
-        };
+    const settings = {
+        text,
+        speed,
+        fontSize,
+        textColor,
+        bgColor,
+        crawlMode,
+        rawHeader: rawHeader && crawlMode === 'header' ? rawHeader : '',
+        useLocalTZ,
+        useOverrideTZ,
+        endecMode,
+        useVDSMode,
+        vdsFrameDelay,
+        fontFamily,
+        fontStyle,
+        outlineColor,
+        outlineWidth,
+        outlineJoin,
+        crawlWidth,
+        crawlHeight,
+        crawlInset,
+        crawlRestartDelay,
+        crawlBackgroundMode,
+        crawlTopLeftOffsetX,
+        crawlTopLeftOffsetY
+    };
 
-        localStorage.setItem(localStorageKey, JSON.stringify(settings));
-    }
+    localStorage.setItem(localStorageKey, JSON.stringify(settings));
 
-    else {
-        const settings = {
-            text,
-            speed,
-            fontSize,
-            textColor,
-            bgColor,
-            crawlMode,
-            rawHeader: '',
-            useLocalTZ,
-            useOverrideTZ,
-            endecMode,
-            useVDSMode,
-            vdsFrameDelay,
-            fontFamily,
-            fontStyle,
-            outlineColor,
-            outlineWidth,
-            outlineJoin,
-            crawlWidth,
-            crawlHeight,
-            crawlInset,
-            crawlRestartDelay
-        };
+    const backgroundAssets = await loadCrawlBackgroundAssets(crawlBackgroundMode);
+    const isNewGenerator = !window.crawlGenerator;
 
-        localStorage.setItem(localStorageKey, JSON.stringify(settings));
-    }
-
-    if (window.crawlGenerator) {
-        // Reuse existing generator
-        if (rawHeader && crawlMode === 'header') {
-            let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
-            if (readable != 'Invalid EAS Header Format') {
-                window.crawlGenerator.setText(readable);
-            }
-            else {
-                alert('Invalid EAS Header Format. Please check your input.');
-                return;
-            }
-        }
-
-        else {
-            window.crawlGenerator.setText(text);
-        }
-
-        applyCrawlSizeToGenerator(window.crawlGenerator);
-        window.crawlGenerator.setSpeed(speed);
-        window.crawlGenerator.setFontSize(fontSize);
-        window.crawlGenerator.setTextColor(textColor);
-        window.crawlGenerator.setBgColor(bgColor);
-        window.crawlGenerator.setFontFamily(fontFamily);
-        window.crawlGenerator.setFontStyle(fontStyle);
-        window.crawlGenerator.setOutlineColor(outlineColor);
-        window.crawlGenerator.setOutlineWidth(outlineWidth);
-        window.crawlGenerator.setOutlineJoin(outlineJoin);
-        window.crawlGenerator.setCrawlInset(crawlInset);
-        window.crawlGenerator.setCrawlRestartDelay(crawlRestartDelay);
-        window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
-        window.crawlGenerator.setVDSMode(useVDSMode);
-        document.getElementById('pauseCrawl').innerText = 'Pause Crawl';
-        pauseClicks = 0;
-        window.crawlGenerator.start();
-    }
-
-    else {
+    if (isNewGenerator) {
         window.crawlGenerator = new TextCrawlGenerator(crawlDisplay);
-        applyCrawlSizeToGenerator(window.crawlGenerator);
-
-        if (rawHeader && crawlMode === 'header') {
-            let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
-            if (readable != 'Invalid EAS Header Format') {
-                window.crawlGenerator.setText(readable);
-            }
-            else {
-                alert('Invalid EAS Header Format. Please check your input.');
-                return;
-            }
-        }
-
-        else {
-            if(!text || text.trim() === '') {
-                alert('Please enter crawl text or a valid EAS header.');
-                return;
-            }
-
-            window.crawlGenerator.setText(text);
-        }
-
-        window.crawlGenerator.setSpeed(speed);
-        window.crawlGenerator.setFontSize(fontSize);
-        window.crawlGenerator.setTextColor(textColor);
-        window.crawlGenerator.setBgColor(bgColor);
-        window.crawlGenerator.setFontFamily(fontFamily);
-        window.crawlGenerator.setFontStyle(fontStyle);
-        window.crawlGenerator.setOutlineColor(outlineColor);
-        window.crawlGenerator.setOutlineWidth(outlineWidth);
-        window.crawlGenerator.setOutlineJoin(outlineJoin);
-        window.crawlGenerator.setCrawlInset(crawlInset);
-        window.crawlGenerator.setCrawlRestartDelay(crawlRestartDelay);
-        window.crawlGenerator.vdsBaseDelayFrames = normalizedVdsDelay;
-        window.crawlGenerator.setVDSMode(useVDSMode);
-        pauseClicks = 0;
-        document.getElementById('pauseCrawl').innerText = 'Pause Crawl';
-        window.crawlGenerator.start();
     }
+
+    const generator = window.crawlGenerator;
+    let appliedAutoSizing = false;
+    if (crawlBackgroundMode === 'premade') {
+        appliedAutoSizing = updateCrawlControlsFromAsset(
+            {
+                width: backgroundAssets.width,
+                height: backgroundAssets.height,
+                inset: Number.isFinite(backgroundAssets.inset) ? backgroundAssets.inset : 0,
+                topLeft: backgroundAssets.topLeft
+            },
+            { generator }
+        );
+    }
+
+    if (!appliedAutoSizing) {
+        applyCrawlSizeToGenerator(generator);
+    }
+
+    applyBackgroundToGenerator(generator, crawlBackgroundMode, backgroundAssets);
+
+    if (rawHeader && crawlMode === 'header') {
+        let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
+        if (readable != 'Invalid EAS Header Format') {
+            generator.setText(readable);
+        }
+        else {
+            alert('Invalid EAS Header Format. Please check your input.');
+            return;
+        }
+    }
+
+    else {
+        if (isNewGenerator && (!text || text.trim() === '')) {
+            alert('Please enter crawl text or a valid EAS header.');
+            return;
+        }
+
+        generator.setText(text);
+    }
+
+    if (backgroundAssets.image) {
+        generator.setBgColor('rgba(0,0,0,0)');
+        generator.setTopLeftOffsetX(crawlTopLeftOffsetX);
+        generator.setTopLeftOffsetY(crawlTopLeftOffsetY);
+    }
+    generator.setSpeed(speed);
+    generator.setFontSize(fontSize);
+    generator.setTextColor(textColor);
+    generator.setBgColor(bgColor === 'transparent' ? 'rgba(0,0,0,0)' : bgColor);
+    generator.setFontFamily(fontFamily);
+    generator.setFontStyle(fontStyle);
+    generator.setOutlineColor(outlineColor);
+    generator.setOutlineWidth(outlineWidth);
+    generator.setOutlineJoin(outlineJoin);
+    generator.setCrawlInset(crawlInset);
+    generator.setCrawlRestartDelay(crawlRestartDelay);
+    generator.vdsBaseDelayFrames = normalizedVdsDelay;
+    generator.setVDSMode(useVDSMode);
+    pauseClicks = 0;
+    document.getElementById('pauseCrawl').innerText = 'Pause Crawl';
+    generator.start();
 });
 
 document.getElementById('stopCrawl').addEventListener('click', () => {
+    if (!window.crawlGenerator) return;
     window.crawlGenerator.stop();
 });
 
@@ -1484,6 +2134,83 @@ document.getElementById('copyCrawlText').addEventListener('click', async () => {
     }
 });
 
+document.getElementById('crawlBackgroundMode').addEventListener('change', (event) => {
+    const mode = event.target.value;
+    const bgColorInput = document.getElementById('crawlBgColor');
+    const crawlBackgroundColorDiv = document.getElementById('crawlBackgroundColorDiv');
+    const crawlBackgroundImageDiv = document.getElementById('crawlBackgroundImageDiv');
+    const crawlBackgroundPremadeDiv = document.getElementById('crawlBackgroundPremadeDiv');
+    const crawlGetAndSetDiv = document.getElementById('crawlGetAndSetDiv');
+    const showGetSetControls = mode === 'image';
+
+    if (crawlGetAndSetDiv) {
+        crawlGetAndSetDiv.style.display = showGetSetControls ? 'block' : 'none';
+    }
+
+    crawlBackgroundImageDiv.style.display = 'none';
+    crawlBackgroundColorDiv.style.display = 'none';
+    if (crawlBackgroundPremadeDiv) {
+        crawlBackgroundPremadeDiv.style.display = 'none';
+    }
+
+    if (mode === 'image') {
+        bgColorInput.disabled = true;
+        crawlBackgroundImageDiv.style.display = 'block';
+    }
+
+    else if (mode === 'solid') {
+        bgColorInput.disabled = false;
+        crawlBackgroundColorDiv.style.display = 'block';
+    }
+
+    else if (mode === 'premade') {
+        bgColorInput.disabled = true;
+        if (crawlBackgroundPremadeDiv) {
+            crawlBackgroundPremadeDiv.style.display = 'block';
+        }
+        requestPremadeBackgroundSizing();
+    }
+
+    else {
+        bgColorInput.disabled = true;
+    }
+});
+
+const crawlBackgroundPremadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
+if (crawlBackgroundPremadeSelect) {
+    crawlBackgroundPremadeSelect.addEventListener('change', () => {
+        const modeSelect = document.getElementById('crawlBackgroundMode');
+        if (modeSelect && modeSelect.value === 'premade') {
+            requestPremadeBackgroundSizing();
+        }
+    });
+}
+
+const crawlGetAndSetButton = document.getElementById('crawlGetAndSetWH');
+if (crawlGetAndSetButton) {
+    crawlGetAndSetButton.addEventListener('click', async () => {
+        const modeSelect = document.getElementById('crawlBackgroundMode');
+        if (!modeSelect) return;
+        const mode = modeSelect.value;
+        if (mode !== 'image') {
+            alert('Select a custom image background before syncing dimensions.');
+            return;
+        }
+        const media = await loadImageFromInput('crawlBackgroundImageFile');
+        if (!media) {
+            alert('Please choose a background file first.');
+            return;
+        }
+        const width = media.naturalWidth;
+        const height = media.naturalHeight;
+        if (!width || !height) {
+            alert('Unable to determine media dimensions.');
+            return;
+        }
+        updateCrawlControlsFromAsset({ width, height });
+    });
+}
+
 ['crawlWidth', 'crawlHeight'].forEach((id) => {
     const input = document.getElementById(id);
     if (!input) return;
@@ -1514,17 +2241,27 @@ if (savedSettings) {
     document.getElementById('crawlOutlineColor').value = settings.outlineColor || '#000000';
     document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;
     document.getElementById('crawlOutlineJoin').value = settings.outlineJoin || 'round';
+    const storedBackgroundMode = normalizeCrawlBackgroundMode(settings.crawlBackgroundMode);
+    document.getElementById('crawlBackgroundMode').value = storedBackgroundMode;
+
     if (settings.crawlWidth !== undefined && settings.crawlWidth !== null) {
         document.getElementById('crawlWidth').value = settings.crawlWidth;
     }
+
     if (settings.crawlHeight !== undefined && settings.crawlHeight !== null) {
         document.getElementById('crawlHeight').value = settings.crawlHeight;
     }
+
     if (settings.crawlInset !== undefined && settings.crawlInset !== null) {
         document.getElementById('crawlInset').value = settings.crawlInset;
     }
+
     if (settings.crawlRestartDelay !== undefined && settings.crawlRestartDelay !== null) {
         document.getElementById('crawlRestartDelay').value = settings.crawlRestartDelay;
+    }
+
+    if (settings.crawlBackgroundMode !== undefined && settings.crawlBackgroundMode !== null) {
+        document.getElementById('crawlBackgroundMode').value = storedBackgroundMode;
     }
 
     addStatus('Loaded saved crawl settings!');
@@ -1533,22 +2270,13 @@ if (savedSettings) {
         const crawlModeSelect = document.getElementById('crawlMode');
         const crawlUseLocalTZ = document.getElementById('crawlUseLocalTZ');
         const crawlUseOverrideTZ = document.getElementById('crawlUseOverrideTZ');
+        const crawlBackgroundMode = document.getElementById('crawlBackgroundMode');
 
         const event = new Event('change');
         crawlModeSelect.dispatchEvent(event);
         crawlUseLocalTZ.dispatchEvent(event);
         crawlUseOverrideTZ.dispatchEvent(event);
+        crawlBackgroundMode.dispatchEvent(event);
 
-        const videoTypes = ["webm", "ogg", "mp4", "x-matroska"];
-        const audioTypes = ["webm", "ogg", "mp3", "x-matroska"];
-        const codecs = ["should-not-be-supported","vp9", "vp9.0", "vp8", "vp8.0", "avc1", "av1", "h265", "h.265", "h264", "h.264", "opus", "pcm", "aac", "mpeg", "mp4a"];
-
-        const supportedVideos = getSupportedMimeTypes("video", videoTypes, codecs);
-        const supportedAudios = getSupportedMimeTypes("audio", audioTypes, codecs);
-
-        console.log('-- Top supported Video : ', supportedVideos[0])
-        console.log('-- Top supported Audio : ', supportedAudios[0])
-        console.log('-- All supported Videos : ', supportedVideos)
-        console.log('-- All supported Audios : ', supportedAudios)
     });
 }
