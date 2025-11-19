@@ -4405,16 +4405,31 @@
         addStatus("EAS Generated! Samples: " + samples.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (showTime ? timeTaken : ""));
         addStatus("Generated header: " + ((window.useCustom && window.mode === "header") ? rawinput.value : header));
 
-        audioPlayback.src = null;
+        const playbackElement = audioPlayback ?? (() => {
+            const el = document.createElement("audio");
+            el.id = "audioPlayback";
+            document.querySelector(".control-panel")?.appendChild(el);
+            return el;
+        })();
+
+        if (playbackElement.dataset.objectUrl) {
+            URL.revokeObjectURL(playbackElement.dataset.objectUrl);
+        }
+
         wav.fromScratch(1, SAMPLE_RATE, '32', samples.map(e => {
             return e * (2147483647 / 2);
         }));
         const wavBuffer = wav.toBuffer().buffer;
         const wavBlob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
-        audioPlayback.src = URL.createObjectURL(wavBlob);
-        audioPlayback.style.display = "block";
-        audioPlayback.controls = true;
-        audioPlayback.autoplay = false;
+        const wavUrl = URL.createObjectURL(wavBlob);
+        playbackElement.dataset.objectUrl = wavUrl;
+        playbackElement.setAttribute("src", wavUrl);
+        playbackElement.src = wavUrl;
+        playbackElement.style.display = "block";
+        playbackElement.style.visibility = "visible";
+        playbackElement.controls = true;
+        playbackElement.autoplay = false;
+        playbackElement.load();
     }
 
     function addStatus(stat, type = "LOG") {

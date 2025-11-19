@@ -94,9 +94,18 @@ footer {
 }
 
 audio {
-    display: none;
     width: 30vw;
     height: auto;
+}
+
+#audioPlayback {
+    display: block;
+    margin-top: 8px;
+    padding: 6px;
+    background: #1a1a1a;
+    border: 1px solid #303030;
+    border-radius: 6px;
+    min-height: 40px;
 }
 
 a {
