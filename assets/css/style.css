@@ -329,6 +329,32 @@ span.checkmark {
     display: inline-block;
 }
 
+#spliceWaveform {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #0f0f0f 0%, #111 100%);
+}
+
+#tab-set {
+    display: flex;
+    gap: 10px;
+}
+
+#ttsText2, #ttsVoice2 {
+    width: 100%;
+    height: 15rem;
+    font-family: "Hack", monospace;
+    font-size: 1rem;
+    padding: 8px;
+    border-radius: 6px;
+    resize: vertical;
+}
+
+#ttsVoice2 {
+    height: auto;
+}
+
 /* Class-level CSS */
 .footer-links {
     list-style: none;
@@ -423,6 +449,77 @@ span.checkmark {
     display: inline-block;
 }
 
+.splice-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.waveform-card {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.waveform-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.waveform-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.splice-controls {
+    background: #0b0b0b;
+    border: 1px solid #1e1e1e;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-line {
+    display: block;
+    min-height: 18px;
+    opacity: 0.85;
+}
+
+.splice-action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.splice-storage {
+    font-size: 0.9em;
+}
+
+.splice-timeline {
+    margin-top: 16px;
+}
+
+.splice-timeline__hint {
+    margin-top: 4px;
+}
+
+.splice-segment-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
 .title {
     font-weight: bold;
 }
@@ -430,11 +527,6 @@ span.checkmark {
 .entry {
     cursor: pointer;
     user-select: none;
-}
-
-.tab-set {
-    display: flex;
-    gap: 10px;
 }
 
 .tool-panel {
@@ -473,6 +565,39 @@ span.checkmark {
 
     audio {
         width: 90vw;
+    }
+
+    .splice-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .waveform-card,
+    .splice-controls,
+    .splice-timeline {
+        width: 100%;
+    }
+
+    #spliceWaveform {
+        height: 8rem;
+    }
+
+    .splice-segment-list li {
+        text-overflow: ellipsis;
+        width: 100%;
+        height: 8rem;
+        overflow: scroll;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    #nav-buttons {
+        margin-left: auto;
+        width: 100%;
+    }
+
+    #nav-buttons button {
+        width: 100%;
     }
 }
 

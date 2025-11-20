@@ -6,8 +6,8 @@
         <meta name="robots" content="index, nofollow">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>EAS Tools</title>
-        <link rel="stylesheet" href="assets/hack.css">
-        <link rel="stylesheet" href="assets/style.css">
+        <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/style.css">
         <meta name="title" content="Emergency Alert System (EAS) Tools">
         <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
@@ -30,10 +30,13 @@
     <body>
         <header>
             <h1><a href=".">EAS Tools</a></h1>
-            <nav class="tab-set">
-                <button type="button" class="active" data-tool="decoder">Decoder</button>
-                <button type="button" data-tool="encoder">Encoder</button>
-                <button type="button" data-tool="crawl">Text Crawl Generator</button>
+            <nav id="tab-set">
+                <div id="nav-buttons">
+                    <button type="button" class="active" data-tool="decoder">Decoder</button>
+                    <button type="button" data-tool="encoder">Encoder</button>
+                    <button type="button" data-tool="crawl">Text Crawl Generator</button>
+                    <button type="button" data-tool="splice" id="tab-splice">Audio Splicer</button>
+                </div>
             </nav>
         </header>
         <main>
@@ -475,6 +478,98 @@
                 <hr>
                 <div id="crawlDisplay" class="crawl-display" aria-live="polite" aria-atomic="true"></div>
             </section>
+            <section id="splice-panel" class="tool-panel" aria-labelledby="tab-splice">
+                <h2 class="section-heading">Audio Splicer</h2>
+                <hr>
+                <div class="splice-grid">
+                    <div class="waveform-card">
+                        <canvas id="spliceWaveform" width="1000" height="200"></canvas>
+                        <div class="waveform-meta">
+                            <div>
+                                Selection:
+                                <span data-selection-start>0.00s</span>
+                                &rarr;
+                                <span data-selection-end>0.00s</span>
+                                (<span data-selection-length>0.00s</span>)
+                            </div>
+                            <div class="waveform-actions">
+                                <button type="button" data-splice-play>Play Selection</button>
+                                <button type="button" data-splice-playAll>Play All</button>
+                                <button type="button" data-splice-stop>Stop</button>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="guide">
+                            <strong>Guide:</strong> Load audio files or generate TTS to build your project. Use the controls to manipulate segments in the timeline. Export your final audio as a WAV file. Click and Drag on the waveform to select a region. Shift+Click and drag while zoomed to pan the view. Use the mouse wheel/pinch on mobile inside the waveform to zoom in and out.
+                        </div>
+                    </div>
+                    <div class="splice-controls">
+                        <div>
+                            <label for="spliceFile">Load Audio File:</label><br>
+                            <input id="spliceFile" type="file" accept="*.*" data-splice-file>
+                        </div>
+                        <div id="tts">
+                            <br>
+                            <label for="ttsText2" class="ttsText">Or enter text to generate speech:</label>
+                            <br class="ttsText">
+                            <textarea id="ttsText2" class="ttsText" placeholder="Type the message to speak…"></textarea>
+                            <br class="ttsText">
+                            <br class="ttsText">
+                            <label for="ttsVoice2">Select Voice:</label>
+                            <select id="ttsVoice2" name="ttsVoice">
+                                <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
+                            </select>
+                            <br class="overrideTZ">
+                            <br class="overrideTZ">
+                            <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
+                            <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
+                                <option value="UTC">UTC</option>
+                                <option value="AST">AST (Atlantic Standard Time)</option>
+                                <option value="EST">EST (Eastern Standard Time)</option>
+                                <option value="EDT">EDT (Eastern Daylight Time)</option>
+                                <option value="CST">CST (Central Standard Time)</option>
+                                <option value="CDT">CDT (Central Daylight Time)</option>
+                                <option value="MST">MST (Mountain Standard Time)</option>
+                                <option value="MDT">MDT (Mountain Daylight Time)</option>
+                                <option value="PST">PST (Pacific Standard Time)</option>
+                                <option value="PDT">PDT (Pacific Daylight Time)</option>
+                                <option value="AKST">AKST (Alaska Standard Time)</option>
+                                <option value="AKDT">AKDT (Alaska Daylight Time)</option>
+                            <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
+                            <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
+                            <option value="SST">SST (Samoa Standard Time)</option>
+                            <option value="CHST">CHST (Chamorro Standard Time)</option>
+                        </select>
+                        <br>
+                        <button type="button" data-splice-tts-generate>Generate &amp; Append</button>
+                        <span data-splice-tts-status class="status-line"></span>
+                    </div>
+                    <div>
+                        <label for="spliceSilence">Insert Silence (seconds):</label><br>
+                        <input id="spliceSilence" type="number" step="0.1" min="0.1" value="1.0" data-splice-silence>
+                        <button type="button" data-splice-add-silence>Add Silence</button>
+                        <span data-splice-silence-status class="status-line"></span>
+                    </div>
+                    <div class="splice-action-grid">
+                        <button type="button" data-splice-split-selection>Split at Selection</button>
+                        <button type="button" data-splice-join-all>Join All Segments</button>
+                        <button type="button" data-splice-trim>Trim to Selection</button>
+                        <button type="button" data-splice-delete>Delete Selection</button>
+                        <button type="button" data-splice-split>Save Selection as Segment</button>
+                        <button type="button" data-splice-export>Export WAV</button>
+                        <button type="button" data-splice-clear>Clear Project</button>
+                        </div>
+                        <div class="splice-storage">
+                            Project storage: <span data-splice-persist>Waiting…</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="splice-timeline">
+                    <h3>Segment Timeline</h3>
+                    <p class="splice-timeline__hint">Segments are cached locally so you can resume where you left off.</p>
+                    <ul data-splice-segments class="splice-segment-list"></ul>
+                </div>
+            </section>
         </main>
         <footer>
             <ul class="footer-links">
@@ -485,14 +580,15 @@
                 <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
             </ul>
         </footer>
-        <script src="assets/wavefile.js"></script>
-        <script src="assets/wave-resampler.js"></script>
-        <script src="decoder-bundle.js"></script>
-        <script src="encoder-bundle.js"></script>
-        <script src="assets/footer.js"></script>
-        <script src="assets/gif.js"></script>
-        <script type="module" src="crawl-bundle.js"></script>
+        <script src="assets/js/wavefile.js"></script>
+        <script src="assets/js/wave-resampler.js"></script>
+        <script src="assets/js/decoder-bundle.js"></script>
+        <script src="assets/js/encoder-bundle.js"></script>
+        <script src="assets/js/footer.js"></script>
+        <script src="assets/js/gif.js"></script>
+        <script type="module" src="assets/js/crawl-bundle.js"></script>
         <script type="module" src="assets/E2T/EAS2Text.js"></script>
+        <script type="module" src="assets/js/splicer-bundle.js"></script>
         <script>
             (() => {
                 const buttons = document.querySelectorAll('button[data-tool]');
@@ -502,6 +598,7 @@
                     decoder: document.getElementById('decoder-panel'),
                     encoder: document.getElementById('encoder-panel'),
                     crawl: document.getElementById('crawl-panel'),
+                    splice: document.getElementById('splice-panel'),
                 };
 
                 const activate = (target) => {
@@ -534,6 +631,8 @@
                 const toolParam = params.get('tool');
                 if (toolParam && panels[toolParam]) {
                     activate(toolParam);
+                } else {
+                    activate('decoder');
                 }
             })();
         </script>
