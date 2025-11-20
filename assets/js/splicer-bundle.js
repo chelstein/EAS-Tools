@@ -533,6 +533,8 @@
         playingMode = null;
         pausedPlayback = null;
         playSpan = 0;
+        rebuildTimeline();
+        drawWaveform();
     };
 
     const pausePlayback = () => {
@@ -689,7 +691,7 @@
         return new Blob([buffer], { type: 'audio/wav' });
     };
 
-    const exportWav = () => {
+    const exportWav = async () => {
         if (!state.pcm.length) return;
         const blob = pcmToWav(state.pcm, state.sampleRate);
         const a = document.createElement('a');
@@ -697,6 +699,9 @@
         a.download = 'splice.wav';
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        const intervalId2 = setInterval(() => persistStatus('WAV exported!', true), 5);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        clearInterval(intervalId2);
     };
 
     const handleFile = async (file) => {
@@ -1212,7 +1217,7 @@
         deleteBtn?.addEventListener('click', deleteSelection);
         splitBtn?.addEventListener('click', saveSelectionAsSegment);
         exportBtn?.addEventListener('click', exportWav);
-        clearBtn?.addEventListener('click', () => {
+        clearBtn?.addEventListener('click', async () => {
             stopPlayback();
             state.segments = [];
             state.pcm = new Float32Array(0);
@@ -1220,7 +1225,9 @@
             updateSegmentsList();
             drawWaveform();
             clearCache();
-            persistStatus('Project cleared');
+            const intervalId = setInterval(() => persistStatus('Project cleared.', true), 5);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            clearInterval(intervalId);
         });
 
         silenceBtn?.addEventListener('click', addSilence);

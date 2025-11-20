@@ -355,6 +355,10 @@ span.checkmark {
     height: auto;
 }
 
+#mobile-controls {
+    display: none;
+}
+
 /* Class-level CSS */
 .footer-links {
     list-style: none;
@@ -591,13 +595,35 @@ span.checkmark {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
 
+    #tab-set {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
     #nav-buttons {
-        margin-left: auto;
+        margin-left: 0;
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
     }
 
     #nav-buttons button {
-        width: 100%;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    #mobile-controls {
+        display: inline-block;
+    }
+
+    #desktop-controls {
+        display: none;
     }
 }
 

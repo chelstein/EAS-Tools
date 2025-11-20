@@ -500,7 +500,23 @@
                         </div>
                         <br>
                         <div class="guide">
-                            <strong>Guide:</strong> Load audio files or generate TTS to build your project. Use the controls to manipulate segments in the timeline. Export your final audio as a WAV file. Click and Drag on the waveform to select a region. Shift+Click and drag while zoomed to pan the view. Use the mouse wheel/pinch on mobile inside the waveform to zoom in and out.
+                            <strong>Guide:</strong> Load audio files or generate TTS to build your project. Use the controls to manipulate segments in the timeline. Export your final audio as a WAV file.
+
+                            Waveform controls:
+                            <ul id="desktop-controls">
+                                <li>Click and drag on the waveform to select a region.</li>
+                                <li>Shift+Click and drag while zoomed to pan the view.</li>
+                                <li>Use the mouse wheel to zoom in/out of the waveform.</li>
+                                <li>Use the buttons below the waveform to play/pause/stop audio, either selection or all.</li>
+                                <li>Use the splice action buttons to edit the selected region.</li>
+                            </ul>
+                            <ul id="mobile-controls">
+                                <li>Tap and drag on the waveform to select a region.</li>
+                                <li>Use two fingers to pinch zoom in/out of the waveform.</li>
+                                <li>Use one finger to drag and pan the view while zoomed.</li>
+                                <li>Use the buttons below the waveform to play/pause/stop audio, either selection or all.</li>
+                                <li>Use the splice action buttons to edit the selected region.</li>
+                            </ul>
                         </div>
                     </div>
                     <div class="splice-controls">
@@ -560,13 +576,13 @@
                         <button type="button" data-splice-clear>Clear Project</button>
                         </div>
                         <div class="splice-storage">
-                            Project storage: <span data-splice-persist>Waiting…</span>
+                            Status: <span data-splice-persist>Waiting…</span>
                         </div>
                     </div>
                 </div>
                 <div class="splice-timeline">
                     <h3>Segment Timeline</h3>
-                    <p class="splice-timeline__hint">Segments are cached locally so you can resume where you left off.</p>
+                    <p class="splice-timeline__hint">Segments are cached locally on-device so you can resume where you left off.</p>
                     <ul data-splice-segments class="splice-segment-list"></ul>
                 </div>
             </section>
@@ -575,7 +591,7 @@
             <ul class="footer-links">
                 <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
                 <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
-                <li><p>Last updated: <span id="last-updated"></span> (commit <span id="last-commit-hash"></span>)</p></li>
+                <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
                 <li><p><a href="docs.html">TTS Documentation</a></p></li>
                 <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
             </ul>
