@@ -1,3 +1,15 @@
+const footer = document.querySelector('footer');
+
+footer.innerHTML = `
+<ul class="footer-links">
+    <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
+    <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
+    <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
+    <li><p><a href="docs.html">TTS Documentation</a></p></li>
+    <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
+</ul>
+`;
+
 const lastUpdated = document.getElementById('last-updated');
 const lastCommitHash = document.getElementById('last-commit-hash');
 
