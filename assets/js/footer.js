@@ -37,9 +37,7 @@ if (cachedData) {
     lastCommitHash.innerHTML = `<a href="https://github.com/wagwan-piffting-blud/eas-tools/commit/${commitHash}">${commitHash.substring(0, 7)}</a>`;
     lastUpdated.textContent = commitDateToRelativeString(new Date(commitDate));
 
-    // Check if the cached data is older than 24 hours
     if (Date.now() - timestamp > 24 * 60 * 60 * 1000) {
-        // Cache is stale, fetch new data
         fetch('https://api.github.com/repos/wagwan-piffting-blud/eas-tools/commits/main')
             .then(response => response.json())
             .then(data => {
@@ -47,7 +45,6 @@ if (cachedData) {
                 lastCommitHash.innerHTML = `<a href="https://github.com/wagwan-piffting-blud/eas-tools/commit/${data.sha}">${data.sha.substring(0, 7)}</a>`;
                 lastUpdated.textContent = commitDateToRelativeString(new Date(commitDate));
 
-                // Update the cache in localStorage
                 localStorage.setItem('githubCommitData', JSON.stringify({
                     commitDate: lastUpdated.textContent,
                     commitHash: lastCommitHash.textContent,
@@ -61,7 +58,6 @@ if (cachedData) {
             const commitDate = new Date(data.commit.author.date);
             lastUpdated.textContent = commitDateToRelativeString(commitDate);
             lastCommitHash.innerHTML = `<a href="https://github.com/wagwan-piffting-blud/eas-tools/commit/${data.sha}">${data.sha.substring(0, 7)}</a>`;
-            // Cache the data in localStorage
             localStorage.setItem('githubCommitData', JSON.stringify({
                 commitDate: lastUpdated.textContent,
                 commitHash: lastCommitHash.textContent,
@@ -79,7 +75,6 @@ if (cachedData) {
         const commitDate = new Date(data.commit.author.date);
         lastUpdated.textContent = commitDateToRelativeString(commitDate);
         lastCommitHash.innerHTML = `<a href="https://github.com/wagwan-piffting-blud/eas-tools/commit/${data.sha}">${data.sha.substring(0, 7)}</a>`;
-        // Cache the data in localStorage
         localStorage.setItem('githubCommitData', JSON.stringify({
             commitDate: lastUpdated.textContent,
             commitHash: lastCommitHash.textContent,

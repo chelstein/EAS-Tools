@@ -1,6 +1,6 @@
 # Emergency Alert System (EAS) Tools
 
-Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file. Also includes a Text Crawl Generator for creating EAS‑style scrolling text graphics.
+Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file. Also includes a Text Crawl Generator for creating EAS‑style scrolling text graphics and an audio splicer for combining multiple, unique audio samples into one continuous WAV file.
 
 > ⚠️ **Legal & ethics notice**
 > This project is for **educational, hobbyist, and lab use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
@@ -21,7 +21,10 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your mic
   * Create scrolling text crawl graphics for EAS alerts
   * Customize most aspects of the crawl appearance
   * Downloadable GIF/WEBM of generated text crawl
-
+* **Audio Splicer**
+  * Combine multiple custom audio samples into one continuous WAV file
+  * Useful for creating custom audio without the use of programs like Audacity
+  * Supports inserting silence between samples
 ---
 
 ## 🚀 Quick start
@@ -94,12 +97,20 @@ What you’ll see:
    * **Start/Pause/Stop** handle playback; output appears live in the preview bar and is summarized in the status line.
    * **Export as GIF** or **Export as video (.webm)** capture the crawl, while **Copy Crawl Text** copies the resolved crawl text for reuse.
 
+### Audio Splicer
+
+1. Go to **Audio Splicer** tab
+2. Upload multiple audio samples or synthesize new TTS samples using the TTS section inside the Splicer
+3. Modify the order of the samples as needed, and optionally insert silence between samples, as well as add splits for easier navigation
+4. Click **Export WAV** to create a single continuous WAV file for download
+
 ### Navigation
 
 Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, and **Text Crawl Generator** tools. You can also link to a specific tab using URL parameters:
 * `?tool=decoder` – Opens the **Decoder** tab
 * `?tool=encoder` – Opens the **Encoder** tab
 * `?tool=crawl` – Opens the **Text Crawl Generator** tab
+* `?tool=splicer` – Opens the **Audio Splicer** tab
 
 ### Documentation
 
@@ -113,11 +124,11 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 
 ## 📜 Credits & third‑party
 
-* UI fonts: **Hack** (via `assets/hack.css`)
-* WAV writer: **wavefile.js** (bundled in `assets/`)
-* Resampling: **wave‑resampler.js** (bundled in `assets/`)
-* gif.js: **gif.js** (bundled in `assets/gif.js/`)
-* WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/`)
+* UI fonts: **Hack** (via `assets/css/hack.css`)
+* WAV writer: **wavefile.js** (bundled in `assets/js/wavefile.js`)
+* Resampling: **wave‑resampler.js** (bundled in `assets/js/wave‑resampler.js`)
+* gif.js: **gif.js** (bundled in `assets/js/gif.js`)
+* WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/piper-tts-bundle.js` and `assets/piper-tts/`)
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
   * [Mab879 C++ SAME Encoder](https://github.com/Mab879/eas_encoder)

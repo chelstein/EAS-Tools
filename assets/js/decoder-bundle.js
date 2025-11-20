@@ -80,7 +80,7 @@ window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((reso
     }
 
     if (decodeContext.audioWorklet && typeof decodeContext.audioWorklet.addModule === "function") {
-        decodeContext.audioWorklet.addModule("processor.js").then(() => {
+        decodeContext.audioWorklet.addModule("assets/js/processor.js").then(() => {
             const decodeNode = new AudioWorkletNode(decodeContext, "eas-processor");
             decodeNode.port.onmessage = function (event) {
                 const channels = event.data;

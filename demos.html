@@ -61,13 +61,9 @@
         let activeAudio = null;
         let activeButton = null;
 
-        // Function to extract display name from description
         function extractDisplayName(desc) {
-            // Replace slashes/other invalid Windows path characters with underscores
             desc = desc.replace(/[\/\\:?<>|*"']/g, '_');
-            // Remove leading [TAG]
             desc = desc.replace(/^\[[^\]]+\]\s*/, "").trim();
-            // Remove trailing "(…)" comment
             desc = desc.replace(/\s*\([^)]*\)\s*$/, "").trim();
             return desc;
         }
@@ -145,7 +141,6 @@
             };
         }
 
-        // Voice list - get JSON data from endpoint and populate the list
         async function fetchVoiceList() {
             try {
                 const cachedData = localStorage.getItem('voiceList');
@@ -153,7 +148,6 @@
                 const now = Date.now();
 
                 if (cachedData && cacheTime && now - cacheTime < 7 * 24 * 60 * 60 * 1000) {
-                    // Use cached data
                     const data = JSON.parse(cachedData);
                     populateVoiceList(data);
                     return;
@@ -206,7 +200,6 @@
             try {
                 if (data.voices) {
                     document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 1; // +1 for WASM voice
-                    //We need to add the WASM voice manually
                     const wasmListItem = document.createElement('li');
                     const wasmPlayButton = document.createElement('button');
                     wasmPlayButton.textContent = 'Play Demo';
@@ -220,7 +213,7 @@
                     voiceList.appendChild(wasmListItem);
                     for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
                         if (voiceName.includes('EMNet')) {
-                            continue; // Skip EMnet voice, we apply special handling for it below
+                            continue;
                         }
                         const listItem = document.createElement('li');
                         const playButton = document.createElement('button');
@@ -234,7 +227,6 @@
                         playButton.onclick = audioHandler(playButton, audioSrc);
                         voiceList.appendChild(listItem);
                     }
-                    // Special handling for EMNet voice, same as WASM above
                     const emnetListItem = document.createElement('li');
                     const emnetPlayButton = document.createElement('button');
                     emnetPlayButton.textContent = 'Play Demo';

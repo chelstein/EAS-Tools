@@ -1,5 +1,5 @@
 (() => {
-    const panel = document.getElementById('splice-panel');
+    const panel = document.getElementById('splicer-panel');
     const canvas = document.getElementById('spliceWaveform');
     if (!panel || !canvas) return;
 
@@ -59,6 +59,7 @@
     let dragMode = null;
     let touchSelectionId = null;
     let pinchState = null;
+    let touchPan = null;
     let cacheDbPromise = null;
     let ttsLoader = null;
     let voiceListLoaded = false;
@@ -497,6 +498,33 @@
         ctx.strokeRect(selStartX + 0.5, 0.5, selWidth - 1, h - 1);
     };
 
+    const updatePlaybackMarker = () => {
+        if (!playingSource || playSpan <= 0) return;
+
+        drawWaveform();
+
+        const ctxAudio = audioCtx || getAudioCtx();
+        const elapsed = Math.max(0, ctxAudio.currentTime - playStartedAt);
+
+        const absoluteTime = playStartOffset + elapsed;
+
+        const viewStart = state.viewStart ?? 0;
+        const viewEnd = state.viewEnd ?? duration();
+        const viewSpan = Math.max(0.001, viewEnd - viewStart);
+
+        const tClamped = Math.min(Math.max(absoluteTime, viewStart), viewEnd);
+        const markerX = ((tClamped - viewStart) / viewSpan) * canvas.width;
+
+        ctx.save();
+        try {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+            ctx.fillRect(Math.round(markerX), 0, 2, canvas.height);
+        } finally {
+            ctx.restore();
+        }
+    };
+
+
     const stopPlayback = () => {
         if (playingSource) {
             try { playingSource.stop(); } catch (err) { console.warn(err); }
@@ -552,6 +580,7 @@
         playStartOffset = start;
         playSpan = len;
         playStartedAt = ctxAudio.currentTime;
+        const playbackInterval = setInterval(updatePlaybackMarker, 1);
         pausedPlayback = null;
         source.onended = () => {
             playingSource = null;
@@ -585,6 +614,7 @@
         playStartOffset = start;
         playSpan = len;
         playStartedAt = ctxAudio.currentTime;
+        const playbackInterval = setInterval(updatePlaybackMarker, 1);
         pausedPlayback = null;
         source.onended = () => {
             playingSource = null;
@@ -940,15 +970,14 @@
                     }
                     if (newEnd > d) {
                         newEnd = d;
-                        newStart = newEnd - (panState.viewEnd - panState.viewStart);
-                        newStart = Math.max(0, newStart);
+                        newStart = clamp(newEnd - (panState.viewEnd - panState.viewStart), 0, d);
                     }
                     state.viewStart = newStart;
                     state.viewEnd = newEnd;
                     drawWaveform();
                 } else {
                     const nt = clamp(state.viewStart + (nx / rect.width) * viewSpan, 0, duration());
-                    if (dragMode === 'start') setSelection(nt, state.selection.end);
+                    if (dragMode === 'start' ) setSelection(nt, state.selection.end);
                     else setSelection(state.selection.start, nt);
                 }
             };
@@ -986,37 +1015,55 @@
             drawWaveform();
         }, { passive: false });
 
-        const resetTouchState = () => {
-            dragMode = null;
-            touchSelectionId = null;
-            pinchState = null;
+        const getTouchById = (touches, id) => {
+            for (let i = 0; i < touches.length; i++) if (touches[i].identifier === id) return touches[i];
+            return null;
         };
+
+        const TAP_MAX_MOVE = 8;
+        const TAP_MAX_MS = 300;
 
         canvas.addEventListener('touchstart', (event) => {
             if (event.cancelable) event.preventDefault();
             if (!state.pcm.length) return;
             syncViewWindow();
             const rect = canvas.getBoundingClientRect();
+
             if (event.touches.length === 1) {
-                const touch = event.touches[0];
-                const xRatio = clamp((touch.clientX - rect.left) / rect.width, 0, 1);
-                const viewSpan = state.viewEnd - state.viewStart;
-                const t = clamp(state.viewStart + viewSpan * xRatio, 0, duration());
-                const distStart = Math.abs(t - state.selection.start);
-                const distEnd = Math.abs(t - state.selection.end);
-                dragMode = distStart < distEnd ? 'start' : 'end';
-                setSelection(dragMode === 'start' ? t : state.selection.start, dragMode === 'end' ? t : state.selection.end);
-                touchSelectionId = touch.identifier;
+                const t = event.touches[0];
+                touchPan = {
+                    id: t.identifier,
+                    startX: t.clientX,
+                    startY: t.clientY,
+                    startViewStart: state.viewStart,
+                    startViewEnd: state.viewEnd,
+                    moved: false,
+                    startTime: Date.now(),
+                };
                 pinchState = null;
+                touchSelectionId = null;
+                dragMode = null;
             } else if (event.touches.length === 2) {
                 const a = event.touches[0];
                 const b = event.touches[1];
+                const midX = (a.clientX + b.clientX) / 2;
+                const midY = (a.clientY + b.clientY) / 2;
                 const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-                pinchState = { lastDist: Math.max(1, dist) };
-                dragMode = null;
+                pinchState = {
+                    initialDist: Math.max(1, dist),
+                    initialViewStart: state.viewStart,
+                    initialViewEnd: state.viewEnd,
+                    midX,
+                    midY,
+                };
+                touchPan = null;
                 touchSelectionId = null;
+                dragMode = null;
             } else {
-                resetTouchState();
+                pinchState = null;
+                touchPan = null;
+                touchSelectionId = null;
+                dragMode = null;
             }
         }, { passive: false });
 
@@ -1024,30 +1071,53 @@
             if (event.cancelable) event.preventDefault();
             if (!state.pcm.length) return;
             const rect = canvas.getBoundingClientRect();
-            if (event.touches.length === 1 && touchSelectionId !== null) {
-                let touch = null;
-                for (let i = 0; i < event.touches.length; i++) {
-                    if (event.touches[i].identifier === touchSelectionId) {
-                        touch = event.touches[i];
-                        break;
-                    }
+
+            if (event.touches.length === 1 && touchPan && getTouchById(event.touches, touchPan.id)) {
+                const t = getTouchById(event.touches, touchPan.id);
+                const span = touchPan.startViewEnd - touchPan.startViewStart;
+                const deltaPixels = t.clientX - touchPan.startX;
+                if (Math.abs(deltaPixels) > TAP_MAX_MOVE) touchPan.moved = true;
+                const deltaTime = (deltaPixels / rect.width) * span;
+                let newStart = touchPan.startViewStart - deltaTime;
+                let newEnd = touchPan.startViewEnd - deltaTime;
+                const d = duration();
+                if (newStart < 0) {
+                    newStart = 0;
+                    newEnd = newStart + span;
                 }
-                if (!touch) return;
-                const viewSpan = state.viewEnd - state.viewStart;
-                const nx = clamp((touch.clientX - rect.left) / rect.width, 0, 1);
-                const nt = clamp(state.viewStart + viewSpan * nx, 0, duration());
-                if (dragMode === 'start') setSelection(nt, state.selection.end);
-                else setSelection(state.selection.start, nt);
-            } else if (event.touches.length === 2 && pinchState) {
+                if (newEnd > d) {
+                    newEnd = d;
+                    newStart = Math.max(0, d - span);
+                }
+                state.viewStart = newStart;
+                state.viewEnd = newEnd;
+                drawWaveform();
+            } else if (event.touches.length === 2) {
                 const a = event.touches[0];
                 const b = event.touches[1];
+                const midX = (a.clientX + b.clientX) / 2;
                 const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-                const span = state.viewEnd - state.viewStart;
-                const ratio = clamp(pinchState.lastDist / Math.max(1, dist), 0.2, 5);
-                const newSpan = clamp(span * ratio, state.minViewSpan, duration());
-                const centerRatio = clamp((((a.clientX + b.clientX) / 2) - rect.left) / rect.width, 0, 1);
-                const center = state.viewStart + span * centerRatio;
-                let newStart = center - newSpan * centerRatio;
+
+                if (!pinchState) {
+                    pinchState = {
+                        initialDist: Math.max(1, dist),
+                        initialViewStart: state.viewStart,
+                        initialViewEnd: state.viewEnd,
+                        midX,
+                        midY: (a.clientY + b.clientY) / 2,
+                    };
+                }
+
+                const initialDist = pinchState.initialDist;
+                const initialViewStart = pinchState.initialViewStart;
+                const initialViewEnd = pinchState.initialViewEnd;
+                const initialSpan = Math.max(state.minViewSpan, initialViewEnd - initialViewStart);
+
+                const zoomFactor = clamp(initialDist / Math.max(1, dist), 0.2, 5);
+                const newSpan = clamp(initialSpan * zoomFactor, state.minViewSpan, duration());
+
+                const centerRatio = clamp((midX - rect.left) / rect.width, 0, 1);
+                let newStart = initialViewStart + centerRatio * (initialSpan - newSpan);
                 let newEnd = newStart + newSpan;
                 const d = duration();
                 if (newStart < 0) {
@@ -1060,13 +1130,54 @@
                 }
                 state.viewStart = newStart;
                 state.viewEnd = newEnd;
-                pinchState.lastDist = Math.max(1, dist);
                 drawWaveform();
             }
         }, { passive: false });
 
-        canvas.addEventListener('touchend', resetTouchState);
-        canvas.addEventListener('touchcancel', resetTouchState);
+        canvas.addEventListener('touchend', (event) => {
+            if (touchPan && !touchPan.moved) {
+                const elapsed = Date.now() - touchPan.startTime;
+                if (elapsed <= TAP_MAX_MS) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = touchPan.startX - rect.left;
+                    const center = clamp((x / rect.width), 0, 1);
+                    const t = clamp(state.viewStart + (state.viewEnd - state.viewStart) * center, 0, duration());
+                    const distStart = Math.abs(t - state.selection.start);
+                    const distEnd = Math.abs(t - state.selection.end);
+                    if (distStart < distEnd) {
+                        setSelection(t, state.selection.end);
+                    } else {
+                        setSelection(state.selection.start, t);
+                    }
+                }
+            }
+
+            if (event.touches.length === 1) {
+                const remaining = event.touches[0];
+                touchPan = {
+                    id: remaining.identifier,
+                    startX: remaining.clientX,
+                    startY: remaining.clientY,
+                    startViewStart: state.viewStart,
+                    startViewEnd: state.viewEnd,
+                    moved: false,
+                    startTime: Date.now(),
+                };
+                pinchState = null;
+            } else {
+                touchPan = null;
+                pinchState = null;
+                touchSelectionId = null;
+                dragMode = null;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchcancel', () => {
+            touchPan = null;
+            pinchState = null;
+            touchSelectionId = null;
+            dragMode = null;
+        });
 
         fileInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
@@ -1095,6 +1206,7 @@
                 pausePlayback();
             }
         });
+
         stopBtn?.addEventListener('click', stopPlayback);
         trimBtn?.addEventListener('click', trimToSelection);
         deleteBtn?.addEventListener('click', deleteSelection);

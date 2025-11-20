@@ -228,9 +228,6 @@ function getSupportedMimeTypes(media, types, codecs) {
         codecs.forEach((codec) => [
             `${mimeType};codecs=${codec}`,
             `${mimeType};codecs=${codec.toUpperCase()}`,
-            // /!\ false positive /!\
-            // `${mimeType};codecs:${codec}`,
-            // `${mimeType};codecs:${codec.toUpperCase()}`
         ].forEach(variation => {
             if(isSupported(variation))
                 supported.push(variation);
@@ -492,7 +489,7 @@ function exportAsGIF(canvas, filename) {
     const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
         ? recordedMsPerFrame
         : fallbackMsPerFrame;
-    const MIN_GIF_DELAY = 20; // browsers commonly clamp GIF frames below ~20ms
+    const MIN_GIF_DELAY = 20;
     const frameDelay = Math.max(MIN_GIF_DELAY, Math.round(targetMsPerFrame));
     const speedPerSecond = getGeneratorSpeedPerSecond(generator);
     const pxPerSecond = Math.max(0.5, Math.abs(speedPerSecond));
