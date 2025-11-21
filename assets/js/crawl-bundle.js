@@ -2107,7 +2107,7 @@
 
         if (mode === 'header') {
             Array.from(rawHeaderClassItems).forEach((el) => {
-                el.style.display = '';
+                el.style.display = 'inline-block';
             });
             Array.from(crawlTextClassItems).forEach((el) => {
                 el.style.display = 'none';
@@ -2120,7 +2120,7 @@
                 el.style.display = 'none';
             });
             Array.from(crawlTextClassItems).forEach((el) => {
-                el.style.display = '';
+                el.style.display = 'inline-block';
             });
             document.getElementById('E2TOptions').style.display = 'none';
         }
@@ -2331,13 +2331,11 @@
         addStatus('Loaded saved crawl settings!');
 
         document.addEventListener('DOMContentLoaded', () => {
-            const crawlModeSelect = document.getElementById('crawlMode');
             const crawlUseLocalTZ = document.getElementById('crawlUseLocalTZ');
             const crawlUseOverrideTZ = document.getElementById('crawlUseOverrideTZ');
             const crawlBackgroundMode = document.getElementById('crawlBackgroundMode');
 
             const event = new Event('change');
-            crawlModeSelect.dispatchEvent(event);
             crawlUseLocalTZ.dispatchEvent(event);
             crawlUseOverrideTZ.dispatchEvent(event);
             crawlBackgroundMode.dispatchEvent(event);
@@ -2365,7 +2363,7 @@
         crawlEditor.setSize('27vw', '15rem');
 
         const crawlWrapper = crawlEditor.getWrapperElement();
-        crawlWrapper.classList.add('ttsText', 'ttsText--editor');
+        crawlWrapper.classList.add('ttsText', 'ttsText--editor', 'crawl-text');
 
         crawlEditor.on('change', () => {
             crawlEditor.save();
@@ -2378,4 +2376,6 @@
     const crawlEditor = initCrawlTextEditor();
 
     crawlEditor.refresh();
+
+    document.getElementById('crawlMode').dispatchEvent(new Event('change'));
 })();
