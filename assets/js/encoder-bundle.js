@@ -1349,7 +1349,6 @@ async function fetchAndStore() {
                     const remainder = minutes % 60;
                     const minOption = Array.from(minselect.options || []).find(opt => parseInt(opt.value, 10) === remainder);
                     if (minOption) {
-                        min = remainder;
                         minselect.value = remainder;
                     }
                 }
