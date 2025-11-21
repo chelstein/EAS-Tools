@@ -98,16 +98,6 @@ audio {
     height: auto;
 }
 
-#audioPlayback {
-    display: block;
-    margin-top: 8px;
-    padding: 6px;
-    background: #1a1a1a;
-    border: 1px solid #303030;
-    border-radius: 6px;
-    min-height: 40px;
-}
-
 a {
     color: #ff9a3c;
 }
@@ -150,11 +140,30 @@ span.checkmark {
     border-radius: 4px;
     flex-shrink: 0;
 }
+
 [data-mic-container] {
     margin-bottom: 8px;
 }
 
+button:disabled,
+button[disabled] {
+    background-color: #3a3a3a;
+    color: #777777;
+    cursor: not-allowed;
+    border-color: #3a3a3a;
+}
+
 /* ID-level CSS */
+
+#audioPlayback {
+    display: block;
+    margin-top: 8px;
+    padding: 6px;
+    background: #1a1a1a;
+    border: 1px solid #303030;
+    border-radius: 6px;
+    min-height: 40px;
+}
 
 #status {
     font-family: Hack;
@@ -359,6 +368,14 @@ span.checkmark {
     display: none;
 }
 
+#stateselect, #countyselect {
+    width: 10vw;
+}
+
+#rgselect {
+    width: 3vw;
+}
+
 /* Class-level CSS */
 .footer-links {
     list-style: none;
@@ -447,6 +464,13 @@ span.checkmark {
     border-top: 1px solid #303030;
     margin: 12px 0;
     width: 30%;
+}
+
+.eom-hr {
+    border: none;
+    border-top: 3px solid #303030;
+    margin: 12px 0;
+    width: 60%;
 }
 
 .control-panel button {
@@ -624,6 +648,10 @@ span.checkmark {
 
     #desktop-controls {
         display: none;
+    }
+
+    #stateselect, #countyselect, #rgselect {
+        width: 70vw;
     }
 }
 

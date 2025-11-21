@@ -44,7 +44,13 @@
                 <h2 class="section-heading">SAME Decoder</h2>
                 <hr>
                 <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
-                <button type="button" data-decoder-toggle>Start Decoder</button><br>
+                <span>
+                    <button type="button" data-decoder-toggle>Start Decoder</button>
+                    <input type="file" style="display: none;" id="audiofile" accept="audio/*">
+                    <button type="button" data-decoder-load>Upload Audio File</button>
+                    <button type="button" data-decoder-clear>Clear Logs</button>
+                </span>
+                <br>
                 <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
                     aria-valuenow="0" data-level-meter>
                     <span class="level-meter__label">Level</span>
@@ -61,7 +67,8 @@
                     <div class="modalBox">
                         <div class="modalClose" id="close">X</div>
                         <div class="modalContent">
-                            <div class="modalTitle">Alert Details</div>
+                            <div class="modalTitle"><strong>Alert Details</strong></div>
+                            <br>
                             <div class="modalInfo">
                             </div>
                         </div>
@@ -183,15 +190,15 @@
                     <br>
                     <br>
                     <label for="par">Sender ID (8 characters long):</label>
-                    <input id="par" minlength="8" value="senderid">
+                    <input id="par" minlength="8" maxlength="8" value="senderid">
                     <br>
                     <br>
-                    <label for="state">State:</label>
-                    <select id="stateselect"></select>
-                    <label for="county">County:</label>
-                    <select id="countyselect"></select>
-                    <label for="region">Region:</label>
-                    <select id="rgselect"></select>
+                    <label for="stateselect">State:&nbsp;</label>
+                    <select id="stateselect" name="stateselect"></select>
+                    <label for="countyselect">County:</label>
+                    <select id="countyselect" name="countyselect"></select>
+                    <label for="rgselect">Region:</label>
+                    <select id="rgselect" name="rgselect"></select>
                     <button type="button" data-encoder-add-loc>Add</button>
                     <br>
                     (Click a county in the table below to remove it)
@@ -212,6 +219,7 @@
                 <div id="stringEncoder" style="display: none;">
                     <label for="sh">Enter SAME Header here:</label>&nbsp;
                     <input type="text" id="cheader" name="sh" style="width: 50vw;" placeholder="ZCZC-WXR-TOR..."></input>
+                    <button type="button" data-encoder-transfer>Transfer Header to Builder Mode</button>
                 </div>
                 <br>
                 <label for="att">Select Attention Tone:</label>
