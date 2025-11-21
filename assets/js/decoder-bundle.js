@@ -92,13 +92,13 @@ async function fetchAndStore() {
         }
 
         for (const code in sameCodes['SAME']) {
-            stcode = code.slice(0, 2);
-            countycode = code.slice(2);
+            let stcode = code.slice(0, 2);
+            let countycode = code.slice(2);
             const name = sameCodes['SAME'][code];
             window.county[stcode] = window.county[stcode] || {};
             window.county[stcode][countycode] = name;
             if (countycode === '000') {
-                statename = name.replace(/^State of /, '').trim();
+                let statename = name.replace(/^State of /, '').trim();
                 const abbrv = window.abbrvs[statename] || statename;
                 window.state[stcode] = abbrv;
             }
@@ -123,6 +123,16 @@ async function fetchAndStore() {
     const entryPoints = window.entryPoints || {};
     const entryNames = window.entryNames || {};
     const events = window.events || {};
+
+    function addStatus(stat, color = null) {
+        const statuselem = document.getElementById("sync");
+        statuselem.innerHTML = "STATUS: " + stat;
+        if (color) {
+            statuselem.style.color = color;
+        }
+    }
+
+    window.modalShown = false;
 
     // BEGIN decode/audio.js
     let sampleRate = 44100;
@@ -223,7 +233,13 @@ async function fetchAndStore() {
             audio: {
                 deviceId: id
             }
-        });
+        }).catch((error) => {
+            console.error("Error accessing microphone:", error);
+            return null;
+        }).finally(() => { return 1; });
+        if (!stream) {
+            return null;
+        }
         await startDecode(stream);
     }
 
@@ -234,6 +250,7 @@ async function fetchAndStore() {
 
     async function runDecode(button) {
         const uploadFileButton = document.querySelector('[data-decoder-load]');
+        const startStopButton = document.querySelector('[data-decoder-toggle]');
         if (micSource) {
             uploadFileButton.disabled = false;
             await stopDecode();
@@ -241,7 +258,13 @@ async function fetchAndStore() {
         } else {
             uploadFileButton.disabled = true;
             resetDecoderState();
-            await startDecoder(sel.value);
+            let retval = await startDecoder(sel.value);
+            if (retval === null) {
+                uploadFileButton.disabled = false;
+                startStopButton.disabled = true;
+                addStatus("MICROPHONE ACCESS DENIED!", "red");
+                return;
+            }
             button.innerText = "Stop Decoder";
         }
     }
@@ -280,8 +303,7 @@ async function fetchAndStore() {
         if (!micSource) {
             stopMeter();
             decodeContext.suspend();
-            document.querySelector("#sync").innerText = "STATUS: WAITING...";
-            document.querySelector("#sync").style.color = "";
+            addStatus("WAITING...", "white");
             return;
         }
         micSource.mediaStream.getTracks().forEach(e => e.stop());
@@ -292,8 +314,7 @@ async function fetchAndStore() {
         micSource = null;
         stopMeter();
         decodeContext.suspend();
-        document.querySelector("#sync").innerText = "STATUS: WAITING...";
-        document.querySelector("#sync").style.color = "";
+        addStatus("WAITING...", "white");
     }
     populateMicrophones();
 
@@ -526,9 +547,7 @@ async function fetchAndStore() {
     }
 
     function updateSync(sync) {
-        const elem = document.querySelector("#sync");
-        elem.style.color = (sync ? "#00FF00" : "#FF0000");
-        elem.innerText = "STATUS: " + (sync ? "SYNC" : "NO SYNC");
+        addStatus(sync ? "SYNC" : "NO SYNC", sync ? "green" : "red");
     }
     // END decode/clock.js
     // BEGIN decode/header.js
@@ -614,23 +633,31 @@ async function fetchAndStore() {
         }
         view.addEventListener("click", () => {
             showModal(parsedHeader);
+            window.modalShown = true;
         });
         view.innerText = "View Alert";
         container.appendChild(view);
         const decoderClear = document.querySelector('[data-decoder-clear]');
         if (decoderClear) {
-            decoderClear.style = "display: inline;";
+            decoderClear.disabled = false;
         }
     }
     // END decode/header.js
     // BEGIN decode/alertinfo.js
     const modalClose = document.querySelector("#close");
-
     const modalContainer = document.querySelector(".modalContainer");
     const infoContainer = document.querySelector(".modalInfo");
     const modalBox = document.querySelector(".modalBox");
     modalClose.addEventListener("click", () => {
-        modalContainer.style.display = "none";
+        if (window.modalShown) {
+            modalContainer.style.display = "none";
+        }
+    });
+
+    modalContainer.addEventListener("click", (e) => {
+        if (e.target === modalContainer && window.modalShown) {
+            modalContainer.style.display = "none";
+        }
     });
 
     async function showAlertInfo(header) {
@@ -646,8 +673,8 @@ async function fetchAndStore() {
         const alertName = events[header.event];
         const issueTime = header.issueTime;
         const expirationTime = getExpirationTime(issueTime, header.alertTime);
-        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8}-)(.*)/m;
-        const cleanHeader = header.rawHeader.replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6');
+        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})(.*)/m;
+        const cleanHeader = header.rawHeader.replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6-');
 
         let eas = await EAS2Text.fromUSMessage(cleanHeader, { resources, mode: 'NONE', useLocaleTimezone: true }).catch((e) => {
             console.error("Error parsing EAS to text:", e);
@@ -792,6 +819,7 @@ async function fetchAndStore() {
             const output = document.getElementById('output');
             if (output) {
                 output.innerHTML = "";
+                decoderClear.disabled = true;
             }
         });
     }
@@ -811,8 +839,7 @@ async function fetchAndStore() {
         audiofileInput.addEventListener('change', async function () {
             const file = this.files[0];
             if (file) {
-                document.querySelector("#sync").innerText = "STATUS: PROCESSING...";
-                document.querySelector("#sync").style.color = "yellow";
+                addStatus("PROCESSING...", "yellow");
                 audiofileInput.disabled = true;
                 decoderToggle.disabled = true;
                 decoderLoad.disabled = true;

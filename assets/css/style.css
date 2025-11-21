@@ -311,7 +311,7 @@ button[disabled] {
     font-size: 1.5em;
     cursor: pointer;
     z-index: 1001;
-    margin: 6px;
+    margin: 2px;
 }
 
 #decoder-panel .watch {
@@ -358,7 +358,12 @@ button[disabled] {
     gap: 10px;
 }
 
-#ttsText2, #ttsVoice2 {
+#cheader {
+    width: 35vw;
+    text-wrap: wrap;
+}
+
+#ttsVoice2 {
     width: 100%;
     height: 15rem;
     font-family: "Hack", monospace;
@@ -366,6 +371,14 @@ button[disabled] {
     padding: 8px;
     border-radius: 6px;
     resize: vertical;
+}
+
+#ttsText:disabled {
+    opacity: 0.65;
+}
+
+#ttsText, #ttsText2 {
+    display: none;
 }
 
 #ttsVoice2 {
@@ -385,6 +398,49 @@ button[disabled] {
 }
 
 /* Class-level CSS */
+.ttsText--editor {
+    display: block;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.CodeMirror.ttsText--editor {
+    display: inline-block;
+    width: 100%;
+    margin: 0 auto;
+    background: #231c14;
+    border: 1px solid #2b2b2b;
+    border-radius: 6px;
+    font-family: "Hack", monospace;
+    font-size: 1rem;
+}
+
+.ttsText--editor .CodeMirror-scroll {
+    min-height: 15rem;
+}
+
+.ttsText--editor .CodeMirror-gutters {
+    background: #1b140c;
+    border-right: 1px solid #2f271d;
+}
+
+.ttsText--editor .CodeMirror-linenumber {
+    color: #fbec5d;
+}
+
+.ttsText--editor pre {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.ttsText--editor .CodeMirror-wrap pre.CodeMirror-line,
+.ttsText--editor .CodeMirror-wrap pre.CodeMirror-line-like {
+    padding: 0 4px;
+}
+
 .footer-links {
     list-style: none;
     display: flex;
@@ -577,6 +633,10 @@ button[disabled] {
     display: block;
 }
 
+.mobileBreak {
+    display: none;
+}
+
 /* Media Queries */
 /* Mobile devices */
 @media screen and (max-width: 1079px) {
@@ -595,8 +655,15 @@ button[disabled] {
         right: 8vw;
     }
 
-    .shorter-hr {
+    .shorter-hr,
+    .eom-hr,
+    #cheader,
+    #ttsVoice {
         width: 100%;
+    }
+
+    #cheader {
+        height: 50px;
     }
 
     audio {
@@ -660,6 +727,23 @@ button[disabled] {
 
     #stateselect, #countyselect, #rgselect {
         width: 70vw;
+    }
+
+    #generatedHeader {
+        width: 100%;
+        text-wrap: wrap;
+    }
+
+    .mobileBreak {
+        display: block;
+    }
+
+    .ttsText--editor {
+        width: 100% !important;
+    }
+
+    .CodeMirror.ttsText--editor {
+        width: 100% !important;
     }
 }
 

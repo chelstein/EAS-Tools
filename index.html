@@ -8,6 +8,8 @@
         <title>EAS Tools</title>
         <link rel="stylesheet" href="assets/css/hack.css">
         <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/codemirror.min.css">
+        <link rel="stylesheet" href="assets/css/abbott.min.css">
         <meta name="title" content="Emergency Alert System (EAS) Tools">
         <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
@@ -26,6 +28,10 @@
         <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
         <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <script language="javascript" type="text/javascript" src="assets/js/codemirror.min.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
+
     </head>
     <body>
         <header>
@@ -48,7 +54,7 @@
                     <button type="button" data-decoder-toggle>Start Decoder</button>
                     <input type="file" style="display: none;" id="audiofile" accept="audio/*">
                     <button type="button" data-decoder-load>Upload Audio File</button>
-                    <button type="button" data-decoder-clear>Clear Logs</button>
+                    <button type="button" data-decoder-clear disabled>Clear Logs</button>
                 </span>
                 <br>
                 <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
@@ -217,8 +223,10 @@
                     <div id="locs"></div>
                 </div>
                 <div id="stringEncoder" style="display: none;">
-                    <label for="sh">Enter SAME Header here:</label>&nbsp;
-                    <input type="text" id="cheader" name="sh" style="width: 50vw;" placeholder="ZCZC-WXR-TOR..."></input>
+                    <label for="cheader">Enter SAME Header here:</label>&nbsp;
+                    <br class="mobileBreak">
+                    <input type="text" id="cheader" name="cheader" placeholder="ZCZC-WXR-TOR..."></input>
+                    <br class="mobileBreak">
                     <button type="button" data-encoder-transfer>Transfer Header to Builder Mode</button>
                 </div>
                 <br>
@@ -253,7 +261,7 @@
                 <div id="tts" style="display: none;">
                     <div id="ttsDiv">
                         <br>
-                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak…"></textarea>
+                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak…" style="display:none;"></textarea>
                         <br class="ttsText">
                         <br class="ttsText">
                         <label for="ttsVoice">Select Voice:</label>
@@ -312,8 +320,9 @@
                 </select>
                 <br>
                 <br>
-                <label for="crawlText" class="crawl-text">Enter text to generate crawl:</label><br class="crawl-text">
-                <textarea id="crawlText" rows="10" cols="50" class="crawl-text" placeholder="Type the text for the crawl…"></textarea>
+                <label for="crawlText" class="crawl-text">Enter text to generate crawl:</label>
+                <br class="crawl-text">
+                <textarea id="crawlText" rows="10" cols="50" placeholder="Type the text for the crawl…"></textarea>
                 <label for="crawlRawHeader" style="display: none;" class="crawl-raw-header">Input a raw EAS header:</label>
                 <input id="crawlRawHeader" style="display: none; width: 50vw;" class="crawl-raw-header" placeholder="ZCZC-WXR-TOR..."></input>
                 <hr>
@@ -421,6 +430,9 @@
                     <br>
                     <label for="crawlRestartDelay">Crawl Restart Delay (milliseconds, 500-60000 in steps of 500):</label>
                     <input type="number" id="crawlRestartDelay" min="500" max="60000" value="1000" step="500">
+                    <br>
+                    <label for="crawlRepetitions">Crawl Export Repetitions (1-10):</label>
+                    <input type="number" id="crawlRepetitions" min="1" max="10" value="1">
                     <hr class="shorter-hr">
                     <label for="crawlBackgroundMode">Background Mode:</label>
                     <select id="crawlBackgroundMode">
@@ -467,11 +479,12 @@
                 <hr>
                 <div class="control-panel" style="position: sticky; top: 0; padding-top: 10px; padding-bottom: 10px; z-index: 10;">
                     <button type="button" id="startCrawl">Start Crawl</button>
-                    <button type="button" id="pauseCrawl">Pause Crawl</button>
-                    <button type="button" id="stopCrawl">Stop/Reset Crawl</button>
-                    <button type="button" id="exportCrawlGIF">Export as GIF</button>
-                    <button type="button" id="exportCrawlVideo">Export as video (.webm)</button>
-                    <button type="button" id="copyCrawlText">Copy Crawl Text to Clipboard</button>
+                    <button type="button" id="pauseCrawl" disabled>Pause Crawl</button>
+                    <button type="button" id="stopCrawl" disabled>Stop/Reset Crawl</button>
+                    <button type="button" id="exportCrawlGIF" disabled>Export as GIF</button>
+                    <button type="button" id="exportCrawlVideo" disabled>Export as video (.webm)</button>
+                    <button type="button" id="copyCrawlText" disabled>Copy Crawl Text to Clipboard</button>
+                    <button type="button" id="destroyCrawl" disabled>Destroy Crawl Instance</button>
                     <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
                     <div id="crawlExportProgressDiv" class="crawl-export-progress" style="display: none; background-color: rgba(0, 0, 0, 0.75);">
                         <label for="crawlExportProgress">Export Progress: <span id="crawlExportProgressLabel">0%</span></label>
@@ -501,9 +514,9 @@
                                 (<span data-selection-length>0.00s</span>)
                             </div>
                             <div class="waveform-actions">
-                                <button type="button" data-splice-play>Play Selection</button>
-                                <button type="button" data-splice-playAll>Play All</button>
-                                <button type="button" data-splice-stop>Stop</button>
+                                <button type="button" disabled data-splice-play>Play Selection</button>
+                                <button type="button" disabled data-splice-playAll>Play All</button>
+                                <button type="button" disabled data-splice-stop>Stop</button>
                             </div>
                         </div>
                         <br>
@@ -529,24 +542,27 @@
                     </div>
                     <div class="splice-controls">
                         <div>
-                            <label for="spliceFile">Load Audio File:</label><br>
-                            <input id="spliceFile" type="file" accept="*.*" data-splice-file>
-                        </div>
-                        <div id="tts">
+                            <label for="spliceFile">Load Audio File:</label>
                             <br>
-                            <label for="ttsText2" class="ttsText">Or enter text to generate speech:</label>
+                            <input id="spliceFile" type="file" accept="*.*" data-splice-file style="display: none;">
+                            <button type="button" data-splice-load>Load File</button>
+                            <span data-splice-file-status class="status-line"></span>
+                        </div>
+                        <div id="spliceTTSGenerator">
+                            <br>
+                            <label for="ttsText2" class="ttsText">Or, enter text below to generate speech:</label>
                             <br class="ttsText">
                             <textarea id="ttsText2" class="ttsText" placeholder="Type the message to speak…"></textarea>
                             <br class="ttsText">
                             <br class="ttsText">
                             <label for="ttsVoice2">Select Voice:</label>
-                            <select id="ttsVoice2" name="ttsVoice">
+                            <select id="ttsVoice2" name="ttsVoice2">
                                 <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
                             </select>
-                            <br class="overrideTZ">
-                            <br class="overrideTZ">
-                            <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
-                            <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
+                            <br class="splicerOverrideTZ">
+                            <br class="splicerOverrideTZ">
+                            <label for="useSplicerOverrideTZ" class="splicerOverrideTZ">Override Timezone (can only be used with EMNet):</label>
+                            <select id="useSplicerOverrideTZ" name="useSplicerOverrideTZ" class="splicerOverrideTZ">
                                 <option value="UTC">UTC</option>
                                 <option value="AST">AST (Atlantic Standard Time)</option>
                                 <option value="EST">EST (Eastern Standard Time)</option>
@@ -559,11 +575,11 @@
                                 <option value="PDT">PDT (Pacific Daylight Time)</option>
                                 <option value="AKST">AKST (Alaska Standard Time)</option>
                                 <option value="AKDT">AKDT (Alaska Daylight Time)</option>
-                            <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
-                            <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
-                            <option value="SST">SST (Samoa Standard Time)</option>
-                            <option value="CHST">CHST (Chamorro Standard Time)</option>
-                        </select>
+                                <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
+                                <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
+                                <option value="SST">SST (Samoa Standard Time)</option>
+                                <option value="CHST">CHST (Chamorro Standard Time)</option>
+                            </select>
                         <br>
                         <button type="button" data-splice-tts-generate>Generate &amp; Append</button>
                         <span data-splice-tts-status class="status-line"></span>
@@ -575,13 +591,13 @@
                         <span data-splice-silence-status class="status-line"></span>
                     </div>
                     <div class="splice-action-grid">
-                        <button type="button" data-splice-split-selection>Split at Selection</button>
-                        <button type="button" data-splice-join-all>Join All Segments</button>
-                        <button type="button" data-splice-trim>Trim to Selection</button>
-                        <button type="button" data-splice-delete>Delete Selection</button>
-                        <button type="button" data-splice-split>Save Selection as Segment</button>
-                        <button type="button" data-splice-export>Export WAV</button>
-                        <button type="button" data-splice-clear>Clear Project</button>
+                        <button type="button" disabled data-splice-split-selection>Split at Selection</button>
+                        <button type="button" disabled data-splice-join-all>Join All Segments</button>
+                        <button type="button" disabled data-splice-trim>Trim to Selection</button>
+                        <button type="button" disabled data-splice-delete>Delete Selection</button>
+                        <button type="button" disabled data-splice-split>Save Selection as Segment</button>
+                        <button type="button" disabled data-splice-export>Export WAV</button>
+                        <button type="button" disabled data-splice-clear>Clear Project</button>
                         </div>
                         <div class="splice-storage">
                             Status: <span data-splice-persist>Waiting…</span>
@@ -598,12 +614,77 @@
         <footer></footer>
         <script src="assets/js/wavefile.js"></script>
         <script src="assets/js/wave-resampler.js"></script>
-        <script src="assets/js/decoder-bundle.js"></script>
-        <script src="assets/js/encoder-bundle.js"></script>
-        <script src="assets/js/footer.js"></script>
         <script src="assets/js/gif.js"></script>
-        <script type="module" src="assets/js/crawl-bundle.js"></script>
+        <script src="assets/js/footer.js"></script>
         <script type="module" src="assets/E2T/EAS2Text.js"></script>
+        <script>
+            (() => {
+                const panelIds = {
+                    encoder: 'encoder-panel',
+                    crawl: 'crawl-panel',
+                    splicer: 'splicer-panel',
+                };
+
+                const syncEditorValue = (editor) => {
+                    if (typeof editor.getTextArea === 'function') {
+                        const textarea = editor.getTextArea();
+                        if (textarea && textarea.value !== editor.getValue()) {
+                            editor.setValue(textarea.value);
+                        }
+                    }
+                    editor.refresh();
+                };
+
+                const refreshForPanels = (panelNames, attempt = 0) => {
+                    if (!window.CodeMirror) {
+                        if (attempt < 10) {
+                            requestAnimationFrame(() => refreshForPanels(panelNames, attempt + 1));
+                        }
+                        return;
+                    }
+
+                    let needsRetry = false;
+                    panelNames.forEach((name) => {
+                        const panelId = panelIds[name];
+                        if (!panelId) return;
+                        const panel = document.getElementById(panelId);
+                        if (!panel || !panel.classList.contains('active')) return;
+                        const editors = panel.querySelectorAll('.ttsText--editor');
+                        if (!editors.length) {
+                            needsRetry = true;
+                            return;
+                        }
+                        editors.forEach((node) => {
+                            const editor = node.CodeMirror;
+                            if (editor && typeof editor.refresh === 'function') {
+                                syncEditorValue(editor);
+                            }
+                        });
+                    });
+
+                    if (needsRetry && attempt < 10) {
+                        requestAnimationFrame(() => refreshForPanels(panelNames, attempt + 1));
+                    }
+                };
+
+                window.__ensureTextEditorsRefreshed = (panelName) => {
+                    const names = panelName ? [panelName] : Object.keys(panelIds);
+                    refreshForPanels(names);
+                };
+
+                const announcementTypeSelect = document.getElementById('announcementType');
+                if (announcementTypeSelect) {
+                    announcementTypeSelect.addEventListener('change', () => {
+                        if (announcementTypeSelect.value === 'tts') {
+                            requestAnimationFrame(() => window.__ensureTextEditorsRefreshed?.('encoder'));
+                        }
+                    });
+                }
+            })();
+        </script>
+        <script type="module" src="assets/js/decoder-bundle.js"></script>
+        <script type="module" src="assets/js/encoder-bundle.js"></script>
+        <script type="module" src="assets/js/crawl-bundle.js"></script>
         <script type="module" src="assets/js/splicer-bundle.js"></script>
         <script>
             (() => {
@@ -617,6 +698,11 @@
                     splicer: document.getElementById('splicer-panel'),
                 };
 
+                const requestEditorRefresh = (target) => {
+                    if (typeof window.__ensureTextEditorsRefreshed !== 'function') return;
+                    requestAnimationFrame(() => window.__ensureTextEditorsRefreshed(target));
+                };
+
                 const activate = (target) => {
                     buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tool === target));
                     Object.entries(panels).forEach(([name, panel]) => {
@@ -626,6 +712,7 @@
                     const newParams = new URLSearchParams(window.location.search);
                     newParams.set('tool', target);
                     window.history.replaceState({}, '', `${window.location.pathname}?${newParams}`);
+                    requestEditorRefresh(target);
                 };
 
                 buttons.forEach((btn) => {

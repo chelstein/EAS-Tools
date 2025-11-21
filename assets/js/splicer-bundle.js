@@ -1,4 +1,4 @@
-(() => {
+(async function () {
     const panel = document.getElementById('splicer-panel');
     const canvas = document.getElementById('spliceWaveform');
     if (!panel || !canvas) return;
@@ -6,10 +6,10 @@
     const ctx = canvas.getContext('2d');
     const fileInput = panel.querySelector('[data-splice-file]');
     const ttsInput = panel.querySelector('#ttsText2') || panel.querySelector('.ttsText');
-    const ttsButton = panel.querySelector('[data-splice-tts-generate]') || panel.querySelector('#tts button');
-    const ttsStatus = panel.querySelector('[data-splice-tts-status]') || panel.querySelector('#tts [data-splice-tts-status]');
+    const ttsButton = panel.querySelector('[data-splice-tts-generate]') || panel.querySelector('#spliceTTSGenerator button');
+    const ttsStatus = panel.querySelector('[data-splice-tts-status]') || panel.querySelector('#spliceTTSGenerator [data-splice-tts-status]');
     const voiceSelect = panel.querySelector('#ttsVoice2');
-    const overrideTzSelect = panel.querySelector('#useOverrideTZ');
+    const overrideTzSelect = panel.querySelector('#useSplicerOverrideTZ');
     const silenceInput = panel.querySelector('[data-splice-silence]');
     const silenceStatus = panel.querySelector('[data-splice-silence-status]');
     const silenceBtn = panel.querySelector('[data-splice-add-silence]');
@@ -28,6 +28,8 @@
     const selStartLabel = panel.querySelector('[data-selection-start]');
     const selEndLabel = panel.querySelector('[data-selection-end]');
     const selLenLabel = panel.querySelector('[data-selection-length]');
+    const loadFileBtn = panel.querySelector('[data-splice-load]');
+
     canvas.style.touchAction = 'none';
 
     const DB_NAME = 'eas-splicer';
@@ -36,8 +38,9 @@
     const PIPER_BUNDLE_URL = 'assets/piper-tts/piper.tts.bundle.js';
     const PIPER_VOICE = 'en_US-joe-medium';
     const voiceBackendMap = {};
-    let playBtnClicks = 0;
-    let playAllBtnClicks = 0;
+    let currentSegmentId = null;
+    const segmentPlayButtons = new Map();
+    let pendingSegmentPlay = null;
 
     const state = {
         sampleRate: 44100,
@@ -70,6 +73,31 @@
         if (!persistLabel) return;
         persistLabel.textContent = msg;
         persistLabel.style.color = ok ? '#7ae37a' : '#f48383';
+    };
+
+    const syncSegmentPlayButtons = (activeId = null) => {
+        currentSegmentId = activeId;
+        segmentPlayButtons.forEach((btn, segId) => {
+            if (!btn || !btn.isConnected) return;
+            btn.textContent = segId === currentSegmentId ? 'Pause Section' : 'Play Section';
+        });
+    };
+
+    const syncPlayButtons = () => {
+        if (playBtn) {
+            const playingSelection = playingSource && playingMode === 'selection';
+            playBtn.textContent = playingSelection ? 'Pause Selection' : 'Play Selection';
+        }
+        if (playAllBtn) {
+            const playingAll = playingSource && playingMode === 'all';
+            playAllBtn.textContent = playingAll ? 'Pause All' : 'Play All';
+        }
+    };
+
+    const cancelPendingSegmentPlayback = () => {
+        if (!pendingSegmentPlay) return;
+        pendingSegmentPlay.cancelled = true;
+        pendingSegmentPlay = null;
     };
 
     const getDb = () => {
@@ -270,8 +298,127 @@
         rebuildTimeline();
     };
 
+    const playSegment = async (seg) => {
+        if (!seg?.pcm?.length) return false;
+        cancelPendingSegmentPlayback();
+        if (playingSource) stopPlayback();
+
+        const pendingState = { cancelled: false, segId: seg.id };
+        pendingSegmentPlay = pendingState;
+        const clearPendingState = () => {
+            if (pendingSegmentPlay === pendingState) pendingSegmentPlay = null;
+        };
+
+        const ctxAudio = getAudioCtx();
+        if (ctxAudio.state === 'suspended') {
+            try {
+                await ctxAudio.resume();
+            } catch (err) {
+                console.warn('Failed to resume audio context', err);
+            }
+        }
+
+        if (pendingState.cancelled) {
+            clearPendingState();
+            return false;
+        }
+
+        const buffer = ctxAudio.createBuffer(1, seg.pcm.length, state.sampleRate);
+        buffer.copyToChannel(seg.pcm, 0);
+
+        const resumeInfo = pausedPlayback && pausedPlayback.mode === 'segment' && pausedPlayback.segId === seg.id ? pausedPlayback : null;
+        const sr = Math.max(1, state.sampleRate || 44100);
+        const segDuration = seg.pcm.length / sr;
+        let samplesBefore = 0;
+        for (let i = 0; i < state.segments.length; i++) {
+            const current = state.segments[i];
+            if (current.id === seg.id) break;
+            samplesBefore += current.pcm.length;
+        }
+        const segmentStartTime = samplesBefore / sr;
+        let startOffset = 0;
+        let len = Math.max(0.001, segDuration);
+        if (resumeInfo) {
+            const resumeFromAbs = clamp(resumeInfo.resumeFrom ?? segmentStartTime, segmentStartTime, segmentStartTime + segDuration);
+            const resumeEndAbs = clamp(resumeInfo.end ?? (segmentStartTime + segDuration), resumeFromAbs, segmentStartTime + segDuration);
+            startOffset = resumeFromAbs - segmentStartTime;
+            len = Math.max(0.001, resumeEndAbs - resumeFromAbs);
+        }
+
+        if (pendingState.cancelled) {
+            clearPendingState();
+            return false;
+        }
+
+        const source = ctxAudio.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctxAudio.destination);
+
+        if (pendingState.cancelled) {
+            try { source.disconnect(); } catch (err) { console.warn(err); }
+            clearPendingState();
+            return false;
+        }
+
+        source.start(0, startOffset, len);
+        playingSource = source;
+        clearPendingState();
+
+        setInterval(updatePlaybackMarker, 1);
+
+        playingMode = 'segment';
+        playStartOffset = segmentStartTime + startOffset;
+        playSpan = len;
+        playStartedAt = ctxAudio.currentTime;
+        pausedPlayback = null;
+
+        source.onended = () => {
+            if (playingSource !== source) return;
+            playingSource = null;
+            playingMode = null;
+            pausedPlayback = null;
+            playSpan = 0;
+            playStartOffset = 0;
+            syncSegmentPlayButtons(null);
+            clearInterval(updatePlaybackMarker);
+            drawWaveform();
+        };
+        return true;
+    };
+
+    const pauseSegment = async (seg) => {
+        if (!playingSource) {
+            if (pendingSegmentPlay && pendingSegmentPlay.segId === seg?.id) {
+                cancelPendingSegmentPlayback();
+            }
+            return;
+        }
+        const ctxAudio = audioCtx || getAudioCtx();
+        if (ctxAudio.state === 'suspended') await ctxAudio.resume();
+
+        const elapsed = Math.max(0, ctxAudio.currentTime - playStartedAt);
+        const resumeAbs = Math.min(playStartOffset + elapsed, playStartOffset + playSpan);
+        pausedPlayback = {
+            mode: 'segment',
+            segId: seg?.id ?? null,
+            resumeFrom: resumeAbs,
+            end: playStartOffset + playSpan,
+        };
+
+        try {
+            playingSource.onended = null;
+            playingSource.stop();
+        } catch (err) {
+            console.warn(err);
+        }
+
+        playingSource = null;
+        playingMode = null;
+    };
+
     const updateSegmentsList = () => {
         segmentsList.innerHTML = '';
+        segmentPlayButtons.clear();
         if (!state.segments.length) {
             const li = document.createElement('li');
             li.textContent = 'No segments yet. Load audio or generate TTS to start.';
@@ -294,6 +441,50 @@
             const label = document.createElement('div');
             label.textContent = formatSegmentLabel(seg, idx);
             label.style.flex = '1';
+
+            const playSectionBtn = document.createElement('button');
+            playSectionBtn.type = 'button';
+            playSectionBtn.textContent = 'Play Section';
+            playSectionBtn.disabled = !seg.pcm.length;
+            segmentPlayButtons.set(seg.id, playSectionBtn);
+            if (currentSegmentId === seg.id && playingMode === 'segment' && playingSource) {
+                playSectionBtn.textContent = 'Pause Section';
+            }
+            playSectionBtn.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                const isActiveSegment = Boolean(playingSource) && playingMode === 'segment' && currentSegmentId === seg.id;
+                if (isActiveSegment) {
+                    syncSegmentPlayButtons(null);
+                    try {
+                        await pauseSegment(seg);
+                    } catch (err) {
+                        console.error('Failed to pause segment', err);
+                        syncSegmentPlayButtons(seg.id);
+                    }
+                    return;
+                }
+                try {
+                    const started = await playSegment(seg);
+                    if (started) {
+                        syncSegmentPlayButtons(seg.id);
+                    }
+                } catch (err) {
+                    console.error('Failed to play segment', err);
+                    syncSegmentPlayButtons(null);
+                }
+            });
+
+            const renameSectionBtn = document.createElement('button');
+            renameSectionBtn.type = 'button';
+            renameSectionBtn.textContent = 'Rename Section';
+            renameSectionBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const newName = prompt('Enter new name for the segment:', seg.label);
+                if (newName) {
+                    seg.label = newName;
+                    updateSegmentsList();
+                }
+            });
 
             const moveUpBtn = document.createElement('button');
             moveUpBtn.type = 'button';
@@ -325,6 +516,8 @@
             const controls = document.createElement('div');
             controls.style.display = 'flex';
             controls.style.gap = '6px';
+            controls.appendChild(playSectionBtn);
+            controls.appendChild(renameSectionBtn);
             controls.appendChild(moveUpBtn);
             controls.appendChild(moveDownBtn);
             controls.appendChild(removeBtn);
@@ -384,6 +577,7 @@
         const pcm = new Float32Array(samples);
         addSegment(pcm, state.sampleRate, 'Silence', `Silence ${secs.toFixed(2)}s`);
         if (silenceStatus) silenceStatus.textContent = `Added ${secs.toFixed(2)}s of silence.`;
+        setButtonDisabledState(false);
         resetViewWindow();
         drawWaveform();
     };
@@ -526,13 +720,21 @@
 
 
     const stopPlayback = () => {
+        cancelPendingSegmentPlayback();
         if (playingSource) {
-            try { playingSource.stop(); } catch (err) { console.warn(err); }
+            try {
+                playingSource.onended = null;
+                playingSource.stop();
+            } catch (err) {
+                console.warn(err);
+            }
         }
         playingSource = null;
         playingMode = null;
         pausedPlayback = null;
         playSpan = 0;
+        syncSegmentPlayButtons(null);
+        syncPlayButtons();
         rebuildTimeline();
         drawWaveform();
     };
@@ -554,6 +756,7 @@
         }
         playingSource = null;
         playingMode = null;
+        syncPlayButtons();
     };
 
     const playSelection = async () => {
@@ -584,14 +787,14 @@
         playStartedAt = ctxAudio.currentTime;
         const playbackInterval = setInterval(updatePlaybackMarker, 1);
         pausedPlayback = null;
+        syncPlayButtons();
         source.onended = () => {
             playingSource = null;
             playingMode = null;
             pausedPlayback = null;
             playSpan = 0;
             playStartOffset = 0;
-            playBtnClicks = 0;
-            if (playBtn) playBtn.textContent = 'Play Selection';
+            syncPlayButtons();
         };
     };
 
@@ -618,14 +821,14 @@
         playStartedAt = ctxAudio.currentTime;
         const playbackInterval = setInterval(updatePlaybackMarker, 1);
         pausedPlayback = null;
+        syncPlayButtons();
         source.onended = () => {
             playingSource = null;
             playingMode = null;
             pausedPlayback = null;
             playSpan = 0;
             playStartOffset = 0;
-            playAllBtnClicks = 0;
-            if (playAllBtn) playAllBtn.textContent = 'Play All';
+            syncPlayButtons();
         };
     };
 
@@ -1188,30 +1391,42 @@
             const file = e.target.files?.[0];
             if (file) handleFile(file);
             e.target.value = '';
+            setButtonDisabledState(false);
         });
 
-        playBtn?.addEventListener('click', () => {
-            playBtnClicks++;
-            if (playBtnClicks % 2 === 1) {
-                playBtn.textContent = 'Pause Selection';
-                playSelection();
-            } else {
-                playBtn.textContent = 'Play Selection';
+        playBtn?.addEventListener('click', async () => {
+            const isSelectionPlaying = playingSource && playingMode === 'selection';
+            if (isSelectionPlaying) {
                 pausePlayback();
+                syncPlayButtons();
+                return;
+            }
+            try {
+                await playSelection();
+            } catch (err) {
+                console.error('Failed to play selection', err);
+            } finally {
+                syncPlayButtons();
             }
         });
 
-        playAllBtn?.addEventListener('click', () => {
-            playAllBtnClicks++;
-            if (playAllBtnClicks % 2 === 1) {
-                playAllBtn.textContent = 'Pause All';
-                playWholeFile();
-            } else {
-                playAllBtn.textContent = 'Play All';
+        playAllBtn?.addEventListener('click', async () => {
+            const isPlayingAll = playingSource && playingMode === 'all';
+            if (isPlayingAll) {
                 pausePlayback();
+                syncPlayButtons();
+                return;
+            }
+            try {
+                await playWholeFile();
+            } catch (err) {
+                console.error('Failed to play entire file', err);
+            } finally {
+                syncPlayButtons();
             }
         });
 
+        loadFileBtn?.addEventListener('click', () => { fileInput?.click(); });
         stopBtn?.addEventListener('click', stopPlayback);
         trimBtn?.addEventListener('click', trimToSelection);
         deleteBtn?.addEventListener('click', deleteSelection);
@@ -1225,6 +1440,7 @@
             updateSegmentsList();
             drawWaveform();
             clearCache();
+            setButtonDisabledState(true);
             const intervalId = setInterval(() => persistStatus('Project cleared.', true), 5);
             await new Promise((resolve) => setTimeout(resolve, 1000));
             clearInterval(intervalId);
@@ -1233,6 +1449,18 @@
         silenceBtn?.addEventListener('click', addSilence);
         splitSelectionBtn?.addEventListener('click', splitAtSelection);
         joinAllBtn?.addEventListener('click', joinAllSegments);
+
+        voiceSelect?.addEventListener('change', () => {
+            const selectedVoice = (voiceSelect?.value || 'wasm').trim();
+            const overrideTZElements = document.getElementsByClassName('splicerOverrideTZ');
+            if (selectedVoice !== 'EMNet') {
+                Array.from(overrideTZElements).forEach(el => el.style.display = 'none');
+            } else {
+                Array.from(overrideTZElements).forEach(el => el.style.display = 'inline-block');
+            }
+        });
+
+        voiceSelect?.dispatchEvent(new Event('change'));
 
         ttsButton?.addEventListener('click', async () => {
             const text = (ttsInput?.value || '').trim();
@@ -1253,6 +1481,7 @@
                     const { pcm, sampleRate } = await synthTts(text);
                     addSegment(pcm, sampleRate, 'TTS', text);
                     if (ttsStatus) ttsStatus.textContent = `Added ${(pcm.length / (sampleRate || state.sampleRate)).toFixed(2)}s of audio.`;
+                    setButtonDisabledState(false);
                     resetViewWindow();
                     drawWaveform();
                 } else {
@@ -1265,6 +1494,7 @@
                     if (result?.pcm?.length) {
                         addSegment(result.pcm, result.sampleRate, 'TTS', text);
                         if (ttsStatus) ttsStatus.textContent = `Added ${(result.pcm.length / (result.sampleRate || state.sampleRate)).toFixed(2)}s of audio.`;
+                        setButtonDisabledState(false);
                         resetViewWindow();
                         drawWaveform();
                     } else {
@@ -1280,9 +1510,23 @@
         });
     };
 
+    const setButtonDisabledState = (disabled) => {
+        playBtn.disabled = disabled;
+        playAllBtn.disabled = disabled;
+        stopBtn.disabled = disabled;
+        splitBtn.disabled = disabled;
+        trimBtn.disabled = disabled;
+        deleteBtn.disabled = disabled;
+        exportBtn.disabled = disabled;
+        splitSelectionBtn.disabled = disabled;
+        joinAllBtn.disabled = disabled;
+        clearBtn.disabled = disabled;
+    };
+
     const restoreFromCache = async () => {
         const payload = await loadProject();
         if (!payload || !payload.segments?.length) {
+            setButtonDisabledState(true);
             persistStatus('No cached project found yet.');
             drawWaveform();
             updateSegmentsList();
@@ -1296,12 +1540,49 @@
             sourceText: s.sourceText || '',
         }));
         rebuildTimeline();
-        persistStatus('Restored cached project.');
+        setButtonDisabledState(false);
+        const intervalId3 = setInterval(() => persistStatus('Project restored from cache.'), 5);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        clearInterval(intervalId3);
     };
 
     bindEvents();
     updateSelectionLabels();
     drawWaveform();
     restoreFromCache();
-    getVoiceList();
+    await getVoiceList();
+})();
+
+(async function () {
+    let splicerTextEditor = null;
+
+    function initSplicerTextEditor() {
+        if (splicerTextEditor || !window.CodeMirror) return splicerTextEditor;
+
+        const splicerTextArea = document.getElementById('ttsText2');
+        if (!splicerTextArea) return null;
+
+        const splicerEditor = CodeMirror.fromTextArea(splicerTextArea, {
+            lineNumbers: true,
+            mode: 'text/xml',
+            matchBrackets: true,
+            theme: 'abbott',
+            lineWrapping: true,
+        });
+
+        splicerEditor.setSize('27vw', '15rem');
+
+        const splicerWrapper = splicerEditor.getWrapperElement();
+        splicerWrapper.classList.add('ttsText', 'ttsText--editor');
+
+        splicerEditor.on('change', () => {
+            splicerEditor.save();
+        });
+
+        splicerTextEditor = splicerEditor;
+        return splicerEditor;
+    }
+
+    const splicerEditor = initSplicerTextEditor();
+    splicerEditor.refresh();
 })();

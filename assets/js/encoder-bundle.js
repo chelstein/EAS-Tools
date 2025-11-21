@@ -69,13 +69,13 @@ async function fetchAndStore() {
         }
 
         for (const code in sameCodes['SAME']) {
-            stcode = code.slice(0, 2);
-            countycode = code.slice(2);
+            let stcode = code.slice(0, 2);
+            let countycode = code.slice(2);
             const name = sameCodes['SAME'][code];
             window.county[stcode] = window.county[stcode] || {};
             window.county[stcode][countycode] = name;
             if (countycode === '000') {
-                statename = name.replace(/^State of /, '').trim();
+                let statename = name.replace(/^State of /, '').trim();
                 const abbrv = window.abbrvs[statename] || statename;
                 window.state[stcode] = abbrv;
             }
@@ -291,7 +291,7 @@ async function fetchAndStore() {
 
         await ensurePiperLoaded();
 
-        addStatus("Generating TTS audio... this may take a while, especially if your text is longer than a few sentences.");
+        addStatus("Generating local TTS audio... this may take a while, especially if your text is longer than a few sentences.");
 
         if (window.PiperTTS?.pcmFor) {
             return await window.PiperTTS.pcmFor(text, PIPER_VOICE_ID, targetRate);
@@ -834,6 +834,7 @@ async function fetchAndStore() {
 
     async function create_alert_async(header, useOverrideTZ, { allowCustomAudio = false } = {}) {
         document.getElementById("generate").disabled = true;
+        document.getElementById("save").disabled = true;
         addStatus("Generating EAS...");
 
         create_header_tones(header);
@@ -858,6 +859,7 @@ async function fetchAndStore() {
             if (!await validateTtsText()) {
                 addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
                 document.getElementById("generate").disabled = false;
+                document.getElementById("save").disabled = false;
                 generate_silence(SAMPLE_RATE);
                 return;
             }
@@ -892,6 +894,7 @@ async function fetchAndStore() {
         create_eom_tones();
 
         document.getElementById("generate").disabled = false;
+        document.getElementById("save").disabled = false;
     }
 
     // END encode/alert.js
@@ -981,19 +984,11 @@ async function fetchAndStore() {
             for (let i = 0; i < overrideTZElements.length; i++) {
                 overrideTZElements[i].style.display = 'inline-block';
             }
-            for (let i = 0; i < ttsTextElements.length; i++) {
-                ttsTextElements[i].style.display = 'none';
-                ttsTextElements[i].disabled = true;
-            }
         }
 
         else {
             for (let i = 0; i < overrideTZElements.length; i++) {
                 overrideTZElements[i].style.display = 'none';
-            }
-            for (let i = 0; i < ttsTextElements.length; i++) {
-                ttsTextElements[i].style.display = 'inline-block';
-                ttsTextElements[i].disabled = false;
             }
         }
     }
@@ -1121,7 +1116,7 @@ async function fetchAndStore() {
 
         saveb.style.display = "inline-block";
         addStatus("EAS Generated! Samples: " + samples.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (showTime ? timeTaken : ""));
-        addStatus("Generated header: <pre id=\"generatedHeader\">" + ((window.useCustom && window.mode === "header") ? rawinput.value : header) + "</pre>");
+        addStatus("Generated header: <br class=\"mobileBreak\"><pre id=\"generatedHeader\">" + ((window.useCustom && window.mode === "header") ? rawinput.value : header) + "</pre>");
 
         const playbackElement = audioPlayback ?? (() => {
             const el = document.createElement("audio");
@@ -1153,24 +1148,20 @@ async function fetchAndStore() {
     function addStatus(stat, type = "LOG") {
         var new_status = document.createElement("div");
         var d = new Date();
-        new_status.innerHTML = zero_pad_int(d.getHours().toString() % 12, 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " [" + type + "]: " + stat;
+        new_status.innerHTML = zero_pad_int(d.getHours().toString() % 12, 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
         statuselem.appendChild(new_status);
         clr.style.display = "inline-block";
     }
 
     function resetStatus() {
         statuselem.innerHTML = "";
-        clr.style.display = "none";
+        clr.disabled = true;
     }
 
     function addLoc() {
         var t = regionselect.value.toString() + stateselect.value.toString() + countyselect.value.toString(); if (locations.indexOf(t) < 0) {
             locations.push(t); updateTable();
         } else { addStatus("You can't add the same location code twice!"); }
-    }
-
-    function updateText(ttsTextValue) {
-        window.ttsText = ttsTextValue;
     }
 
     function updateTable() {
@@ -1436,7 +1427,7 @@ async function fetchAndStore() {
 
     const ttsTextInput = document.getElementById('ttsText');
     if (ttsTextInput) {
-        ttsTextInput.addEventListener('change', (event) => updateText(event.target.value));
+        ttsTextInput.addEventListener('change', (event) => window.ttsText = event.target.value.trim());
     }
 
     const encoderModeSelect = document.getElementById("encoderMode");
@@ -1458,6 +1449,8 @@ async function fetchAndStore() {
             encoderModeSelect.dispatchEvent(new Event('change'));
         });
     }
+
+    await getVoiceList();
 
     if(!headerParam) {
         localStorage.getItem("eas-tools-encoder-settings") && (() => {
@@ -1489,6 +1482,8 @@ async function fetchAndStore() {
                 console.error("Failed to load encoder settings:", error);
             }
         })();
+
+        addStatus("Loaded saved encoder settings!");
     }
 
     encoderModeSelect.addEventListener("change", function () {
@@ -1528,5 +1523,40 @@ async function fetchAndStore() {
 
     encoderModeSelect.dispatchEvent(new Event('change'));
     announcementTypeSelect.dispatchEvent(new Event('change'));
-    getVoiceList();
+    ttsTextInput.dispatchEvent(new Event('change'));
+    voiceSelect.dispatchEvent(new Event('change'));
+})();
+
+(async function () {
+    let encoderTextEditor = null;
+
+    function initEncoderTextEditor() {
+        if (encoderTextEditor || !window.CodeMirror) return encoderTextEditor;
+
+        const encoderTextArea = document.getElementById('ttsText');
+        if (!encoderTextArea) return null;
+
+        const encoderEditor = CodeMirror.fromTextArea(encoderTextArea, {
+            lineNumbers: true,
+            mode: 'text/xml',
+            matchBrackets: true,
+            theme: 'abbott',
+            lineWrapping: true,
+        });
+
+        encoderEditor.setSize('27vw', '15rem');
+
+        const encoderWrapper = encoderEditor.getWrapperElement();
+        encoderWrapper.classList.add('ttsText', 'ttsText--editor');
+
+        encoderEditor.on('change', () => {
+            encoderEditor.save();
+        });
+
+        encoderTextEditor = encoderEditor;
+        return encoderEditor;
+    }
+
+    const encoderEditor = initEncoderTextEditor();
+    encoderEditor.refresh();
 })();
