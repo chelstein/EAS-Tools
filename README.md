@@ -11,7 +11,9 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your mic
 
 ## Video Demo
 
-<./eas-tools-demo.mp4>
+![EAS Tools Demo Thumbnail](./eas-tools-demo-thumbnail.png)
+
+[Watch the demo video](https://wagspuzzle.space/assets/eas-tools-demo.mp4)
 
 ---
 
