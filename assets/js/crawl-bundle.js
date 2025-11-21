@@ -1,3 +1,37 @@
+(async function () {
+    let crawlTextEditor = null;
+
+    function initCrawlTextEditor() {
+        if (crawlTextEditor || !window.CodeMirror) return crawlTextEditor;
+
+        const crawlTextArea = document.getElementById('crawlText');
+        if (!crawlTextArea) return null;
+
+        const crawlEditor = CodeMirror.fromTextArea(crawlTextArea, {
+            lineNumbers: true,
+            mode: 'text/xml',
+            matchBrackets: true,
+            theme: 'abbott',
+            lineWrapping: true,
+        });
+
+        crawlEditor.setSize('27vw', '15rem');
+
+        const crawlWrapper = crawlEditor.getWrapperElement();
+        crawlWrapper.classList.add('ttsText', 'ttsText--editor', 'crawl-text');
+
+        crawlEditor.on('change', () => {
+            crawlEditor.save();
+        });
+
+        crawlTextEditor = crawlEditor;
+        return crawlEditor;
+    }
+
+    window.crawlEditor = initCrawlTextEditor();
+    window.crawlEditor.refresh();
+})();
+
 (function () {
     const TARGET_FRAME_MS = 1000 / 60;
     const TARGET_FRAMES_PER_SECOND = 1000 / TARGET_FRAME_MS;
@@ -2341,41 +2375,4 @@
             crawlBackgroundMode.dispatchEvent(event);
         });
     }
-})();
-
-(async function () {
-    let crawlTextEditor = null;
-
-    function initCrawlTextEditor() {
-        if (crawlTextEditor || !window.CodeMirror) return crawlTextEditor;
-
-        const crawlTextArea = document.getElementById('crawlText');
-        if (!crawlTextArea) return null;
-
-        const crawlEditor = CodeMirror.fromTextArea(crawlTextArea, {
-            lineNumbers: true,
-            mode: 'text/xml',
-            matchBrackets: true,
-            theme: 'abbott',
-            lineWrapping: true,
-        });
-
-        crawlEditor.setSize('27vw', '15rem');
-
-        const crawlWrapper = crawlEditor.getWrapperElement();
-        crawlWrapper.classList.add('ttsText', 'ttsText--editor', 'crawl-text');
-
-        crawlEditor.on('change', () => {
-            crawlEditor.save();
-        });
-
-        crawlTextEditor = crawlEditor;
-        return crawlEditor;
-    }
-
-    const crawlEditor = initCrawlTextEditor();
-
-    crawlEditor.refresh();
-
-    document.getElementById('crawlMode').dispatchEvent(new Event('change'));
 })();

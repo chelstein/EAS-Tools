@@ -1,3 +1,48 @@
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    console.error('Uncaught error:', event.message, event.filename, event.lineno, event.error);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled rejection:', event.reason);
+  });
+}
+
+(async function () {
+    let encoderTextEditor = null;
+
+    function initEncoderTextEditor() {
+        if (encoderTextEditor || !window.CodeMirror) return encoderTextEditor;
+
+        const encoderTextArea = document.getElementById('ttsText');
+        if (!encoderTextArea) return null;
+
+        const encoderEditor = CodeMirror.fromTextArea(encoderTextArea, {
+            lineNumbers: true,
+            mode: 'text/xml',
+            matchBrackets: true,
+            theme: 'abbott',
+            lineWrapping: true,
+        });
+
+        encoderEditor.setSize('27vw', '15rem');
+
+        const encoderWrapper = encoderEditor.getWrapperElement();
+        encoderWrapper.classList.add('ttsText', 'ttsText--editor');
+
+        encoderEditor.on('change', () => {
+            encoderEditor.save();
+            window.ttsText = encoderEditor.getValue().trim();
+        });
+
+        encoderTextEditor = encoderEditor;
+        return encoderEditor;
+    }
+
+    window.encoderEditor = initEncoderTextEditor();
+    window.encoderEditor.refresh();
+})();
+
 async function fetchAndStore() {
     function processSameCodes(sameCodes) {
         window.rgn = {};
@@ -1106,7 +1151,11 @@ async function fetchAndStore() {
         }
 
         const allowCustomAudio = window.announcementType === "custom";
-        await create_alert_async(usesCustomHeader ? rawinput.value : header, useOverrideTZ, { allowCustomAudio });
+        await create_alert_async(usesCustomHeader ? rawinput.value : header, useOverrideTZ, { allowCustomAudio }).catch((error) => {
+            console.error("Error generating alert:", error);
+            addStatus("Error generating alert: " + error.message, "ERROR");
+            throw error;
+        });
 
         var elapsedMs = performance.now() - startTime;
         var minutes = Math.floor(elapsedMs / 60000);
@@ -1525,38 +1574,4 @@ async function fetchAndStore() {
     announcementTypeSelect.dispatchEvent(new Event('change'));
     ttsTextInput.dispatchEvent(new Event('change'));
     voiceSelect.dispatchEvent(new Event('change'));
-})();
-
-(async function () {
-    let encoderTextEditor = null;
-
-    function initEncoderTextEditor() {
-        if (encoderTextEditor || !window.CodeMirror) return encoderTextEditor;
-
-        const encoderTextArea = document.getElementById('ttsText');
-        if (!encoderTextArea) return null;
-
-        const encoderEditor = CodeMirror.fromTextArea(encoderTextArea, {
-            lineNumbers: true,
-            mode: 'text/xml',
-            matchBrackets: true,
-            theme: 'abbott',
-            lineWrapping: true,
-        });
-
-        encoderEditor.setSize('27vw', '15rem');
-
-        const encoderWrapper = encoderEditor.getWrapperElement();
-        encoderWrapper.classList.add('ttsText', 'ttsText--editor');
-
-        encoderEditor.on('change', () => {
-            encoderEditor.save();
-        });
-
-        encoderTextEditor = encoderEditor;
-        return encoderEditor;
-    }
-
-    const encoderEditor = initEncoderTextEditor();
-    encoderEditor.refresh();
 })();

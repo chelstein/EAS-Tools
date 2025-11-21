@@ -1,4 +1,38 @@
 (async function () {
+    let splicerTextEditor = null;
+
+    function initSplicerTextEditor() {
+        if (splicerTextEditor || !window.CodeMirror) return splicerTextEditor;
+
+        const splicerTextArea = document.getElementById('ttsText2');
+        if (!splicerTextArea) return null;
+
+        const splicerEditor = CodeMirror.fromTextArea(splicerTextArea, {
+            lineNumbers: true,
+            mode: 'text/xml',
+            matchBrackets: true,
+            theme: 'abbott',
+            lineWrapping: true,
+        });
+
+        splicerEditor.setSize('27vw', '15rem');
+
+        const splicerWrapper = splicerEditor.getWrapperElement();
+        splicerWrapper.classList.add('ttsText', 'ttsText--editor');
+
+        splicerEditor.on('change', () => {
+            splicerEditor.save();
+        });
+
+        splicerTextEditor = splicerEditor;
+        return splicerEditor;
+    }
+
+    window.splicerEditor = initSplicerTextEditor();
+    window.splicerEditor.refresh();
+})();
+
+(async function () {
     const panel = document.getElementById('splicer-panel');
     const canvas = document.getElementById('spliceWaveform');
     if (!panel || !canvas) return;
@@ -132,6 +166,8 @@
                         pcm: s.pcm.buffer.slice(0),
                         sourceText: s.sourceText || '',
                     })),
+                    ttsVoiceSelection: voiceSelect ? voiceSelect.value : null,
+                    ttsText: ttsInput ? ttsInput.value : null,
                 };
                 tx.objectStore(STORE).put(payload, CACHE_KEY);
                 tx.oncomplete = resolve;
@@ -1532,6 +1568,10 @@
             updateSegmentsList();
             return;
         }
+        await getVoiceList();
+        voiceSelect.value = payload.ttsVoiceSelection || PIPER_VOICE;
+        ttsInput.value = payload.ttsText || '';
+        window.splicerEditor.setValue(payload.ttsText || '');
         state.sampleRate = payload.sampleRate || state.sampleRate;
         state.segments = payload.segments.map((s) => ({
             id: s.id || `seg-${Math.random().toString(16).slice(2)}`,
@@ -1550,39 +1590,4 @@
     updateSelectionLabels();
     drawWaveform();
     restoreFromCache();
-    await getVoiceList();
-})();
-
-(async function () {
-    let splicerTextEditor = null;
-
-    function initSplicerTextEditor() {
-        if (splicerTextEditor || !window.CodeMirror) return splicerTextEditor;
-
-        const splicerTextArea = document.getElementById('ttsText2');
-        if (!splicerTextArea) return null;
-
-        const splicerEditor = CodeMirror.fromTextArea(splicerTextArea, {
-            lineNumbers: true,
-            mode: 'text/xml',
-            matchBrackets: true,
-            theme: 'abbott',
-            lineWrapping: true,
-        });
-
-        splicerEditor.setSize('27vw', '15rem');
-
-        const splicerWrapper = splicerEditor.getWrapperElement();
-        splicerWrapper.classList.add('ttsText', 'ttsText--editor');
-
-        splicerEditor.on('change', () => {
-            splicerEditor.save();
-        });
-
-        splicerTextEditor = splicerEditor;
-        return splicerEditor;
-    }
-
-    const splicerEditor = initSplicerTextEditor();
-    splicerEditor.refresh();
 })();
