@@ -1,9 +1,17 @@
 # Emergency Alert System (EAS) Tools
 
+[![EAS Tools Logo](./assets/eas-logo-banner.png)](./assets/eas-logo-banner.png)
+
 Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, and generate valid EAS audio as a downloadable WAV file. Also includes a Text Crawl Generator for creating EAS‑style scrolling text graphics and an audio splicer for combining multiple, unique audio samples into one continuous WAV file.
 
 > ⚠️ **Legal & ethics notice**
 > This project is for **educational, hobbyist, and lab use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
+
+---
+
+## Video Demo
+
+<./eas-tools-demo.mp4>
 
 ---
 
