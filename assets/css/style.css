@@ -154,7 +154,6 @@ button[disabled] {
 }
 
 /* ID-level CSS */
-
 #audioPlayback {
     display: block;
     margin-top: 8px;
@@ -163,6 +162,15 @@ button[disabled] {
     border: 1px solid #303030;
     border-radius: 6px;
     min-height: 40px;
+}
+
+#generatedHeader {
+    background-color: #222;
+    color: #f5f5f5;
+    padding: 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 6px;
 }
 
 #status {

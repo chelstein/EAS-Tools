@@ -1073,7 +1073,10 @@ async function fetchAndStore() {
         calcAFSKArray();
 
         var par = parinput.value;
-        if (par.length != 8) { par = par.padEnd(8, " ");  }
+        if (par.length < 8) {
+            var neededPadding = 8 - par.length;
+            par += " ".repeat(neededPadding);
+        }
         if (locations.length < 1) { addStatus("There must be at least one location!", "ERROR"); return; }
 
         if (!guardTimeselectValue()) { return; }
@@ -1118,7 +1121,7 @@ async function fetchAndStore() {
 
         saveb.style.display = "inline-block";
         addStatus("EAS Generated! Samples: " + samples.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (showTime ? timeTaken : ""));
-        addStatus("Generated header: " + ((window.useCustom && window.mode === "header") ? rawinput.value : header));
+        addStatus("Generated header: <pre id=\"generatedHeader\">" + ((window.useCustom && window.mode === "header") ? rawinput.value : header) + "</pre>");
 
         const playbackElement = audioPlayback ?? (() => {
             const el = document.createElement("audio");
@@ -1367,10 +1370,13 @@ async function fetchAndStore() {
             }
         }
 
-        if (station && station.trim().length && parinput) {
-            const cleanedStation = station.trim().toUpperCase();
+        if (station && parinput) {
+            const cleanedStation = station.toUpperCase();
             if (cleanedStation.length === 8) {
                 parinput.value = cleanedStation;
+            }
+            else {
+                parinput.value = cleanedStation.padEnd(8, " ");
             }
         }
     }
@@ -1454,35 +1460,37 @@ async function fetchAndStore() {
         });
     }
 
-    localStorage.getItem("eas-tools-encoder-settings") && (() => {
-        try {
-            const savedSettings = JSON.parse(localStorage.getItem("eas-tools-encoder-settings"));
-            for (const [key, value] of Object.entries(savedSettings)) {
-                if (key === 'locs' && Array.isArray(value)) {
-                    locations.length = 0;
-                    value.forEach(loc => locations.push(loc));
-                    updateTable();
-                    continue;
-                }
-                else {
-                    const element = document.getElementById(key);
-                    if (element) {
-                        if (element.tagName === "SELECT" || element.tagName === "INPUT") {
-                            if (element.type === "checkbox") {
-                                element.checked = value;
-                            } else {
+    if(!headerParam) {
+        localStorage.getItem("eas-tools-encoder-settings") && (() => {
+            try {
+                const savedSettings = JSON.parse(localStorage.getItem("eas-tools-encoder-settings"));
+                for (const [key, value] of Object.entries(savedSettings)) {
+                    if (key === 'locs' && Array.isArray(value)) {
+                        locations.length = 0;
+                        value.forEach(loc => locations.push(loc));
+                        updateTable();
+                        continue;
+                    }
+                    else {
+                        const element = document.getElementById(key);
+                        if (element) {
+                            if (element.tagName === "SELECT" || element.tagName === "INPUT") {
+                                if (element.type === "checkbox") {
+                                    element.checked = value;
+                                } else {
+                                    element.value = value;
+                                }
+                            } else if (element.tagName === "TEXTAREA") {
                                 element.value = value;
                             }
-                        } else if (element.tagName === "TEXTAREA") {
-                            element.value = value;
                         }
                     }
                 }
+            } catch (error) {
+                console.error("Failed to load encoder settings:", error);
             }
-        } catch (error) {
-            console.error("Failed to load encoder settings:", error);
-        }
-    })();
+        })();
+    }
 
     encoderModeSelect.addEventListener("change", function () {
         window.mode = encoderModeSelect.value;
