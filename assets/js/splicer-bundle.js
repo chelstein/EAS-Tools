@@ -11,7 +11,7 @@
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'abbott',
+            theme: 'dracula',
             lineWrapping: true,
         });
 
@@ -238,7 +238,7 @@
         const end = clamp(state.selection.end, 0, d);
         selStartLabel.textContent = `${start.toFixed(2)}s`;
         selEndLabel.textContent = `${end.toFixed(2)}s`;
-        selLenLabel.textContent = `${Math.max(0, end - start).toFixed(2)}s`;
+        selLenLabel.textContent = `${Math.floor((end - start) / 60)}m ${((end - start) % 60).toFixed(0)}s`;
     };
 
     const setSelection = (start, end) => {
@@ -329,11 +329,12 @@
     };
 
     const formatSegmentLabel = (seg, idx) => {
-        const dur = (seg.pcm.length / state.sampleRate).toFixed(2);
+        const durMins = Math.floor(seg.pcm.length / state.sampleRate / 60);
+        const durSecs = Math.floor((seg.pcm.length / state.sampleRate) % 60);
         const base = `${idx + 1}. ${seg.label || 'Segment'}`;
         const text = (seg.sourceText || '').trim();
         const textPart = text ? ` — "${text.length > 48 ? `${text.slice(0, 48)}…` : text}"` : '';
-        return `${base}${textPart} — ${dur}s`;
+        return `${base}${textPart} — ${durMins}m ${durSecs}s (${seg.pcm.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} samples)`;
     };
 
     const moveSegment = (from, to) => {
@@ -689,7 +690,8 @@
     const drawWaveform = () => {
         const w = canvas.width;
         const h = canvas.height;
-        ctx.fillStyle = '#0b0b0b';
+        const userLightMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        ctx.fillStyle = userLightMode ? '#ffffff' : '#0b0b0b';
         ctx.fillRect(0, 0, w, h);
         ctx.strokeStyle = '#222';
         ctx.beginPath();
@@ -1180,6 +1182,8 @@
         } else if (normalizedBackend.includes("dt")) {
             if (usesBalPhonemes || usesVtmlTags) return false;
             if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) return false;
+        } else if(!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
+            if (usesBalPhonemes || usesVtmlTags || usesDtPhonemes) return false;
         }
         return true;
     };
@@ -1647,6 +1651,11 @@
             if (ttsStatus) ttsStatus.textContent = 'Generating…';
             try {
                 if (normalizedVoice === 'wasm' || normalizedVoice === 'nanotts') {
+                    const valid = validateTtsText(selectedVoiceValue, text);
+                    if (!valid) {
+                        if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes for this backend.';
+                        return;
+                    }
                     const { pcm, sampleRate } = await synthTts(text, normalizedVoice);
                     addSegment(pcm, sampleRate, 'TTS', text);
                     if (ttsStatus) ttsStatus.textContent = `Added ${(pcm.length / (sampleRate || state.sampleRate)).toFixed(2)}s of audio.`;

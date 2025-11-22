@@ -25,10 +25,10 @@
         <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
         <meta name="twitter:image:alt" content="Emergency Alert System Logo">
         <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/codemirror.css">
+        <link rel="stylesheet" href="assets/css/dracula.css">
         <link rel="stylesheet" href="assets/css/style.css">
-        <link rel="stylesheet" href="assets/css/codemirror.min.css">
-        <link rel="stylesheet" href="assets/css/abbott.min.css">
-        <script language="javascript" type="text/javascript" src="assets/js/codemirror.min.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
     </head>
@@ -119,8 +119,9 @@
                         lineNumbers: true,
                         mode: 'text/xml',
                         matchBrackets: true,
-                        theme: 'abbott',
+                        theme: 'dracula',
                         lineWrapping: true,
+                        readOnly: true,
                     });
 
                     vtmlCodePre.setValue(`This Hazardous Weather Outlook is for southwest Iowa<vtml_pause time="200"/>west central Iowa<vtml_pause time="200"/>east central Nebraska<vtml_pause time="200"/>northeast Nebraska and southeast Nebraska, including the city of <vtml_phoneme alphabet="ipa" ph="116;603;712;107;101;618;109;601;">Tekamah</vtml_phoneme> for testing purposes.
@@ -157,8 +158,9 @@ The current time is, 1, 37, PM, Central Standard Time.
                         lineNumbers: true,
                         mode: 'text/xml',
                         matchBrackets: true,
-                        theme: 'abbott',
+                        theme: 'dracula',
                         lineWrapping: true,
+                        readOnly: true,
                     });
 
                     balCodePre.setValue(`This Hazardous Weather Outlook is for southwest Iowa<silence msec="200"/>west central Iowa<silence msec="200"/>east central Nebraska<silence msec="200"/>northeast Nebraska and southeast Nebraska, including the city of <pron sym="t eh k ey 1 m ax"/> for testing purposes.
@@ -189,13 +191,6 @@ The current time is, 1, 37, PM, Central Standard Time.
                 window.vtmlCodemirrorPre.refresh();
                 window.balCodemirrorPre = initBalPre();
                 window.balCodemirrorPre.refresh();
-
-                if (window.vtmlCodemirrorPre) {
-                    window.vtmlCodemirrorPre.setOption('readOnly', 'nocursor');
-                }
-                if (window.balCodemirrorPre) {
-                    window.balCodemirrorPre.setOption('readOnly', 'nocursor');
-                }
             })();
 
             (async function() {

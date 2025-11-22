@@ -11,7 +11,7 @@
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'abbott',
+            theme: 'dracula',
             lineWrapping: true,
         });
 

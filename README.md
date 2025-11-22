@@ -141,8 +141,11 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * WAV writer: **wavefile.js** (bundled in `assets/js/wavefile.js`)
 * Resampling: **wave‑resampler.js** (bundled in `assets/js/wave‑resampler.js`)
 * gif.js: **gif.js** (bundled in `assets/js/gif.js`)
-* WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/piper-tts-bundle.js` and `assets/piper-tts/`) and **nanotts.js** (bundled in `assets/js/nanotts.js`)
+* WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/piper-tts-bundle.js` and `assets/piper-tts/`) and **nanotts.js** (bundled in `assets/js/nanotts.js` and `assets/nanotts/`)
+* CodeMirror: **CodeMirror** (bundled in `assets/js/codemirror.js` and related CSS files in `assets/css/`)
+* EAS2Text: **EAS2Text** JS port by wagwan-piffting-blud (originally by Newton Communications)
 * SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud
+
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
   * [Mab879 C++ SAME Encoder](https://github.com/Mab879/eas_encoder)
@@ -151,8 +154,9 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [wave‑resampler.js](https://github.com/rochars/wave-resampler)
   * [piper.tts.js](https://github.com/Mintplex-Labs/piper-tts-web)
   * [gif.js](https://github.com/jnordberg/gif.js)
+  * [codemirror.js](https://codemirror.net/)
   * [EAS2Text](https://github.com/Newton-Communications/E2T/)
-  * CryptoDude3 GitHub Pages site (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
+  * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.
 

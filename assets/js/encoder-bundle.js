@@ -21,7 +21,7 @@ if (typeof window !== 'undefined') {
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'abbott',
+            theme: 'dracula',
             lineWrapping: true,
         });
 
@@ -805,6 +805,12 @@ async function fetchAndStore() {
                 return false;
             }
         }
+        else if (!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
+            if (usesBalPhonemes || usesVtmlTags || usesDtPhonemes) {
+                alert("Selected TTS voice backend does not support BAL, VT, or DT phoneme markup.");
+                return false;
+            }
+        }
         return true;
     }
 
@@ -1028,6 +1034,13 @@ async function fetchAndStore() {
 
         if (window.announcementType === "tts") {
             if (normalizedVoice === "wasm") {
+                if (!await validateTtsText()) {
+                    addStatus("Your text contains invalid phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups if using the WebAssembly voices.", "ERROR");
+                    document.getElementById("generate").disabled = false;
+                    document.getElementById("save").disabled = false;
+                    generate_silence(SAMPLE_RATE);
+                    return;
+                }
                 const pcmRaw = await getPiperPcm(window.ttsText, SAMPLE_RATE);
                 if (pcmRaw) {
                     appendAnnouncement(pcmRaw);
@@ -1043,6 +1056,13 @@ async function fetchAndStore() {
                     generate_silence(SAMPLE_RATE);
                 } else {
                     try {
+                        if (!await validateTtsText()) {
+                            addStatus("Your text contains invalid phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups if using the WebAssembly voices.", "ERROR");
+                            document.getElementById("generate").disabled = false;
+                            document.getElementById("save").disabled = false;
+                            generate_silence(SAMPLE_RATE);
+                            return;
+                        }
                         const result = await synthNanoTts(announcementText);
                         if (result?.pcm?.length) {
                             const resampled = resamplePcm(result.pcm, result.sampleRate, SAMPLE_RATE);
@@ -1061,7 +1081,7 @@ async function fetchAndStore() {
 
             else if (selectedVoiceRaw) {
                 if (!await validateTtsText()) {
-                    addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
+                    addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the voice correctly. There will instead be silence.", "ERROR");
                     document.getElementById("generate").disabled = false;
                     document.getElementById("save").disabled = false;
                     generate_silence(SAMPLE_RATE);
@@ -1327,7 +1347,7 @@ async function fetchAndStore() {
 
         saveb.style.display = "inline-block";
         addStatus("EAS Generated! Samples: " + samples.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (showTime ? timeTaken : ""));
-        addStatus("Generated header: <br class=\"mobileBreak\"><pre id=\"generatedHeader\">" + ((window.useCustom && window.mode === "header") ? rawinput.value : header) + "</pre>");
+        addStatus("Generated header: <br class=\"mobileBreak\"><pre class=\"generatedHeader\">" + ((window.useCustom && window.mode === "header") ? rawinput.value : header) + "</pre>");
 
         const playbackElement = audioPlayback ?? (() => {
             const el = document.createElement("audio");
