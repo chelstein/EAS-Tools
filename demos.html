@@ -191,7 +191,7 @@
 
             try {
                 if (data.voices) {
-                    document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 1; // +1 for WASM voice
+                    document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 2; // +2 for WASM/NanoTTS voice
                     const wasmListItem = document.createElement('li');
                     const wasmPlayButton = document.createElement('button');
                     wasmPlayButton.textContent = 'Play Demo';
@@ -203,6 +203,19 @@
                     const wasmAudioSrc = getDemoAudioSrc(wasmVoiceLabel.textContent, 'WASM');
                     wasmPlayButton.onclick = audioHandler(wasmPlayButton, wasmAudioSrc);
                     voiceList.appendChild(wasmListItem);
+
+                    const nanottsListItem = document.createElement('li');
+                    const nanottsPlayButton = document.createElement('button');
+                    nanottsPlayButton.textContent = 'Play Demo';
+                    const nanottsVoiceLabel = document.createElement('span');
+                    nanottsVoiceLabel.textContent = '[NanoTTS] NanoTTS (local) Voice';
+                    nanottsListItem.appendChild(nanottsPlayButton);
+                    nanottsListItem.appendChild(document.createTextNode(' '));
+                    nanottsListItem.appendChild(nanottsVoiceLabel);
+                    const nanottsAudioSrc = getDemoAudioSrc(nanottsVoiceLabel.textContent, 'NanoTTS');
+                    nanottsPlayButton.onclick = audioHandler(nanottsPlayButton, nanottsAudioSrc);
+                    voiceList.appendChild(nanottsListItem);
+
                     for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
                         if (voiceName.includes('EMNet')) {
                             continue;

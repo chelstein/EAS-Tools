@@ -288,6 +288,138 @@ async function fetchAndStore() {
         }
     }
 
+    const NANO_TTS_LANGUAGE = 'en-US';
+    const NANO_TTS_VOLUME = 0.5;
+    const NANO_TTS_WORKER_URL = new URL('./text2wav-worker.js', import.meta.url);
+    const nanoTtsState = {
+        worker: null,
+        ready: false,
+        queue: [],
+        currentJob: null,
+    };
+
+    const reportNanoTtsStatus = (message, level = "LOG") => {
+        if (!message) return;
+        addStatus(`NanoTTS: ${message}`, level);
+    };
+
+    const flushNanoTtsQueue = (error) => {
+        while (nanoTtsState.queue.length) {
+            const job = nanoTtsState.queue.shift();
+            job.reject(error);
+        }
+    };
+
+    const startNextNanoTtsJob = () => {
+        if (!nanoTtsState.worker || !nanoTtsState.ready) return;
+        if (nanoTtsState.currentJob || !nanoTtsState.queue.length) return;
+        const job = nanoTtsState.queue.shift();
+        nanoTtsState.currentJob = job;
+        nanoTtsState.worker.postMessage({
+            lang: job.lang || NANO_TTS_LANGUAGE,
+            volume: `${job.volume ?? NANO_TTS_VOLUME}`,
+            text: job.text,
+        });
+    };
+
+    const processNanoTtsBlob = async (blob) => {
+        const job = nanoTtsState.currentJob;
+        if (!job) return;
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+            const buffer = await audioContext.decodeAudioData(await blob.arrayBuffer());
+            const pcm = buffer.getChannelData(0);
+            const copy = new Float32Array(pcm.length);
+            copy.set(pcm);
+            job.resolve({ pcm: copy, sampleRate: buffer.sampleRate });
+        } catch (error) {
+            job.reject(error);
+        } finally {
+            if (typeof audioContext.close === "function") {
+                audioContext.close().catch(() => {});
+            }
+            nanoTtsState.currentJob = null;
+            startNextNanoTtsJob();
+        }
+    };
+
+    const handleNanoTtsWorkerError = (message, fatal = false) => {
+        const error = message instanceof Error ? message : new Error(message || 'NanoTTS error');
+        reportNanoTtsStatus(error.message, "ERROR");
+        if (nanoTtsState.currentJob) {
+            nanoTtsState.currentJob.reject(error);
+            nanoTtsState.currentJob = null;
+        }
+        if (fatal) {
+            if (nanoTtsState.worker) {
+                nanoTtsState.worker.terminate();
+            }
+            nanoTtsState.worker = null;
+            nanoTtsState.ready = false;
+            flushNanoTtsQueue(error);
+        } else {
+            startNextNanoTtsJob();
+        }
+    };
+
+    const handleNanoTtsWorkerMessage = (event) => {
+        const data = event?.data || {};
+        if (data.type === "ready") {
+            nanoTtsState.ready = true;
+            reportNanoTtsStatus("Local voice ready.");
+            startNextNanoTtsJob();
+            return;
+        }
+        if (data.type === "progress") {
+            if (data.error) {
+                handleNanoTtsWorkerError(data.error);
+            } else if (data.data) {
+                reportNanoTtsStatus(data.data);
+            }
+            return;
+        }
+        if (data.error) {
+            handleNanoTtsWorkerError(data.error);
+            return;
+        }
+        if (data.blob) {
+            processNanoTtsBlob(data.blob);
+        }
+    };
+
+    const ensureNanoTtsWorker = () => {
+        if (!window.Worker) {
+            throw new Error('NanoTTS requires Web Worker support in this browser.');
+        }
+        if (nanoTtsState.worker) return nanoTtsState.worker;
+        let worker;
+        try {
+            worker = new Worker(NANO_TTS_WORKER_URL, { type: 'classic' });
+        } catch (err) {
+            worker = new Worker(NANO_TTS_WORKER_URL);
+        }
+        worker.addEventListener('message', handleNanoTtsWorkerMessage);
+        worker.addEventListener('error', (event) => handleNanoTtsWorkerError(event?.message || 'NanoTTS worker error', true));
+        worker.addEventListener('messageerror', () => handleNanoTtsWorkerError('NanoTTS worker message error', true));
+        nanoTtsState.worker = worker;
+        nanoTtsState.ready = false;
+        return worker;
+    };
+
+    function synthNanoTts(text) {
+        ensureNanoTtsWorker();
+        return new Promise((resolve, reject) => {
+            nanoTtsState.queue.push({
+                text,
+                resolve,
+                reject,
+                lang: NANO_TTS_LANGUAGE,
+                volume: NANO_TTS_VOLUME,
+            });
+            startNextNanoTtsJob();
+        });
+    }
+
     function dbToLin(db) { return Math.pow(10, db / 20); }
 
     function normalizeTtsPcm(pcm, { targetDb = -3, maxGainDb = 24, softClip = true, softClipK = 1.5 } = {}) {
@@ -891,26 +1023,56 @@ async function fetchAndStore() {
             generate_silence(Math.floor(SAMPLE_RATE * 0.25));
         };
 
-        if (window.ttsVoice === "wasm" && window.announcementType === "tts") {
-            const pcmRaw = await getPiperPcm(window.ttsText, SAMPLE_RATE);
-            if (pcmRaw) {
-                appendAnnouncement(pcmRaw);
-            } else {
-                generate_silence(SAMPLE_RATE);
-            }
-        }
+        const selectedVoiceRaw = (window.ttsVoice || '').trim();
+        const normalizedVoice = selectedVoiceRaw.toLowerCase();
 
-        else if (window.ttsVoice !== null && window.ttsVoice !== undefined && window.ttsVoice !== "" && window.announcementType === "tts") {
-            if (!await validateTtsText()) {
-                addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
-                document.getElementById("generate").disabled = false;
-                document.getElementById("save").disabled = false;
-                generate_silence(SAMPLE_RATE);
-                return;
+        if (window.announcementType === "tts") {
+            if (normalizedVoice === "wasm") {
+                const pcmRaw = await getPiperPcm(window.ttsText, SAMPLE_RATE);
+                if (pcmRaw) {
+                    appendAnnouncement(pcmRaw);
+                } else {
+                    generate_silence(SAMPLE_RATE);
+                }
+            }
+
+            else if (normalizedVoice === "nanotts") {
+                const announcementText = (window.ttsText || '').trim();
+                if (!announcementText) {
+                    addStatus("NanoTTS requires announcement text. There will instead be silence.", "ERROR");
+                    generate_silence(SAMPLE_RATE);
+                } else {
+                    try {
+                        const result = await synthNanoTts(announcementText);
+                        if (result?.pcm?.length) {
+                            const resampled = resamplePcm(result.pcm, result.sampleRate, SAMPLE_RATE);
+                            appendAnnouncement(resampled);
+                        } else {
+                            addStatus("NanoTTS did not return audio. There will instead be silence.", "ERROR");
+                            generate_silence(SAMPLE_RATE);
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        addStatus("NanoTTS generation failed. There will instead be silence.", "ERROR");
+                        generate_silence(SAMPLE_RATE);
+                    }
+                }
+            }
+
+            else if (selectedVoiceRaw) {
+                if (!await validateTtsText()) {
+                    addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the server correctly. There will instead be silence.", "ERROR");
+                    document.getElementById("generate").disabled = false;
+                    document.getElementById("save").disabled = false;
+                    generate_silence(SAMPLE_RATE);
+                    return;
+                }
+
+                await webTTSGenerate(useOverrideTZ, header);
             }
 
             else {
-                await webTTSGenerate(useOverrideTZ, header);
+                generate_silence(SAMPLE_RATE);
             }
         }
 

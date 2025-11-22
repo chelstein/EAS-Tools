@@ -6,10 +6,6 @@
         <meta name="robots" content="index, nofollow">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>EAS Tools</title>
-        <link rel="stylesheet" href="assets/css/hack.css">
-        <link rel="stylesheet" href="assets/css/style.css">
-        <link rel="stylesheet" href="assets/css/codemirror.min.css">
-        <link rel="stylesheet" href="assets/css/abbott.min.css">
         <meta name="title" content="Emergency Alert System (EAS) Tools">
         <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
@@ -28,6 +24,10 @@
         <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
         <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/codemirror.min.css">
+        <link rel="stylesheet" href="assets/css/abbott.min.css">
         <script language="javascript" type="text/javascript" src="assets/js/codemirror.min.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
@@ -267,6 +267,7 @@
                         <label for="ttsVoice">Select Voice:</label>
                         <select id="ttsVoice" name="ttsVoice">
                             <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
+                            <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
                         </select>
                         <br class="overrideTZ">
                         <br class="overrideTZ">
@@ -558,6 +559,7 @@
                             <label for="ttsVoice2">Select Voice:</label>
                             <select id="ttsVoice2" name="ttsVoice2">
                                 <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
+                                <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
                             </select>
                             <br class="splicerOverrideTZ">
                             <br class="splicerOverrideTZ">
@@ -618,7 +620,7 @@
         <script src="assets/js/footer.js"></script>
         <script type="module" src="assets/E2T/EAS2Text.js"></script>
         <script>
-            (() => {
+            (function () {
                 const panelIds = {
                     encoder: 'encoder-panel',
                     crawl: 'crawl-panel',
@@ -687,7 +689,7 @@
         <script type="module" src="assets/js/crawl-bundle.js"></script>
         <script type="module" src="assets/js/splicer-bundle.js"></script>
         <script>
-            (() => {
+            (function () {
                 const buttons = document.querySelectorAll('button[data-tool]');
                 const params = new URLSearchParams(window.location.search);
 

@@ -181,35 +181,6 @@ button[disabled] {
     border: 1px solid white;
 }
 
-#copy-text {
-    position: absolute;
-    bottom: 15vw;
-    right: 3vh;
-    background-color: #ff7800;
-    color: #050505;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    user-select: none;
-}
-
-.crawl-export-progress {
-    padding: 12px 16px;
-    border-radius: 12px;
-    margin-top: 12px;
-}
-
-.crawl-export-progress__row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.crawl-export-progress__row progress {
-    flex: 1 1 auto;
-}
-
 #crawlExportProgress {
     height: 1.25rem;
     width: 100%;
@@ -398,6 +369,57 @@ button[disabled] {
 }
 
 /* Class-level CSS */
+.inner-copy-paste-paragraph {
+    margin: 0;
+    margin-bottom: -12px;
+}
+
+.codemirror-example, .CodeMirror.vtml-codemirror-pre, .CodeMirror.bal-codemirror-pre {
+    font-family: "Hack", monospace;
+    font-size: 1rem;
+    margin-top: 12px;
+    height: 25vh;
+}
+
+.copy-paste-code-container {
+    border: 1px solid #303030;
+    border-radius: 6px;
+    padding: 12px;
+    background-color: #121212;
+}
+
+.copy-text {
+    position: relative;
+    bottom: -4vh;
+    left: 92vw;
+    background-color: #ff7800;
+    color: #050505;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    opacity: 0.9;
+    z-index: 10000;
+    cursor: pointer;
+    text-anchor: end;
+}
+
+.crawl-export-progress {
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-top: 12px;
+}
+
+.crawl-export-progress__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.crawl-export-progress__row progress {
+    flex: 1 1 auto;
+}
+
 .ttsText--editor {
     display: block;
     width: 100%;
@@ -637,22 +659,53 @@ button[disabled] {
     display: none;
 }
 
+.CodeMirror-code {
+    margin-right: 110px;
+}
+
 /* Media Queries */
 /* Mobile devices */
 @media screen and (max-width: 1079px) {
-    pre {
-        padding-top: 3rem;
+    .inner-copy-paste-paragraph {
+        margin: 0;
+        margin-bottom: -12px;
+    }
+
+    .codemirror-example, .CodeMirror.vtml-codemirror-pre, .CodeMirror.bal-codemirror-pre {
+        font-family: "Hack", monospace;
+        font-size: 1rem;
+        margin-top: 50px;
+        height: 25vh;
+    }
+
+    .copy-paste-code-container {
+        border: 1px solid #303030;
+        border-radius: 6px;
+        padding: 12px;
+        background-color: #121212;
+    }
+
+    .copy-text {
+        position: relative;
+        bottom: -2vh;
+        left: 55vw;
+        background-color: #ff7800;
+        color: #050505;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        opacity: 0.9;
+        z-index: 1000;
+        cursor: pointer;
+        text-anchor: end;
     }
 
     footer {
         font-size: 0.7rem;
         position: sticky;
         bottom: 0;
-    }
-
-    #copy-text {
-        bottom: 72.5vh;
-        right: 8vw;
+        z-index: 10000;
     }
 
     .shorter-hr,
@@ -840,10 +893,5 @@ button[disabled] {
 
     #balconTable table, #balconTable th, #balconTable td {
         border: 1px solid #050505;
-    }
-
-    #copy-text {
-        background-color: var(--orange);
-        color: #050505;
     }
 }

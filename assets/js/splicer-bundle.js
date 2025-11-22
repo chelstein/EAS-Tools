@@ -71,7 +71,16 @@
     const CACHE_KEY = 'current';
     const PIPER_BUNDLE_URL = 'assets/piper-tts/piper.tts.bundle.js';
     const PIPER_VOICE = 'en_US-joe-medium';
+    const NANO_TTS_LANGUAGE = 'en-US';
+    const NANO_TTS_VOLUME = 0.5;
+    const NANO_TTS_WORKER_URL = new URL('./text2wav-worker.js', import.meta.url);
     const voiceBackendMap = {};
+    const nanoTtsState = {
+        worker: null,
+        ready: false,
+        queue: [],
+        currentJob: null,
+    };
     let currentSegmentId = null;
     const segmentPlayButtons = new Map();
     let pendingSegmentPlay = null;
@@ -972,7 +981,130 @@
         }
     };
 
-    const synthTts = async (text) => {
+    const reportNanoTtsStatus = (message) => {
+        if (!ttsStatus || !message) return;
+        ttsStatus.textContent = message;
+    };
+
+    const flushNanoTtsQueue = (error) => {
+        while (nanoTtsState.queue.length) {
+            const job = nanoTtsState.queue.shift();
+            job.reject(error);
+        }
+    };
+
+    const startNextNanoTtsJob = () => {
+        if (!nanoTtsState.worker || !nanoTtsState.ready) return;
+        if (nanoTtsState.currentJob || !nanoTtsState.queue.length) return;
+        const job = nanoTtsState.queue.shift();
+        nanoTtsState.currentJob = job;
+        nanoTtsState.worker.postMessage({
+            lang: job.lang || NANO_TTS_LANGUAGE,
+            volume: `${job.volume ?? NANO_TTS_VOLUME}`,
+            text: job.text,
+        });
+    };
+
+    const processNanoTtsBlob = async (blob) => {
+        const job = nanoTtsState.currentJob;
+        if (!job) return;
+        try {
+            const ctxAudio = getAudioCtx();
+            const buffer = await blob.arrayBuffer();
+            const decoded = await ctxAudio.decodeAudioData(buffer);
+            const channel = decoded.getChannelData(0);
+            const pcm = new Float32Array(channel.length);
+            pcm.set(channel);
+            job.resolve({ pcm, sampleRate: decoded.sampleRate });
+        } catch (err) {
+            job.reject(err);
+        } finally {
+            nanoTtsState.currentJob = null;
+            startNextNanoTtsJob();
+        }
+    };
+
+    const handleNanoTtsWorkerError = (message, fatal = false) => {
+        const error = message instanceof Error ? message : new Error(message || 'NanoTTS error');
+        reportNanoTtsStatus(`NanoTTS error: ${error.message}`);
+        if (nanoTtsState.currentJob) {
+            nanoTtsState.currentJob.reject(error);
+            nanoTtsState.currentJob = null;
+        }
+        if (fatal) {
+            if (nanoTtsState.worker) {
+                nanoTtsState.worker.terminate();
+            }
+            nanoTtsState.worker = null;
+            nanoTtsState.ready = false;
+            flushNanoTtsQueue(error);
+        } else {
+            startNextNanoTtsJob();
+        }
+    };
+
+    const handleNanoTtsWorkerMessage = (event) => {
+        const data = event?.data || {};
+        if (data.type === 'ready') {
+            nanoTtsState.ready = true;
+            startNextNanoTtsJob();
+            return;
+        }
+        if (data.type === 'progress') {
+            if (data.error) {
+                handleNanoTtsWorkerError(data.error);
+            } else if (data.data) {
+                reportNanoTtsStatus(data.data);
+            }
+            return;
+        }
+        if (data.error) {
+            handleNanoTtsWorkerError(data.error);
+            return;
+        }
+        if (data.blob) {
+            processNanoTtsBlob(data.blob);
+        }
+    };
+
+    const ensureNanoTtsWorker = () => {
+        if (!window.Worker) {
+            throw new Error('NanoTTS requires Web Worker support in this browser.');
+        }
+        if (nanoTtsState.worker) return nanoTtsState.worker;
+        let worker;
+        try {
+            worker = new Worker(NANO_TTS_WORKER_URL, { type: 'classic' });
+        } catch (err) {
+            worker = new Worker(NANO_TTS_WORKER_URL);
+        }
+        worker.addEventListener('message', handleNanoTtsWorkerMessage);
+        worker.addEventListener('error', (event) => handleNanoTtsWorkerError(event?.message || 'NanoTTS worker error', true));
+        worker.addEventListener('messageerror', () => handleNanoTtsWorkerError('NanoTTS worker message error', true));
+        nanoTtsState.worker = worker;
+        nanoTtsState.ready = false;
+        return worker;
+    };
+
+    const synthNanoTts = (text) => {
+        ensureNanoTtsWorker();
+        return new Promise((resolve, reject) => {
+            nanoTtsState.queue.push({
+                text,
+                resolve,
+                reject,
+                lang: NANO_TTS_LANGUAGE,
+                volume: NANO_TTS_VOLUME,
+            });
+            startNextNanoTtsJob();
+        });
+    };
+
+    const synthTts = async (text, voice) => {
+        const mode = (voice || 'wasm').toLowerCase();
+        if (mode === 'nanotts') {
+            return synthNanoTts(text);
+        }
         await ensureTtsReady();
         const target = state.sampleRate || 44100;
         if (window.PiperTTS?.pcmFor) {
@@ -1500,33 +1632,34 @@
 
         ttsButton?.addEventListener('click', async () => {
             const text = (ttsInput?.value || '').trim();
-            const selectedVoice = (voiceSelect?.value || 'wasm').trim();
+            const selectedVoiceValue = (voiceSelect?.value || 'wasm').trim();
+            const normalizedVoice = selectedVoiceValue.toLowerCase();
             const tz = (overrideTzSelect?.value || 'UTC').trim();
             if (!text) {
                 if (ttsStatus) ttsStatus.textContent = 'Enter text to synthesize.';
                 return;
             }
-            if (selectedVoice === 'EMNet' && !checkZCZCIsValid(text)) {
+            if (normalizedVoice === 'emnet' && !checkZCZCIsValid(text)) {
                 if (ttsStatus) ttsStatus.textContent = 'EMNet requires a valid SAME header string.';
                 return;
             }
             ttsButton.disabled = true;
             if (ttsStatus) ttsStatus.textContent = 'Generating…';
             try {
-                if (selectedVoice === 'wasm') {
-                    const { pcm, sampleRate } = await synthTts(text);
+                if (normalizedVoice === 'wasm' || normalizedVoice === 'nanotts') {
+                    const { pcm, sampleRate } = await synthTts(text, normalizedVoice);
                     addSegment(pcm, sampleRate, 'TTS', text);
                     if (ttsStatus) ttsStatus.textContent = `Added ${(pcm.length / (sampleRate || state.sampleRate)).toFixed(2)}s of audio.`;
                     setButtonDisabledState(false);
                     resetViewWindow();
                     drawWaveform();
                 } else {
-                    const valid = validateTtsText(selectedVoice, text);
+                    const valid = validateTtsText(selectedVoiceValue, text);
                     if (!valid) {
                         if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes for this backend.';
                         return;
                     }
-                    const result = await fetchRemoteTtsAudio({ text, voiceId: selectedVoice, overrideTZ: tz });
+                    const result = await fetchRemoteTtsAudio({ text, voiceId: selectedVoiceValue, overrideTZ: tz });
                     if (result?.pcm?.length) {
                         addSegment(result.pcm, result.sampleRate, 'TTS', text);
                         if (ttsStatus) ttsStatus.textContent = `Added ${(result.pcm.length / (result.sampleRate || state.sampleRate)).toFixed(2)}s of audio.`;
@@ -1568,7 +1701,6 @@
             updateSegmentsList();
             return;
         }
-        await getVoiceList();
         voiceSelect.value = payload.ttsVoiceSelection || PIPER_VOICE;
         ttsInput.value = payload.ttsText || '';
         window.splicerEditor.setValue(payload.ttsText || '');
@@ -1590,4 +1722,5 @@
     updateSelectionLabels();
     drawWaveform();
     restoreFromCache();
+    await getVoiceList();
 })();

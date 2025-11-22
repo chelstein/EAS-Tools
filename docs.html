@@ -6,8 +6,6 @@
         <meta name="robots" content="index, nofollow">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>EAS Tools - TTS Documentation</title>
-        <link rel="stylesheet" href="assets/css/hack.css">
-        <link rel="stylesheet" href="assets/css/style.css">
         <meta name="title" content="Emergency Alert System (EAS) Tools">
         <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
@@ -26,6 +24,13 @@
         <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
         <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
         <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/codemirror.min.css">
+        <link rel="stylesheet" href="assets/css/abbott.min.css">
+        <script language="javascript" type="text/javascript" src="assets/js/codemirror.min.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
     </head>
     <body>
         <header>
@@ -47,6 +52,7 @@
                 <p>EAS Tools supports a variety of voices for text-to-speech conversion. Users can choose from a list of different voices to use, each with their own unique characteristics. The following is a list of voices currently available to users, and what backends they use in square brackets:</p>
                 <ul id="voice-list">
                     <li>[WASM] WebAssembly (local) Voice</li>
+                    <li>[NanoTTS] NanoTTS (local) Voice</li>
                     <!-- Voice list will be populated here by JavaScript -->
                 </ul>
                 <p>NOTE: <b>Except for the WebAssembly voice</b>, all voices listed here are processed by an outside server located at <a href="https://wagspuzzle.space/tools/eas-tts/">Wags' Puzzle Space</a>. This is because they require server-side processing to generate the speech audio, which is beyond the capabilities of a simple GitHub Pages site.</p>
@@ -69,33 +75,27 @@
                 <p>Here are some specific pronunciation codes for different backends:</p>
                 <ul>
                     <li><b>[WASM] WebAssembly:</b> Does not apply, since the voice would need further training for specific phrases/words. There is no built-in way to modify pronunciation or speed with WebAssembly voices.</li>
+                    <li><b>[NanoTTS] NanoTTS:</b> See above.</li>
                     <li><b>[VT] VoiceText/NeoSpeech:</b> See the detailed <a href="./assets/vtml.pdf">documentation PDF</a> for a full list of examples and documentation for the VTML format. A complete example of VoiceText is below for demonstration purposes.</li>
-                    <li><b>[BAL] Balabolka/Balcon:</b> You can use the SAPI/Microsoft Speech Platform codes to adjust things like silence periods, speech rate (how fast the text is spoken), speech pitch, volume, and phonemes (the big one). Phonemes are formatted like so: <code>&lt;pron sym="t eh - 1 k ey - m ax"/&gt;</code>, which would pronounce the word "Tekamah" (city in Nebraska) correctly. A full list of phonemes is below in HTML table format (copy-paste friendly):<table id="balconTable"><thead><tr><th>Phoneme</th><th>Description/Example</th></tr></thead><tbody><tr><td>-</td><td>Syllable boundary (hyphen)</td></tr><tr><td>!</td><td>Sentence terminator (exclamation mark)</td></tr><tr><td>&amp;</td><td>Word boundary (ampersand)</td></tr><tr><td>,</td><td>Sentence terminator (comma)</td></tr><tr><td>.</td><td>Sentence terminator (period)</td></tr><tr><td>?</td><td>Sentence terminator (question mark)</td></tr><tr><td>_</td><td>Silence (underscore)</td></tr><tr><td>1</td><td>Primary stress</td></tr><tr><td>2</td><td>Secondary stress</td></tr><tr><td>aa</td><td>father</td></tr><tr><td>ae</td><td>cat</td></tr><tr><td>ah</td><td>cut</td></tr><tr><td>ao</td><td>dog</td></tr><tr><td>aw</td><td>foul</td></tr><tr><td>ax</td><td>ago</td></tr><tr><td>ay</td><td>bite</td></tr><tr><td>b</td><td>big</td></tr><tr><td>ch</td><td>chin</td></tr><tr><td>d</td><td>dig</td></tr><tr><td>dh</td><td>then</td></tr><tr><td>eh</td><td>pet</td></tr><tr><td>er</td><td>fur</td></tr><tr><td>ey</td><td>ate</td></tr><tr><td>f</td><td>fork</td></tr><tr><td>g</td><td>gut</td></tr><tr><td>h</td><td>help</td></tr><tr><td>ih</td><td>fill</td></tr><tr><td>iy</td><td>feel</td></tr><tr><td>jh</td><td>joy</td></tr><tr><td>k</td><td>cut</td></tr><tr><td>l</td><td>lid</td></tr><tr><td>m</td><td>mat</td></tr><tr><td>n</td><td>no</td></tr><tr><td>ng</td><td>sing</td></tr><tr><td>ow</td><td>go</td></tr><tr><td>oy</td><td>toy</td></tr><tr><td>p</td><td>put</td></tr><tr><td>r</td><td>red</td></tr><tr><td>s</td><td>sit</td></tr><tr><td>sh</td><td>she</td></tr><tr><td>t</td><td>talk</td></tr><tr><td>th</td><td>thin</td></tr><tr><td>uh</td><td>book</td></tr><tr><td>uw</td><td>too</td></tr><tr><td>v</td><td>vat</td></tr><tr><td>w</td><td>with</td></tr><tr><td>y</td><td>yard</td></tr><tr><td>z</td><td>zap</td></tr><tr><td>zh</td><td>pleasure</td></tr></tbody></table></li>
+                    <li><b>[BAL] Balabolka/Balcon:</b> You can use the SAPI/Microsoft Speech Platform codes to adjust things like silence periods, speech rate (how fast the text is spoken), speech pitch, volume, and phonemes (the big one). Phonemes are formatted like so: <code><pron sym="t eh - 1 k ey - m ax"/></code>, which would pronounce the word "Tekamah" (city in Nebraska) correctly. A full list of phonemes is below in HTML table format (copy-paste friendly):<table id="balconTable"><thead><tr><th>Phoneme</th><th>Description/Example</th></tr></thead><tbody><tr><td>-</td><td>Syllable boundary (hyphen)</td></tr><tr><td>!</td><td>Sentence terminator (exclamation mark)</td></tr><tr><td>&amp;</td><td>Word boundary (ampersand)</td></tr><tr><td>,</td><td>Sentence terminator (comma)</td></tr><tr><td>.</td><td>Sentence terminator (period)</td></tr><tr><td>?</td><td>Sentence terminator (question mark)</td></tr><tr><td>_</td><td>Silence (underscore)</td></tr><tr><td>1</td><td>Primary stress</td></tr><tr><td>2</td><td>Secondary stress</td></tr><tr><td>aa</td><td>father</td></tr><tr><td>ae</td><td>cat</td></tr><tr><td>ah</td><td>cut</td></tr><tr><td>ao</td><td>dog</td></tr><tr><td>aw</td><td>foul</td></tr><tr><td>ax</td><td>ago</td></tr><tr><td>ay</td><td>bite</td></tr><tr><td>b</td><td>big</td></tr><tr><td>ch</td><td>chin</td></tr><tr><td>d</td><td>dig</td></tr><tr><td>dh</td><td>then</td></tr><tr><td>eh</td><td>pet</td></tr><tr><td>er</td><td>fur</td></tr><tr><td>ey</td><td>ate</td></tr><tr><td>f</td><td>fork</td></tr><tr><td>g</td><td>gut</td></tr><tr><td>h</td><td>help</td></tr><tr><td>ih</td><td>fill</td></tr><tr><td>iy</td><td>feel</td></tr><tr><td>jh</td><td>joy</td></tr><tr><td>k</td><td>cut</td></tr><tr><td>l</td><td>lid</td></tr><tr><td>m</td><td>mat</td></tr><tr><td>n</td><td>no</td></tr><tr><td>ng</td><td>sing</td></tr><tr><td>ow</td><td>go</td></tr><tr><td>oy</td><td>toy</td></tr><tr><td>p</td><td>put</td></tr><tr><td>r</td><td>red</td></tr><tr><td>s</td><td>sit</td></tr><tr><td>sh</td><td>she</td></tr><tr><td>t</td><td>talk</td></tr><tr><td>th</td><td>thin</td></tr><tr><td>uh</td><td>book</td></tr><tr><td>uw</td><td>too</td></tr><tr><td>v</td><td>vat</td></tr><tr><td>w</td><td>with</td></tr><tr><td>y</td><td>yard</td></tr><tr><td>z</td><td>zap</td></tr><tr><td>zh</td><td>pleasure</td></tr></tbody></table></li>
                     <li><b>[DT] DECTalk:</b> DECTalk has its own set of phoneme codes that can be used to adjust pronunciation. An example would be <code>[:phoneme on] [axs'owshiyeyt]</code>. This will pronounce the word "associate" like "uh-soh-shee-ayt" (to associate something with someone or something), not like "uh-soh-shee-at" (an associate/worker at a store). A full list of DECTalk phoneme codes can be found in the <a href="https://dectalk.github.io/dectalk/idh_ref_1_phoneme_interpretation_phoneme.htm">DECTalk documentation</a>.</li>
                     <li><b>[FEST] Festvox:</b> Festvox uses the Festival Speech Synthesis System, which has no way to override the pronunciation of words "on the fly" like other engines. You're limited to the pre-defined pronunciations in the voice model.</li>
                     <li><b>[EMNet] EMNet:</b> The EMNet voice uses a bunch of pre-recorded audio files and just combines them according to the header and time the alert expires, so there are no options (other than what timezone you wish to use).</li>
                     <li><b>[BAL/SPFY] Speechify:</b> Speechify uses the same phoneme codes as Balabolka/Balcon, so you can use the same techniques above to adjust pronunciation. Note, however, that the requests to Tom will take longer depending on text length. Avoid sending ultra-long text through Tom, or your request may time out entirely.</li>
                 </ul>
                 <p>If you're having trouble with pronunciation of specific words, try adjusting the phoneme codes or using different text input that sounds more literal to the word you're trying to emulate (e.g., "teh kay mah" vs "Tekamah"). You can also experiment with different voices to see if they handle the text better. <b>If you need an exact phoneme for a specific word and voice and don't know if anyone else has it, try the <a href="https://chatgpt.com/g/g-6919e0f83e4c8191b57400362668981c-tts-phoneme-helper">TTS Phoneme Helper GPT</a>, which is built and trained on the data in this exact documentation. (NOTE: Requires a (free) ChatGPT account to use.)</b></p>
-                <h3>Addendum: A full example of VoiceText Paul usage</h3>
-                <p>Here is a full example of how to use the VoiceText Paul voice with example VTML codes to adjust pronunciation, speed, and pitch:</p>
-                <div id="copy-paste-code-container">
-                    <span id="copy-text">Copy text</span>
-<pre>This Hazardous Weather Outlook is for southwest Iowa&lt;vtml_pause time="200"/&gt;west central Iowa&lt;vtml_pause time="200"/&gt;east central Nebraska&lt;vtml_pause time="200"/&gt;northeast Nebraska and southeast Nebraska, including the city of &lt;vtml_phoneme alphabet="ipa" ph="116;603;712;107;101;618;109;601;"&gt;Tekamah&lt;/vtml_phoneme&gt; for testing purposes.
-
-For tonight... No hazardous weather is expected at this time.
-
-SPOTTER INFORMATION STATEMENT&lt;vtml_pause time="200"/&gt;Spotter activation is not expected at this time.
-
-&lt;vtml_pause time="1500"/&gt;
-
-This is NOAA All Hazards Radio Station K I H 61 in Omaha&lt;vtml_pause time="200"/&gt;Nebraska.
-
-The current time is, 1, 37, PM, Central Standard Time.
-
-&lt;vtml_pitch value="150"&gt;This sentence is higher pitched than normal.&lt;/vtml_pitch&gt;
-
-&lt;vtml_speed value="80"&gt;And this sentence is spoken at a slower rate than normal.&lt;/vtml_speed&gt;</pre>
+                <h3>Addendum: A full example of VoiceText VTML/Balabolka Phoneme usage</h3>
+                <br>
+                <div class="copy-paste-code-container">
+                    <p class="inner-copy-paste-paragraph">Here is a full example of how to use the VoiceText Paul voice with example VTML codes to adjust pronunciation, speed, and pitch:</p>
+                    <span class="copy-text" id="vtml-copy">Copy text</span>
+                    <div class="codemirror-example codemirror-example-container" id="vtml-example"></div>
+                </div>
+                <br>
+                <div class="copy-paste-code-container">
+                    <p class="inner-copy-paste-paragraph">And that same example, but with Balabolka:</p>
+                    <span class="copy-text" id="bal-copy">Copy text</span>
+                    <div class="codemirror-example codemirror-example-container" id="bal-example"></div>
                 </div>
                 <h3>Conclusion</h3>
                 <p>By keeping these notes in mind, users can make the most of the TTS feature in EAS Tools and ensure a smoother experience when working with different voices.</p>
@@ -105,50 +105,152 @@ The current time is, 1, 37, PM, Central Standard Time.
         <footer></footer>
         <script src="assets/js/footer.js"></script>
         <script>
-            const copyTextBtn = document.getElementById('copy-text');
-            const codeBlock = document.querySelector('#copy-paste-code-container pre');
+            (async function () {
+                let vtmlCodemirrorPre = null;
+                let balCodemirrorPre = null;
 
-            copyTextBtn.addEventListener('click', () => {
-                const textToCopy = codeBlock.innerText;
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    copyTextBtn.innerText = 'Copied!';
-                    setTimeout(() => {
-                        copyTextBtn.innerText = 'Copy text';
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy text: ', err);
-                });
-            });
+                function initVtmlPre() {
+                    if (vtmlCodemirrorPre || !window.CodeMirror) return vtmlCodemirrorPre;
 
-            const backButton = document.querySelector('button');
-            backButton.addEventListener('click', () => {
-                window.location.href = './index.html';
-            });
+                    const vtmlPreArea = document.getElementById('vtml-example');
+                    if (!vtmlPreArea) return null;
 
-            async function fetchVoiceList() {
-                try {
-                    const response = await fetch('https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true');
-                    const data = await response.json();
-                    const voiceList = document.getElementById('voice-list');
-                    if (data.voices) {
-                        for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
-                            const listItem = document.createElement('li');
-                            if(voiceName === 'EMNet') {
-                                listItem.textContent = `[EMNet] EMNet (uses ZCZC string as input)`;
-                            } else {
-                                listItem.textContent = `${voiceDesc}`;
-                            }
-                            voiceList.appendChild(listItem);
-                        }
-                    } else {
-                        console.error('Unexpected data format: ', data);
-                    }
-                } catch (error) {
-                    console.error('Error fetching voice list:', error);
+                    const vtmlCodePre = CodeMirror(vtmlPreArea, {
+                        lineNumbers: true,
+                        mode: 'text/xml',
+                        matchBrackets: true,
+                        theme: 'abbott',
+                        lineWrapping: true,
+                    });
+
+                    vtmlCodePre.setValue(`This Hazardous Weather Outlook is for southwest Iowa<vtml_pause time="200"/>west central Iowa<vtml_pause time="200"/>east central Nebraska<vtml_pause time="200"/>northeast Nebraska and southeast Nebraska, including the city of <vtml_phoneme alphabet="ipa" ph="116;603;712;107;101;618;109;601;">Tekamah</vtml_phoneme> for testing purposes.
+
+For tonight... No hazardous weather is expected at this time.
+
+SPOTTER INFORMATION STATEMENT<vtml_pause time="200"/>Spotter activation is not expected at this time.
+
+<vtml_pause time="1500"/>
+
+This is NOAA All Hazards Radio Station K I H 61 in Omaha<vtml_pause time="200"/>Nebraska.
+
+The current time is, 1, 37, PM, Central Standard Time.
+
+<vtml_pitch value="150">This sentence is higher pitched than normal.</vtml_pitch>
+
+<vtml_speed value="70">And this sentence is spoken at a slower rate than normal.</vtml_speed>`);
+
+                    const vtmlPreWrapper = vtmlCodePre.getWrapperElement();
+
+                    vtmlPreWrapper.classList.add('vtml-codemirror-pre', 'codemirror-example');
+
+                    vtmlCodemirrorPre = vtmlCodePre;
+                    return vtmlCodemirrorPre;
                 }
-            }
 
-            fetchVoiceList();
+                function initBalPre() {
+                    if (balCodemirrorPre || !window.CodeMirror) return balCodemirrorPre;
+
+                    const balPreArea = document.getElementById('bal-example');
+                    if (!balPreArea) return null;
+
+                    const balCodePre = CodeMirror(balPreArea, {
+                        lineNumbers: true,
+                        mode: 'text/xml',
+                        matchBrackets: true,
+                        theme: 'abbott',
+                        lineWrapping: true,
+                    });
+
+                    balCodePre.setValue(`This Hazardous Weather Outlook is for southwest Iowa<silence msec="200"/>west central Iowa<silence msec="200"/>east central Nebraska<silence msec="200"/>northeast Nebraska and southeast Nebraska, including the city of <pron sym="t eh k ey 1 m ax"/> for testing purposes.
+
+For tonight... No hazardous weather is expected at this time.
+
+SPOTTER INFORMATION STATEMENT<silence msec="200"/>Spotter activation is not expected at this time.
+
+<silence msec="1500"/>
+
+This is NOAA All Hazards Radio Station K I H 61 in Omaha<silence msec="200"/>Nebraska.
+
+The current time is, 1, 37, PM, Central Standard Time.
+
+<pitch absmiddle="5">This sentence is higher pitched than normal.</pitch>
+
+<rate absspeed="-3">And this sentence is spoken at a slower rate than normal.</rate>`);
+
+                    const balPreWrapper = balCodePre.getWrapperElement();
+
+                    balPreWrapper.classList.add('bal-codemirror-pre', 'codemirror-example');
+
+                    balCodemirrorPre = balCodePre;
+                    return balCodemirrorPre;
+                }
+
+                window.vtmlCodemirrorPre = initVtmlPre();
+                window.vtmlCodemirrorPre.refresh();
+                window.balCodemirrorPre = initBalPre();
+                window.balCodemirrorPre.refresh();
+
+                if (window.vtmlCodemirrorPre) {
+                    window.vtmlCodemirrorPre.setOption('readOnly', 'nocursor');
+                }
+                if (window.balCodemirrorPre) {
+                    window.balCodemirrorPre.setOption('readOnly', 'nocursor');
+                }
+            })();
+
+            (async function() {
+                const copyButtons = document.querySelectorAll('.copy-text');
+                copyButtons.forEach((button) => {
+                    button.addEventListener('click', () => {
+                        let codeToCopy = '';
+                        if (button.id === 'vtml-copy' && window.vtmlCodemirrorPre) {
+                            codeToCopy = window.vtmlCodemirrorPre.getValue();
+                        } else if (button.id === 'bal-copy' && window.balCodemirrorPre) {
+                            codeToCopy = window.balCodemirrorPre.getValue();
+                        }
+                        if (codeToCopy) {
+                            navigator.clipboard.writeText(codeToCopy).then(() => {
+                                button.textContent = 'Copied!';
+                                setTimeout(() => {
+                                    button.textContent = 'Copy text';
+                                }, 2000);
+                            }).catch((err) => {
+                                console.error('Failed to copy text: ', err);
+                            });
+                        }
+                    });
+                });
+
+                const backButton = document.querySelector('button');
+                backButton.addEventListener('click', () => {
+                    window.location.href = './index.html';
+                });
+
+                async function fetchVoiceList() {
+                    try {
+                        const response = await fetch('https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true');
+                        const data = await response.json();
+                        const voiceList = document.getElementById('voice-list');
+                        if (data.voices) {
+                            for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
+                                const listItem = document.createElement('li');
+                                if(voiceName === 'EMNet') {
+                                    listItem.textContent = `[EMNet] EMNet (uses ZCZC string as input)`;
+                                } else {
+                                    listItem.textContent = `${voiceDesc}`;
+                                }
+                                voiceList.appendChild(listItem);
+                            }
+                        } else {
+                            console.error('Unexpected data format: ', data);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching voice list:', error);
+                    }
+                }
+
+                await fetchVoiceList();
+            })();
         </script>
     </body>
 </html>
