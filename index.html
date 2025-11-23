@@ -337,9 +337,9 @@
                         <span class="checkmark localTZ"></span>
                     </label>
                     <br class="localTZ">
-                    <br class="overrideTZ">
-                    <label for="crawlUseOverrideTZ" class="overrideTZ">Override Timezone (cannot be combined with "Use Local Timezone"):</label>
-                    <select id="crawlUseOverrideTZ" class="overrideTZ">
+                    <br class="crawlOverrideTZ">
+                    <label for="crawlUseOverrideTZ" class="crawlOverrideTZ">Override Timezone (cannot be combined with "Use Local Timezone"):</label>
+                    <select id="crawlUseOverrideTZ" class="crawlOverrideTZ">
                         <option value="" selected>None (Default)</option>
                         <option value="UTC">UTC</option>
                         <option value="America/New_York">America/New_York (Eastern Time)</option>
@@ -349,7 +349,7 @@
                         <option value="America/Anchorage">America/Anchorage (Alaska Time)</option>
                         <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii-Aleutian Time)</option>
                     </select>
-                    <br class="overrideTZ">
+                    <br class="crawlOverrideTZ">
                     <br>
                     <label for="endecMode">ENDEC Emulation Mode:</label>
                     <select id="endecMode">
@@ -591,6 +591,14 @@
                         <button type="button" data-splice-add-silence>Add Silence</button>
                         <span data-splice-silence-status class="status-line"></span>
                     </div>
+                    <div>
+                        <label for="spliceMacros">Apply Macro:</label>
+                        <br>
+                        <select id="spliceMacros" data-splice-macro-select>
+                            <!-- The macro list will be loaded by JS -->
+                        </select>
+                        <button type="button" disabled data-splice-preview-macro>Play Macro Preview</button>
+                    </div>
                     <div class="splice-action-grid">
                         <button type="button" disabled data-splice-split-selection>Split at Selection</button>
                         <button type="button" disabled data-splice-join-all>Join All Segments</button>
@@ -598,6 +606,7 @@
                         <button type="button" disabled data-splice-delete>Delete Selection</button>
                         <button type="button" disabled data-splice-split>Save Selection as Segment</button>
                         <button type="button" disabled data-splice-export>Export WAV</button>
+                        <button type="button" disabled data-splice-export-macro>Export WAV with Macro</button>
                         <button type="button" disabled data-splice-clear>Clear Project</button>
                         </div>
                         <div class="splice-storage">
@@ -617,6 +626,7 @@
         <script src="assets/js/wave-resampler.js"></script>
         <script src="assets/js/gif.js"></script>
         <script src="assets/js/footer.js"></script>
+        <script src="assets/js/sox.js"></script>
         <script type="module" src="assets/E2T/EAS2Text.js"></script>
         <script>
             (function () {

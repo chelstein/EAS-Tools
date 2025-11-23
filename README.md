@@ -33,7 +33,7 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your mic
 * **Audio Splicer**
   * Combine multiple custom audio samples into one continuous WAV file
   * Useful for creating custom audio without the use of programs like Audacity
-  * Supports inserting silence between samples, trimming audio, splits, and much more
+  * Supports inserting silence between samples, trimming audio, splits, macros, and much more
 
 ---
 
@@ -114,7 +114,7 @@ What you’ll see:
 
 1. Go to **Audio Splicer** tab
 2. Upload multiple audio samples or synthesize new TTS samples using the TTS section inside the Splicer
-3. Modify the order of the samples as needed, and optionally insert silence between samples, as well as add splits for easier navigation
+3. Modify the order of the samples as needed, and optionally customize options to your liking (e.g., add silence between samples, trim audio, apply macros, etc.)
 4. Click **Export WAV** to create a single continuous WAV file for download
 
 ### Navigation
@@ -144,6 +144,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/piper-tts-bundle.js` and `assets/piper-tts/`) and **nanotts.js** (bundled in `assets/js/nanotts.js` and `assets/nanotts/`)
 * CodeMirror: **CodeMirror** (bundled in `assets/js/codemirror.js` and related CSS files in `assets/css/`)
 * EAS2Text: **EAS2Text** JS port by wagwan-piffting-blud (originally by Newton Communications)
+* SoX-EMScripten: **sox-emscripten** (bundled in `assets/js/sox.js` and `assets/js/sox.wasm`)
 * SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud
 
 * Inspiration / references:
@@ -156,6 +157,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [gif.js](https://github.com/jnordberg/gif.js)
   * [codemirror.js](https://codemirror.net/)
   * [EAS2Text](https://github.com/Newton-Communications/E2T/)
+  * [sox-emscripten](https://github.com/rameshvarun/sox-emscripten)
   * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.

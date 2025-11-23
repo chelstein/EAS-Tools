@@ -368,6 +368,11 @@ button[disabled] {
     width: 3vw;
 }
 
+#spliceSilence,
+#spliceMacros {
+    width: 10vw;
+}
+
 /* Class-level CSS */
 .codemirror-example > .cm-s-dracula .CodeMirror-cursor {
     border-left: solid thin #282a36 !important;

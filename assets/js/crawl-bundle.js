@@ -2162,7 +2162,7 @@
 
     document.getElementById('crawlUseLocalTZ').addEventListener('change', (event) => {
         const useLocalTZ = event.target.checked;
-        const crawlUseOverrideTZElements = document.getElementsByClassName('overrideTZ');
+        const crawlUseOverrideTZElements = document.getElementsByClassName('crawlOverrideTZ');
 
         if (useLocalTZ) {
             Array.from(crawlUseOverrideTZElements).forEach((el) => {
@@ -2189,7 +2189,7 @@
                 el.style.display = 'none';
             });
 
-            const crawlUseOverrideTZElements = document.getElementsByClassName('overrideTZ');
+            const crawlUseOverrideTZElements = document.getElementsByClassName('crawlOverrideTZ');
             Array.from(crawlUseOverrideTZElements).forEach((el) => {
                 el.style.display = 'inline-block';
             });
@@ -2364,15 +2364,29 @@
 
         addStatus('Loaded saved crawl settings!');
 
-        document.addEventListener('DOMContentLoaded', () => {
+        const refreshSavedCrawlControls = () => {
             const crawlUseLocalTZ = document.getElementById('crawlUseLocalTZ');
             const crawlUseOverrideTZ = document.getElementById('crawlUseOverrideTZ');
             const crawlBackgroundMode = document.getElementById('crawlBackgroundMode');
+            const crawlTextSource = document.getElementById('crawlMode');
+            if (!crawlUseLocalTZ || !crawlUseOverrideTZ || !crawlBackgroundMode || !crawlTextSource) {
+                return;
+            }
 
-            const event = new Event('change');
-            crawlUseLocalTZ.dispatchEvent(event);
-            crawlUseOverrideTZ.dispatchEvent(event);
-            crawlBackgroundMode.dispatchEvent(event);
-        });
+            const dispatchChange = (element) => {
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+
+            dispatchChange(crawlUseLocalTZ);
+            dispatchChange(crawlUseOverrideTZ);
+            dispatchChange(crawlBackgroundMode);
+            dispatchChange(crawlTextSource);
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', refreshSavedCrawlControls, { once: true });
+        } else {
+            refreshSavedCrawlControls();
+        }
     }
 })();

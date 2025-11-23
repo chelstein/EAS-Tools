@@ -63,6 +63,14 @@
     const selEndLabel = panel.querySelector('[data-selection-end]');
     const selLenLabel = panel.querySelector('[data-selection-length]');
     const loadFileBtn = panel.querySelector('[data-splice-load]');
+    const macroSelect = panel.querySelector('[data-splice-macro-select]');
+    const previewMacroBtn = panel.querySelector('[data-splice-preview-macro]');
+    const exportMacroBtn = panel.querySelector('[data-splice-export-macro]');
+    const previewMacroBtnDefaultText = previewMacroBtn && previewMacroBtn.textContent
+        ? previewMacroBtn.textContent.trim() || 'Play Macro Preview'
+        : 'Play Macro Preview';
+    let previewMacroBtnWasDisabled = previewMacroBtn ? previewMacroBtn.disabled : false;
+    let previewMacroBtnDisabledByTask = false;
 
     canvas.style.touchAction = 'none';
 
@@ -84,6 +92,8 @@
     let currentSegmentId = null;
     const segmentPlayButtons = new Map();
     let pendingSegmentPlay = null;
+    let macroPreviewPlayback = null;
+    let macroPreviewMarkerInterval = null;
 
     const state = {
         sampleRate: 44100,
@@ -137,6 +147,116 @@
         }
     };
 
+    const setPreviewMacroButtonState = (label, disabled) => {
+        if (!previewMacroBtn) return;
+        previewMacroBtn.textContent = label;
+        previewMacroBtn.disabled = !!disabled;
+        previewMacroBtnDisabledByTask = !!disabled;
+    };
+
+    const resetPreviewMacroButton = () => {
+        if (!previewMacroBtn) return;
+        const shouldDisable = previewMacroBtnDisabledByTask
+            ? previewMacroBtnWasDisabled
+            : previewMacroBtn.disabled || previewMacroBtnWasDisabled;
+        previewMacroBtnDisabledByTask = false;
+        previewMacroBtn.textContent = previewMacroBtnDefaultText;
+        previewMacroBtn.disabled = shouldDisable;
+        previewMacroBtnWasDisabled = previewMacroBtn.disabled;
+    };
+
+    const clearMacroPreviewInterval = () => {
+        if (macroPreviewMarkerInterval) {
+            clearInterval(macroPreviewMarkerInterval);
+            macroPreviewMarkerInterval = null;
+        }
+    };
+
+    const invalidateMacroPreview = () => {
+        if (!macroPreviewPlayback) return;
+        const audio = macroPreviewPlayback.audio;
+        if (audio) {
+            try {
+                audio.pause();
+            } catch (err) {
+                reportErrorStatus(`Failed to pause macro preview during reset: ${err}`, err);
+            }
+            try {
+                audio.currentTime = 0;
+            } catch (err) {
+                reportErrorStatus(`Failed to reset macro preview audio position: ${err}`, err);
+            }
+        }
+        try {
+            macroPreviewPlayback.cleanup?.();
+        } catch (err) {
+            reportErrorStatus(`Failed to cleanup macro preview: ${err}`, err);
+        }
+        if (playingSource === audio) {
+            playingSource = null;
+            playingMode = null;
+            pausedPlayback = null;
+            playSpan = 0;
+            playStartOffset = 0;
+            syncPlayButtons();
+        }
+        macroPreviewPlayback = null;
+        clearMacroPreviewInterval();
+        resetPreviewMacroButton();
+    };
+
+    const pauseMacroPreview = () => {
+        if (!macroPreviewPlayback?.audio) return false;
+        try {
+            macroPreviewPlayback.audio.pause();
+        } catch (err) {
+            reportErrorStatus(`Failed to pause macro preview: ${err}`, err);
+        }
+        macroPreviewPlayback.paused = true;
+        clearMacroPreviewInterval();
+        setPreviewMacroButtonState('Resume Macro Preview', false);
+        playingSource = null;
+        playingMode = null;
+        pausedPlayback = null;
+        return true;
+    };
+
+    const resumeMacroPreview = async () => {
+        if (!macroPreviewPlayback?.audio) return false;
+        const audio = macroPreviewPlayback.audio;
+        if (!audio.paused && !macroPreviewPlayback.paused) return true;
+        if (playingSource && playingSource !== audio) {
+            stopPlayback({ preserveMacroPreview: true });
+        }
+        const ctxAudio = audioCtx || getAudioCtx();
+        if (ctxAudio && ctxAudio.state === 'suspended' && typeof ctxAudio.resume === 'function') {
+            try {
+                await ctxAudio.resume();
+            } catch (err) {
+                reportErrorStatus(`Failed to resume audio context for macro preview: ${err}`);
+            }
+        }
+        playingSource = audio;
+        playingMode = 'macro-preview';
+        playStartOffset = audio.currentTime || 0;
+        playSpan = Math.max(0.001, audio.duration || playSpan || 0.001);
+        playStartedAt = ctxAudio ? ctxAudio.currentTime : 0;
+        macroPreviewPlayback.paused = false;
+        clearMacroPreviewInterval();
+        macroPreviewMarkerInterval = setInterval(updatePlaybackMarker, 1);
+        setPreviewMacroButtonState('Pause Macro Preview', false);
+        try {
+            await audio.play();
+        } catch (err) {
+            reportErrorStatus(`Failed to resume macro preview audio playback: ${err}`, err);
+            macroPreviewPlayback.paused = true;
+            clearMacroPreviewInterval();
+            setPreviewMacroButtonState('Resume Macro Preview', false);
+            return false;
+        }
+        return true;
+    };
+
     const cancelPendingSegmentPlayback = () => {
         if (!pendingSegmentPlay) return;
         pendingSegmentPlay.cancelled = true;
@@ -177,6 +297,7 @@
                     })),
                     ttsVoiceSelection: voiceSelect ? voiceSelect.value : null,
                     ttsText: ttsInput ? ttsInput.value : null,
+                    macroSelection: macroSelect ? macroSelect.value : null,
                 };
                 tx.objectStore(STORE).put(payload, CACHE_KEY);
                 tx.oncomplete = resolve;
@@ -219,7 +340,7 @@
                 tx.onerror = () => reject(tx.error);
             });
         } catch (err) {
-            console.error('Failed clearing cache', err);
+            persistStatus(`Failed clearing cache: ${err}`, false);
         }
     };
 
@@ -238,7 +359,7 @@
         const end = clamp(state.selection.end, 0, d);
         selStartLabel.textContent = `${start.toFixed(2)}s`;
         selEndLabel.textContent = `${end.toFixed(2)}s`;
-        selLenLabel.textContent = `${Math.floor((end - start) / 60)}m ${((end - start) % 60).toFixed(0)}s`;
+        selLenLabel.textContent = `${Math.floor((end - start) / 60)}m ${((end - start) % 60).toFixed(0)}s, ${Math.round((end - start) * state.sampleRate).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} samples`;
     };
 
     const setSelection = (start, end) => {
@@ -360,7 +481,7 @@
             try {
                 await ctxAudio.resume();
             } catch (err) {
-                console.warn('Failed to resume audio context', err);
+                persistStatus('Failed to resume audio context', false);
             }
         }
 
@@ -401,7 +522,7 @@
         source.connect(ctxAudio.destination);
 
         if (pendingState.cancelled) {
-            try { source.disconnect(); } catch (err) { console.warn(err); }
+            try { source.disconnect(); } catch (err) { persistStatus(err, false); }
             clearPendingState();
             return false;
         }
@@ -410,7 +531,7 @@
         playingSource = source;
         clearPendingState();
 
-        setInterval(updatePlaybackMarker, 1);
+        playbackInterval = setInterval(updatePlaybackMarker, 1);
 
         playingMode = 'segment';
         playStartOffset = segmentStartTime + startOffset;
@@ -426,7 +547,7 @@
             playSpan = 0;
             playStartOffset = 0;
             syncSegmentPlayButtons(null);
-            clearInterval(updatePlaybackMarker);
+            clearInterval(playbackInterval);
             drawWaveform();
         };
         return true;
@@ -455,7 +576,7 @@
             playingSource.onended = null;
             playingSource.stop();
         } catch (err) {
-            console.warn(err);
+            persistStatus(err, false);
         }
 
         playingSource = null;
@@ -504,7 +625,7 @@
                     try {
                         await pauseSegment(seg);
                     } catch (err) {
-                        console.error('Failed to pause segment', err);
+                        persistStatus(`Failed to pause segment: ${err}`, false);
                         syncSegmentPlayButtons(seg.id);
                     }
                     return;
@@ -515,7 +636,7 @@
                         syncSegmentPlayButtons(seg.id);
                     }
                 } catch (err) {
-                    console.error('Failed to play segment', err);
+                    persistStatus(`Failed to play segment: ${err}`, false);
                     syncSegmentPlayButtons(null);
                 }
             });
@@ -766,14 +887,20 @@
     };
 
 
-    const stopPlayback = () => {
+    const stopPlayback = ({ preserveMacroPreview = false } = {}) => {
         cancelPendingSegmentPlayback();
+        const isMacroPreviewActive = playingMode === 'macro-preview';
+        const hasPausedMacroPreview = !!macroPreviewPlayback && !isMacroPreviewActive;
+        const shouldHandleMacroPreview = isMacroPreviewActive || (hasPausedMacroPreview && !preserveMacroPreview);
+        const macroAudio = shouldHandleMacroPreview
+            ? (macroPreviewPlayback?.audio || (isMacroPreviewActive ? playingSource : null))
+            : null;
         if (playingSource) {
             try {
                 playingSource.onended = null;
                 playingSource.stop();
             } catch (err) {
-                console.warn(err);
+                persistStatus(err, false);
             }
         }
         playingSource = null;
@@ -784,10 +911,32 @@
         syncPlayButtons();
         rebuildTimeline();
         drawWaveform();
+        if (shouldHandleMacroPreview) {
+            if (!playingSource && macroAudio) {
+                try {
+                    if (typeof macroAudio.pause === 'function') macroAudio.pause();
+                } catch (err) {
+                    reportErrorStatus(`Failed to pause macro preview audio during stop: ${err}`, err);
+                }
+                try {
+                    macroAudio.currentTime = 0;
+                } catch (err) {
+                    reportErrorStatus(`Failed to reset macro preview audio during stop: ${err}`, err);
+                }
+                macroPreviewPlayback?.cleanup?.();
+            }
+            clearMacroPreviewInterval();
+            macroPreviewPlayback = null;
+            resetPreviewMacroButton();
+        }
     };
 
     const pausePlayback = () => {
         if (!playingSource) return;
+        const wasMacroPreview = playingMode === 'macro-preview';
+        if (wasMacroPreview && pauseMacroPreview()) {
+            return;
+        }
         const ctxAudio = audioCtx || getAudioCtx();
         const elapsed = Math.max(0, ctxAudio.currentTime - playStartedAt);
         const endPos = playStartOffset + playSpan;
@@ -799,15 +948,20 @@
         }
 
         catch (err) {
-            console.warn(err);
+            persistStatus(err, false);
         }
         playingSource = null;
         playingMode = null;
         syncPlayButtons();
+        if (wasMacroPreview) {
+            resetPreviewMacroButton();
+        }
     };
 
     const playSelection = async () => {
         if (!state.pcm.length) return;
+        const blob = pcmToWav(state.pcm, state.sampleRate);
+        window.blob = blob;
         const selectionStart = state.selection.start;
         const selectionLen = Math.max(0.001, state.selection.end - state.selection.start || duration());
         const selectionEnd = selectionStart + selectionLen;
@@ -841,6 +995,8 @@
             pausedPlayback = null;
             playSpan = 0;
             playStartOffset = 0;
+            clearInterval(playbackInterval);
+            drawWaveform();
             syncPlayButtons();
         };
     };
@@ -875,6 +1031,8 @@
             pausedPlayback = null;
             playSpan = 0;
             playStartOffset = 0;
+            clearInterval(playbackInterval);
+            drawWaveform();
             syncPlayButtons();
         };
     };
@@ -1182,7 +1340,7 @@
         } else if (normalizedBackend.includes("dt")) {
             if (usesBalPhonemes || usesVtmlTags) return false;
             if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) return false;
-        } else if(!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
+        } else if (!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
             if (usesBalPhonemes || usesVtmlTags || usesDtPhonemes) return false;
         }
         return true;
@@ -1258,7 +1416,7 @@
                 return Promise.reject(new TypeError("Unsupported payload type"));
             };
 
-            xhr.onload = function() {
+            xhr.onload = function () {
                 const contentType = xhr.getResponseHeader("Content-Type") || "";
                 const finishWithError = (err) => reject(err || new Error("TTS fetch failed"));
 
@@ -1273,12 +1431,12 @@
 
                         decodePromise.then((buffer) => {
                             if (typeof audioContext.close === "function") {
-                                audioContext.close().catch(() => {});
+                                audioContext.close().catch(() => { });
                             }
                             resolve({ pcm: buffer.getChannelData(0), sampleRate: buffer.sampleRate });
                         }).catch((error) => {
                             if (typeof audioContext.close === "function") {
-                                audioContext.close().catch(() => {});
+                                audioContext.close().catch(() => { });
                             }
                             finishWithError(error);
                         });
@@ -1306,7 +1464,7 @@
                 }
             };
 
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 reject(new Error(`Network error: ${xhr.status} ${xhr.statusText}`));
             };
 
@@ -1357,7 +1515,7 @@
                     drawWaveform();
                 } else {
                     const nt = clamp(state.viewStart + (nx / rect.width) * viewSpan, 0, duration());
-                    if (dragMode === 'start' ) setSelection(nt, state.selection.end);
+                    if (dragMode === 'start') setSelection(nt, state.selection.end);
                     else setSelection(state.selection.start, nt);
                 }
             };
@@ -1576,7 +1734,7 @@
             try {
                 await playSelection();
             } catch (err) {
-                console.error('Failed to play selection', err);
+                persistStatus(`Failed to play selection: ${err}`, false);
             } finally {
                 syncPlayButtons();
             }
@@ -1592,7 +1750,7 @@
             try {
                 await playWholeFile();
             } catch (err) {
-                console.error('Failed to play entire file', err);
+                persistStatus(`Failed to play entire file: ${err}`, false);
             } finally {
                 syncPlayButtons();
             }
@@ -1699,6 +1857,8 @@
         splitSelectionBtn.disabled = disabled;
         joinAllBtn.disabled = disabled;
         clearBtn.disabled = disabled;
+        if (previewMacroBtn) previewMacroBtn.disabled = disabled;
+        if (exportMacroBtn) exportMacroBtn.disabled = disabled;
     };
 
     const restoreFromCache = async () => {
@@ -1712,6 +1872,7 @@
         }
         voiceSelect.value = payload.ttsVoiceSelection || PIPER_VOICE;
         ttsInput.value = payload.ttsText || '';
+        macroSelect.value = payload.macroSelection || 'FLAT';
         window.splicerEditor.setValue(payload.ttsText || '');
         state.sampleRate = payload.sampleRate || state.sampleRate;
         state.segments = payload.segments.map((s) => ({
@@ -1727,6 +1888,403 @@
         clearInterval(intervalId3);
     };
 
+    function getSelectedMacroId() {
+        const raw = macroSelect && macroSelect.value ? macroSelect.value : 'FLAT';
+        if (raw === 'ENDEC') return 'DIGITAL_ENDEC';
+        return raw.toUpperCase();
+    }
+
+    function reportErrorStatus(message, err) {
+        if (typeof persistStatus === 'function') {
+            persistStatus(message, false);
+        } else {
+            console.error(message, err || '');
+        }
+    }
+
+    let soxMacroDefs = {};
+    let soxMacrosLoaded = false;
+    function populateMacroSelect() {
+        if (!macroSelect) return;
+
+        const ids = Object.keys(soxMacroDefs);
+        if (!ids.length) return;
+
+        const previous = macroSelect.value;
+
+        while (macroSelect.firstChild) {
+            macroSelect.removeChild(macroSelect.firstChild);
+        }
+
+        const preferred = ['FLAT', 'AM_RADIO', 'DIGITAL_ENDEC'];
+        const added = new Set();
+
+        function addOption(id) {
+            const def = soxMacroDefs[id] || {};
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent =
+                def.label ||
+                id.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+            macroSelect.appendChild(opt);
+            added.add(id);
+        }
+
+        preferred.forEach((id) => {
+            if (soxMacroDefs[id] && !added.has(id)) {
+                addOption(id);
+            }
+        });
+
+        ids
+            .filter((id) => !added.has(id))
+            .sort()
+            .forEach((id) => addOption(id));
+
+        if (previous && soxMacroDefs[previous]) {
+            macroSelect.value = previous;
+        } else if (soxMacroDefs.FLAT) {
+            macroSelect.value = 'FLAT';
+        } else {
+            macroSelect.selectedIndex = 0;
+        }
+    }
+
+
+    async function loadSoxMacroDefs() {
+        try {
+            const resp = await fetch('assets/splicer-sox-macros.json', { cache: 'no-store' });
+            if (!resp.ok) {
+                reportErrorStatus(`SoX macro JSON load failed (status ${resp.status}).`);
+                return;
+            }
+            const json = await resp.json();
+            soxMacroDefs = json || {};
+            soxMacrosLoaded = true;
+            const count = Object.keys(soxMacroDefs).length;
+            if (count) {
+                persistStatus(`Loaded ${count} SoX macros.`, true);
+                populateMacroSelect();
+            } else {
+                reportErrorStatus('SoX macro JSON is empty.');
+            }
+        } catch (err) {
+            reportErrorStatus(`Failed to load SoX macros JSON: ${err}`, err);
+        }
+    }
+
+
+    function float32ToSoxRaw(pcm) {
+        const out = new Int16Array(pcm.length);
+        for (let i = 0; i < pcm.length; i++) {
+            let s = pcm[i];
+            s = Math.max(-1, Math.min(1, s));
+            out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        return new Uint8Array(out.buffer);
+    }
+
+    async function renderMacroWithSox(pcm, sampleRate, macroId) {
+        const id = (macroId || 'FLAT').toUpperCase();
+
+        if (!soxMacrosLoaded || !soxMacroDefs[id]) {
+            return null;
+        }
+
+        if (typeof window.SOXModule !== 'function') {
+            reportErrorStatus('SoX engine is not available (SOXModule missing).');
+            return null;
+        }
+
+        const macro = soxMacroDefs[id];
+        if (!Array.isArray(macro.effects) || !macro.effects.length) {
+            return null;
+        }
+
+        const raw = float32ToSoxRaw(pcm);
+
+        const moduleConfig = {
+            arguments: [
+                '-r', String(sampleRate),
+                '-L', '-e', 'signed-integer', '-b', '16', '-c', '1',
+                'in.raw',
+                'out.wav',
+                ...macro.effects,
+            ],
+            preRun(mod) {
+                (mod || moduleConfig).FS.writeFile('in.raw', raw);
+            },
+            postRun() {},
+        };
+
+        try {
+            const maybePromise = window.SOXModule(moduleConfig);
+            let modInstance = moduleConfig;
+
+            if (maybePromise && typeof maybePromise.then === 'function') {
+                modInstance = await maybePromise;
+            } else if (maybePromise && maybePromise.FS) {
+                modInstance = maybePromise;
+            }
+
+            const fs = modInstance.FS || moduleConfig.FS;
+            if (!fs) {
+                reportErrorStatus('SoX FS not available after module run.');
+                return null;
+            }
+
+            const output = fs.readFile('out.wav', { encoding: 'binary' });
+            return new Blob([output], { type: 'audio/wav' });
+        } catch (err) {
+            reportErrorStatus(`SoX render failed for macro \`${id}\`: ${err}`, err);
+            return null;
+        }
+    }
+
+    function encodeWavFromPcm(pcm, sampleRate) {
+        const buffer = new ArrayBuffer(44 + pcm.length * 2);
+        const view = new DataView(buffer);
+
+        function writeString(offset, str) {
+            for (let i = 0; i < str.length; i++) {
+                view.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
+
+        const length = pcm.length;
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + length * 2, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(36, 'data');
+        view.setUint32(40, length * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < length; i++, offset += 2) {
+            let s = pcm[i];
+            s = Math.max(-1, Math.min(1, s));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        }
+
+        return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    async function renderMacroToWavFromPcm(pcm, sampleRate, macroId) {
+        if (!pcm || !pcm.length) {
+            reportErrorStatus('FX: cannot render macro – empty PCM data.');
+            throw new Error('renderMacroToWavFromPcm: empty PCM data');
+        }
+
+        const id = macroId || 'FLAT';
+
+        try {
+            const soxBlob = await renderMacroWithSox(pcm, sampleRate, id);
+            if (soxBlob) {
+                return soxBlob;
+            }
+        } catch (err) {
+            // skip
+        }
+
+        return encodeWavFromPcm(pcm, sampleRate);
+    }
+
+    window.EASSplicerFX = window.EASSplicerFX || {};
+    window.EASSplicerFX.renderMacroToWavFromPcm = renderMacroToWavFromPcm;
+
+    async function previewCurrentMacro() {
+        if (typeof state === 'undefined' || !state.pcm || !state.pcm.length) {
+            reportErrorStatus('No PCM data available to preview.');
+            return;
+        }
+
+        if (previewMacroBtn) {
+            previewMacroBtnWasDisabled = previewMacroBtn.disabled;
+            setPreviewMacroButtonState('Rendering macro...', true);
+        }
+
+        const macroId = getSelectedMacroId();
+        console.log('[Splicer] previewCurrentMacro macroId =', macroId);
+
+        try {
+            const blob = await renderMacroToWavFromPcm(
+                state.pcm,
+                state.sampleRate,
+                macroId
+            );
+
+            if (playingSource) {
+                stopPlayback();
+            }
+
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            let urlCleaned = false;
+            const cleanupUrl = () => {
+                if (urlCleaned) return;
+                urlCleaned = true;
+                URL.revokeObjectURL(url);
+            };
+            macroPreviewPlayback = { audio, cleanup: cleanupUrl, paused: false, macroId };
+
+            audio.stop = () => {
+                try {
+                    audio.pause();
+                } catch (err) {
+                    reportErrorStatus(`Failed to pause macro preview audio: ${err}`);
+                }
+                try {
+                    audio.currentTime = 0;
+                } catch (err) {
+                    reportErrorStatus(`Failed to reset macro preview audio position: ${err}`);
+                }
+                cleanupUrl();
+            };
+
+            const finalizePlayback = () => {
+                cleanupUrl();
+                if (macroPreviewPlayback?.audio === audio) {
+                    clearMacroPreviewInterval();
+                    macroPreviewPlayback = null;
+                }
+                if (playingSource === audio) {
+                    playingSource = null;
+                    playingMode = null;
+                    pausedPlayback = null;
+                    playSpan = 0;
+                    playStartOffset = 0;
+                    drawWaveform();
+                    syncPlayButtons();
+                    resetPreviewMacroButton();
+                }
+            };
+
+            audio.addEventListener('ended', finalizePlayback);
+            audio.addEventListener('error', (event) => {
+                reportErrorStatus(
+                    `Macro preview audio error: ${event?.error || event}`,
+                    event?.error || event
+                );
+                finalizePlayback();
+            });
+
+            playingSource = audio;
+            playingMode = 'macro-preview';
+            pausedPlayback = null;
+            setPreviewMacroButtonState('Pause Macro Preview', false);
+
+            const ctxAudio = audioCtx || getAudioCtx();
+            if (ctxAudio && ctxAudio.state === 'suspended' && typeof ctxAudio.resume === 'function') {
+                try {
+                    await ctxAudio.resume();
+                } catch (err) {
+                    reportErrorStatus(`Failed to resume audio context for macro preview: ${err}`);
+                }
+            }
+
+            const ensureSpanFromAudio = () => {
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                    playSpan = Math.max(0.001, audio.duration);
+                }
+            };
+            playSpan = Math.max(0.001, duration());
+            ensureSpanFromAudio();
+            audio.addEventListener('loadedmetadata', ensureSpanFromAudio, { once: true });
+
+            playStartOffset = 0;
+            playStartedAt = ctxAudio ? ctxAudio.currentTime : 0;
+            syncPlayButtons();
+            clearMacroPreviewInterval();
+            macroPreviewMarkerInterval = setInterval(updatePlaybackMarker, 1);
+
+            audio.play().catch((err) => {
+                finalizePlayback();
+                reportErrorStatus(`previewCurrentMacro playback failed: ${err}`, err);
+            });
+        } catch (err) {
+            clearMacroPreviewInterval();
+            macroPreviewPlayback = null;
+            resetPreviewMacroButton();
+            reportErrorStatus(`previewCurrentMacro failed: ${err}`, err);
+        }
+    }
+
+    async function exportWavWithCurrentMacro() {
+        if (typeof state === 'undefined' || !state.pcm || !state.pcm.length) {
+            reportErrorStatus('FX: no PCM data available to export.');
+            return;
+        }
+
+        const macroId = getSelectedMacroId();
+        console.log('[Splicer] exportWavWithCurrentMacro macroId =', macroId);
+
+        try {
+            const blob = await renderMacroToWavFromPcm(
+                state.pcm,
+                state.sampleRate,
+                macroId
+            );
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+
+            let label = macroId;
+            if (macroSelect && macroSelect.selectedIndex >= 0) {
+                label = macroSelect.options[macroSelect.selectedIndex].text || macroId;
+            }
+            const safeLabel = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+            a.download = `splice-${safeLabel}.wav`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        } catch (err) {
+            reportErrorStatus(
+                `FX: exportWavWithCurrentMacro failed for macro '${macroId}'.`,
+                err
+            );
+        }
+    }
+
+    if (macroSelect) {
+        macroSelect.addEventListener('change', () => {
+            invalidateMacroPreview();
+        });
+    }
+
+    if (previewMacroBtn) {
+        previewMacroBtn.addEventListener('click', async () => {
+            const currentMacroId = getSelectedMacroId();
+            const mismatch = macroPreviewPlayback?.macroId && macroPreviewPlayback.macroId !== currentMacroId;
+            if (mismatch) {
+                invalidateMacroPreview();
+            }
+            if (playingSource && playingMode === 'macro-preview') {
+                pauseMacroPreview();
+                return;
+            }
+            if (macroPreviewPlayback?.audio && (macroPreviewPlayback.audio.paused || macroPreviewPlayback.paused)) {
+                const resumed = await resumeMacroPreview();
+                if (resumed) return;
+            }
+            previewCurrentMacro();
+        });
+    }
+
+    if (exportMacroBtn) {
+        exportMacroBtn.addEventListener('click', () => {
+            exportWavWithCurrentMacro();
+        });
+    }
+
+    await loadSoxMacroDefs();
     bindEvents();
     updateSelectionLabels();
     drawWaveform();
