@@ -369,8 +369,12 @@ button[disabled] {
 }
 
 #spliceSilence,
+#spliceLoudness {
+    width: 7.5vw;
+}
+
 #spliceMacros {
-    width: 10vw;
+    width: 15vw;
 }
 
 /* Class-level CSS */
@@ -810,6 +814,14 @@ button[disabled] {
 
     .CodeMirror-code {
         margin-right: 0;
+    }
+
+    #spliceMacros {
+        width: 40vw;
+    }
+
+    #spliceSilence {
+        width: 20vw;
     }
 }
 

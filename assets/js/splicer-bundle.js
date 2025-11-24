@@ -66,11 +66,18 @@
     const macroSelect = panel.querySelector('[data-splice-macro-select]');
     const previewMacroBtn = panel.querySelector('[data-splice-preview-macro]');
     const exportMacroBtn = panel.querySelector('[data-splice-export-macro]');
+    const spliceLoudnessInput = panel.querySelector('[data-splice-loudness]');
+    const spliceSilenceInput = panel.querySelector('[data-splice-silence]');
     const previewMacroBtnDefaultText = previewMacroBtn && previewMacroBtn.textContent
         ? previewMacroBtn.textContent.trim() || 'Play Macro Preview'
         : 'Play Macro Preview';
     let previewMacroBtnWasDisabled = previewMacroBtn ? previewMacroBtn.disabled : false;
     let previewMacroBtnDisabledByTask = false;
+    const enableStaticNoiseCheckbox = panel.querySelector('#enable-static-noise');
+    const staticNoiseOptions = panel.querySelector('#staticNoiseOptions');
+    const staticNoiseLevelInput = panel.querySelector('#static-noise-level');
+    const staticNoiseFadeDepthInput = panel.querySelector('#static-noise-fade-depth');
+    const staticNoiseFadeRateInput = panel.querySelector('#static-noise-fade-rate');
 
     canvas.style.touchAction = 'none';
 
@@ -94,6 +101,12 @@
     let pendingSegmentPlay = null;
     let macroPreviewPlayback = null;
     let macroPreviewMarkerInterval = null;
+    let macroWaveformPcm = null;
+    let macroWaveformSampleRate = 0;
+    let macroWaveformActiveKey = null;
+    let macroWaveformPendingKey = null;
+    let macroWaveformJobSeq = 0;
+    let macroWaveformDebounce = null;
 
     const state = {
         sampleRate: 44100,
@@ -121,6 +134,220 @@
     let voiceListLoaded = false;
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+    const LOUDNESS_DBFS_DEFAULT = -16;
+    const LOUDNESS_DBFS_MIN = -60;
+    const LOUDNESS_DBFS_MAX = 12;
+    const EXPORT_GAIN_TOLERANCE = 1e-6;
+
+    const getExportLoudnessDbfs = () => {
+        if (!spliceLoudnessInput) return LOUDNESS_DBFS_DEFAULT;
+        const val = parseFloat(spliceLoudnessInput.value);
+        if (!Number.isFinite(val)) return LOUDNESS_DBFS_DEFAULT;
+        return clamp(val, LOUDNESS_DBFS_MIN, LOUDNESS_DBFS_MAX);
+    };
+
+    const getExportGain = () => {
+        const dbfs = getExportLoudnessDbfs();
+        return Math.pow(10, dbfs / 20);
+    };
+
+    const clonePcmWithGain = (pcm, gain = getExportGain()) => {
+        if (!pcm || !pcm.length || Math.abs(gain - 1) < EXPORT_GAIN_TOLERANCE) return pcm;
+        const out = new Float32Array(pcm.length);
+        for (let i = 0; i < pcm.length; i++) {
+            let sample = pcm[i] * gain;
+            if (sample > 1) sample = 1;
+            else if (sample < -1) sample = -1;
+            out[i] = sample;
+        }
+        return out;
+    };
+
+    const buildSoxLoudnessArgs = (dbfs) => {
+        if (!Number.isFinite(dbfs) || Math.abs(dbfs) < 1e-6) return [];
+        const normalized = Number(dbfs.toFixed(2));
+        const suffix = Number.isFinite(normalized) ? normalized.toString() : dbfs.toString();
+        return ['vol', `${suffix}dB`];
+    };
+
+    const applyGainToAudioBuffer = (buffer, pcm, gain = getExportGain()) => {
+        if (!buffer || !pcm) return;
+        const channelData = buffer.getChannelData(0);
+        if (!channelData) return;
+        if (Math.abs(gain - 1) < EXPORT_GAIN_TOLERANCE) {
+            channelData.set(pcm);
+            return;
+        }
+        for (let i = 0; i < pcm.length; i++) {
+            let sample = pcm[i] * gain;
+            if (sample > 1) sample = 1;
+            else if (sample < -1) sample = -1;
+            channelData[i] = sample;
+        }
+    };
+
+    const getStaticNoiseOptions = () => {
+        const level = parseFloat(staticNoiseLevelInput?.value);
+        const fadeDepth = parseFloat(staticNoiseFadeDepthInput?.value);
+        const fadeRateHz = parseFloat(staticNoiseFadeRateInput?.value);
+        return {
+            level: Number.isFinite(level) ? level : 0.14,
+            fadeDepth: Number.isFinite(fadeDepth) ? fadeDepth : 0.45,
+            fadeRateHz: Number.isFinite(fadeRateHz) ? fadeRateHz : 0.6,
+        };
+    };
+
+    const decodeWavBlobToFloat32 = async (blob) => {
+        if (!blob) return null;
+        try {
+            const ctx = getAudioCtx();
+            const buffer = await blob.arrayBuffer();
+            const audioBuffer = await ctx.decodeAudioData(buffer);
+            const channel = audioBuffer.getChannelData(0);
+            return {
+                pcm: new Float32Array(channel),
+                sampleRate: audioBuffer.sampleRate,
+            };
+        } catch (err) {
+            console.error('Failed to decode macro waveform blob', err);
+            return null;
+        }
+    };
+
+    const shouldUseMacroWaveform = () => {
+        if (!state.pcm.length) return false;
+        const macroId = (typeof getSelectedMacroId === 'function' ? getSelectedMacroId() : 'FLAT') || 'FLAT';
+        const staticEnabled = enableStaticNoiseCheckbox?.checked === true;
+        return macroId !== 'FLAT' || staticEnabled;
+    };
+
+    const getMacroWaveformKey = () => {
+        if (!shouldUseMacroWaveform()) return null;
+        const macroId = (typeof getSelectedMacroId === 'function' ? getSelectedMacroId() : 'FLAT') || 'FLAT';
+        const staticEnabled = enableStaticNoiseCheckbox?.checked === true;
+        const opts = staticEnabled ? getStaticNoiseOptions() : null;
+        const parts = [
+            macroId,
+            staticEnabled ? '1' : '0',
+            opts ? opts.level : '0',
+            opts ? opts.fadeDepth : '0',
+            opts ? opts.fadeRateHz : '0',
+            state.pcm.length,
+            state.sampleRate,
+        ];
+        return parts.join('|');
+    };
+
+    const cancelMacroWaveformComputation = () => {
+        macroWaveformJobSeq += 1;
+        macroWaveformPendingKey = null;
+        if (macroWaveformDebounce) {
+            clearTimeout(macroWaveformDebounce);
+            macroWaveformDebounce = null;
+        }
+    };
+
+    const invalidateMacroWaveformCache = (skipDraw = false) => {
+        cancelMacroWaveformComputation();
+        macroWaveformPcm = null;
+        macroWaveformSampleRate = 0;
+        macroWaveformActiveKey = null;
+        if (!skipDraw) drawWaveform();
+    };
+
+    const scheduleMacroWaveformUpdate = (immediate = false) => {
+        if (!state.pcm.length) {
+            invalidateMacroWaveformCache();
+            return;
+        }
+        const key = getMacroWaveformKey();
+        if (!key) {
+            invalidateMacroWaveformCache();
+            return;
+        }
+        if (macroWaveformActiveKey === key || macroWaveformPendingKey === key) return;
+        if (macroWaveformActiveKey) {
+            macroWaveformActiveKey = null;
+            macroWaveformPcm = null;
+            macroWaveformSampleRate = 0;
+            drawWaveform();
+        }
+        macroWaveformPendingKey = key;
+        const delay = immediate ? 0 : 200;
+        if (macroWaveformDebounce) clearTimeout(macroWaveformDebounce);
+        macroWaveformDebounce = setTimeout(() => {
+            macroWaveformDebounce = null;
+            generateMacroWaveformForKey(key);
+        }, delay);
+    };
+
+    const generateMacroWaveformForKey = (key) => {
+        if (!state.pcm.length) return;
+        const pcmRef = state.pcm;
+        const sr = state.sampleRate || 44100;
+        const macroId = (typeof getSelectedMacroId === 'function' ? getSelectedMacroId() : 'FLAT') || 'FLAT';
+        const jobId = ++macroWaveformJobSeq;
+
+        (async () => {
+            let processed = null;
+            try {
+                const blob = await renderMacroWithSox(pcmRef, sr, macroId, 0);
+                if (blob) {
+                    processed = await decodeWavBlobToFloat32(blob);
+                }
+            } catch (err) {
+                console.error('Macro waveform render failed', err);
+            }
+
+            if (!processed && enableStaticNoiseCheckbox?.checked === true) {
+                processed = {
+                    pcm: addStaticNoiseToPcm(pcmRef, sr, getStaticNoiseOptions()),
+                    sampleRate: sr,
+                };
+            }
+
+            if (jobId !== macroWaveformJobSeq) return;
+            if (!shouldUseMacroWaveform() || key !== getMacroWaveformKey()) {
+                macroWaveformPendingKey = null;
+                return;
+            }
+            if (state.pcm !== pcmRef) {
+                macroWaveformPendingKey = null;
+                return;
+            }
+
+            if (processed?.pcm?.length) {
+                macroWaveformPcm = processed.pcm;
+                macroWaveformSampleRate = processed.sampleRate || sr;
+                macroWaveformActiveKey = key;
+            } else {
+                macroWaveformPcm = null;
+                macroWaveformSampleRate = 0;
+                macroWaveformActiveKey = null;
+            }
+            macroWaveformPendingKey = null;
+            drawWaveform();
+        })().catch((err) => {
+            if (jobId === macroWaveformJobSeq) {
+                macroWaveformPendingKey = null;
+            }
+            console.error('Failed to compute macro waveform', err);
+        });
+    };
+
+    const getWaveformRenderData = () => {
+        const useMacro = macroWaveformPcm && macroWaveformActiveKey && shouldUseMacroWaveform();
+        if (useMacro) {
+            return {
+                pcm: macroWaveformPcm,
+                sampleRate: macroWaveformSampleRate || state.sampleRate || 44100,
+            };
+        }
+        return {
+            pcm: state.pcm,
+            sampleRate: state.sampleRate || 44100,
+        };
+    };
 
     const persistStatus = (msg, ok = true) => {
         if (!persistLabel) return;
@@ -297,7 +524,15 @@
                     })),
                     ttsVoiceSelection: voiceSelect ? voiceSelect.value : null,
                     ttsText: ttsInput ? ttsInput.value : null,
+                    spliceLoudnessInput: spliceLoudnessInput ? parseFloat(spliceLoudnessInput.value) : 0,
+                    spliceSilenceInput: spliceSilenceInput ? parseFloat(spliceSilenceInput.value) : 0.5,
                     macroSelection: macroSelect ? macroSelect.value : null,
+                    staticEnabled: enableStaticNoiseCheckbox ? enableStaticNoiseCheckbox.checked : false,
+                    staticOptions: {
+                        level: staticNoiseLevelInput ? staticNoiseLevelInput.value : null,
+                        fadeDepth: staticNoiseFadeDepthInput ? staticNoiseFadeDepthInput.value : null,
+                        fadeRateHz: staticNoiseFadeRateInput ? staticNoiseFadeRateInput.value : null,
+                    },
                 };
                 tx.objectStore(STORE).put(payload, CACHE_KEY);
                 tx.oncomplete = resolve;
@@ -431,6 +666,7 @@
     };
 
     const rebuildTimeline = () => {
+        invalidateMacroWaveformCache(true);
         const total = state.segments.reduce((sum, seg) => sum + seg.pcm.length, 0);
         state.pcm = new Float32Array(total);
         let offset = 0;
@@ -447,6 +683,9 @@
         updateSegmentsList();
         drawWaveform();
         saveProject();
+        if (shouldUseMacroWaveform()) {
+            scheduleMacroWaveformUpdate();
+        }
     };
 
     const formatSegmentLabel = (seg, idx) => {
@@ -809,6 +1048,9 @@
     };
 
     const drawWaveform = () => {
+        const waveformData = getWaveformRenderData();
+        const waveformPcm = waveformData.pcm || new Float32Array(0);
+        const waveformSampleRate = waveformData.sampleRate || state.sampleRate || 44100;
         const w = canvas.width;
         const h = canvas.height;
         const userLightMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
@@ -820,7 +1062,7 @@
         ctx.lineTo(w, h / 2);
         ctx.stroke();
 
-        if (!state.pcm.length) {
+        if (!waveformPcm.length) {
             ctx.fillStyle = '#888';
             ctx.font = '14px monospace';
             ctx.fillText('Upload an existing audio file or generate TTS to begin editing.', 12, h / 2);
@@ -830,17 +1072,24 @@
         syncViewWindow();
         const d = duration();
         const viewSpan = Math.max(state.viewEnd - state.viewStart, state.minViewSpan);
-        const startSample = Math.floor(state.viewStart * state.sampleRate);
-        const visibleSamples = Math.max(1, Math.floor(viewSpan * state.sampleRate));
+        const startSample = Math.floor(state.viewStart * waveformSampleRate);
+        const visibleSamples = Math.max(1, Math.floor(viewSpan * waveformSampleRate));
         const step = Math.max(1, Math.floor(visibleSamples / w));
+        const waveformGain = getExportGain();
+        const applyWaveformGain = Math.abs(waveformGain - 1) > EXPORT_GAIN_TOLERANCE;
         ctx.strokeStyle = '#3aa0ff';
         ctx.beginPath();
         for (let x = 0; x < w; x++) {
             const start = startSample + x * step;
-            const end = Math.min(state.pcm.length, start + step);
+            const end = Math.min(waveformPcm.length, start + step);
             let min = 1, max = -1;
             for (let i = start; i < end; i++) {
-                const v = state.pcm[i];
+                let v = waveformPcm[i];
+                if (applyWaveformGain) {
+                    v *= waveformGain;
+                    if (v > 1) v = 1;
+                    else if (v < -1) v = -1;
+                }
                 if (v < min) min = v;
                 if (v > max) max = v;
             }
@@ -976,7 +1225,8 @@
         const ctxAudio = getAudioCtx();
         if (ctxAudio.state === 'suspended') await ctxAudio.resume();
         const buffer = ctxAudio.createBuffer(1, state.pcm.length, state.sampleRate);
-        buffer.copyToChannel(state.pcm, 0);
+        const playbackGain = getExportGain();
+        applyGainToAudioBuffer(buffer, state.pcm, playbackGain);
         const source = ctxAudio.createBufferSource();
         source.buffer = buffer;
         source.connect(ctxAudio.destination);
@@ -1012,7 +1262,8 @@
         const ctxAudio = getAudioCtx();
         if (ctxAudio.state === 'suspended') await ctxAudio.resume();
         const buffer = ctxAudio.createBuffer(1, state.pcm.length, state.sampleRate);
-        buffer.copyToChannel(state.pcm, 0);
+        const playbackGain = getExportGain();
+        applyGainToAudioBuffer(buffer, state.pcm, playbackGain);
         const source = ctxAudio.createBufferSource();
         source.buffer = buffer;
         source.connect(ctxAudio.destination);
@@ -1073,6 +1324,8 @@
     };
 
     const pcmToWav = (pcm, sampleRate) => {
+        const exportGain = getExportGain();
+        const applyGain = Math.abs(exportGain - 1) > EXPORT_GAIN_TOLERANCE;
         const buffer = new ArrayBuffer(44 + pcm.length * 2);
         const view = new DataView(buffer);
         const writeString = (offset, str) => {
@@ -1093,7 +1346,10 @@
         view.setUint32(40, pcm.length * 2, true);
         let offset = 44;
         for (let i = 0; i < pcm.length; i++, offset += 2) {
-            let s = Math.max(-1, Math.min(1, pcm[i]));
+            let s = pcm[i];
+            if (applyGain) s *= exportGain;
+            if (s > 1) s = 1;
+            else if (s < -1) s = -1;
             view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
         }
         return new Blob([buffer], { type: 'audio/wav' });
@@ -1768,6 +2024,7 @@
             state.pcm = new Float32Array(0);
             setSelection(0, 0);
             updateSegmentsList();
+            invalidateMacroWaveformCache(true);
             drawWaveform();
             clearCache();
             setButtonDisabledState(true);
@@ -1873,6 +2130,12 @@
         voiceSelect.value = payload.ttsVoiceSelection || PIPER_VOICE;
         ttsInput.value = payload.ttsText || '';
         macroSelect.value = payload.macroSelection || 'FLAT';
+        spliceSilenceInput.value = payload.spliceOptions?.silence || 0.5;
+        spliceLoudnessInput.value = payload.spliceOptions?.loudness || 0;
+        enableStaticNoiseCheckbox.checked = payload.staticEnabled || false;
+        staticNoiseLevelInput.value = payload.staticOptions?.level || 0.14;
+        staticNoiseFadeDepthInput.value = payload.staticOptions?.fadeDepth || 0.45;
+        staticNoiseFadeRateInput.value = payload.staticOptions?.fadeRateHz || 0.6;
         window.splicerEditor.setValue(payload.ttsText || '');
         state.sampleRate = payload.sampleRate || state.sampleRate;
         state.segments = payload.segments.map((s) => ({
@@ -1916,7 +2179,7 @@
             macroSelect.removeChild(macroSelect.firstChild);
         }
 
-        const preferred = ['FLAT', 'AM_RADIO', 'DIGITAL_ENDEC'];
+        const preferred = ['FLAT'];
         const added = new Set();
 
         function addOption(id) {
@@ -1950,7 +2213,6 @@
         }
     }
 
-
     async function loadSoxMacroDefs() {
         try {
             const resp = await fetch('assets/splicer-sox-macros.json', { cache: 'no-store' });
@@ -1965,6 +2227,9 @@
             if (count) {
                 persistStatus(`Loaded ${count} SoX macros.`, true);
                 populateMacroSelect();
+                if (shouldUseMacroWaveform()) {
+                    scheduleMacroWaveformUpdate(true);
+                }
             } else {
                 reportErrorStatus('SoX macro JSON is empty.');
             }
@@ -1984,7 +2249,41 @@
         return new Uint8Array(out.buffer);
     }
 
-    async function renderMacroWithSox(pcm, sampleRate, macroId) {
+    function addStaticNoiseToPcm(pcm, sampleRate, options) {
+        const out = new Float32Array(pcm.length);
+
+        const noiseLevel = options && typeof options.level === 'number'
+            ? options.level
+            : 0.12;
+        const fadeDepth = options && typeof options.fadeDepth === 'number'
+            ? options.fadeDepth
+            : 0.4;
+        const fadeRateHz = options && typeof options.fadeRateHz === 'number'
+            ? options.fadeRateHz
+            : 0.7;
+
+        const twoPi = 2 * Math.PI;
+        const sr = sampleRate || 44100;
+
+        for (let i = 0; i < pcm.length; i++) {
+            const s = pcm[i];
+            const t = i / sr;
+
+            const fade = 1 - fadeDepth * (0.5 * (1 + Math.sin(twoPi * fadeRateHz * t)));
+
+            const noise = (Math.random() * 2 - 1) * noiseLevel * fade;
+
+            let v = s + noise;
+            if (v > 1) v = 1;
+            else if (v < -1) v = -1;
+
+            out[i] = v;
+        }
+
+        return out;
+    }
+
+    async function renderMacroWithSox(pcm, sampleRate, macroId, loudnessDbfs = getExportLoudnessDbfs()) {
         const id = (macroId || 'FLAT').toUpperCase();
 
         if (!soxMacrosLoaded || !soxMacroDefs[id]) {
@@ -2000,8 +2299,39 @@
         if (!Array.isArray(macro.effects) || !macro.effects.length) {
             return null;
         }
+        const effects = macro.effects.slice();
+        const loudnessArgs = buildSoxLoudnessArgs(loudnessDbfs);
+        if (loudnessArgs.length) effects.push(...loudnessArgs);
 
-        const raw = float32ToSoxRaw(pcm);
+        let workingPcm = pcm;
+        const enableStaticNoise = document.getElementById('enable-static-noise').checked === true;
+
+        if (enableStaticNoise && id !== 'NOISY_DX_RECORDING') {
+            const noiseLevelInput = document.getElementById('static-noise-level');
+            const noiseLevel = noiseLevelInput ? parseFloat(noiseLevelInput.value) : 0.01;
+
+            const fadeDepthInput = document.getElementById('static-noise-fade-depth');
+            const fadeDepth = fadeDepthInput ? parseFloat(fadeDepthInput.value) : 0.0;
+
+            const fadeRateInput = document.getElementById('static-noise-fade-rate');
+            const fadeRateHz = fadeRateInput ? parseFloat(fadeRateInput.value) : 0.0;
+
+            workingPcm = addStaticNoiseToPcm(pcm, sampleRate, {
+                level: noiseLevel,
+                fadeDepth: fadeDepth,
+                fadeRateHz: fadeRateHz
+            });
+        }
+
+        else if (id === 'NOISY_DX_RECORDING') {
+            workingPcm = addStaticNoiseToPcm(pcm, sampleRate, {
+                level: 0.14,
+                fadeDepth: 0.45,
+                fadeRateHz: 0.6
+            });
+        }
+
+        const raw = float32ToSoxRaw(workingPcm);
 
         const moduleConfig = {
             arguments: [
@@ -2009,12 +2339,12 @@
                 '-L', '-e', 'signed-integer', '-b', '16', '-c', '1',
                 'in.raw',
                 'out.wav',
-                ...macro.effects,
+                ...effects,
             ],
             preRun(mod) {
                 (mod || moduleConfig).FS.writeFile('in.raw', raw);
             },
-            postRun() {},
+            postRun() { },
         };
 
         try {
@@ -2084,9 +2414,12 @@
         }
 
         const id = macroId || 'FLAT';
+        const loudnessDbfs = getExportLoudnessDbfs();
+        const exportGain = Math.pow(10, loudnessDbfs / 20);
+        const pcmForExport = clonePcmWithGain(pcm, exportGain);
 
         try {
-            const soxBlob = await renderMacroWithSox(pcm, sampleRate, id);
+            const soxBlob = await renderMacroWithSox(pcm, sampleRate, id, loudnessDbfs);
             if (soxBlob) {
                 return soxBlob;
             }
@@ -2094,7 +2427,7 @@
             // skip
         }
 
-        return encodeWavFromPcm(pcm, sampleRate);
+        return encodeWavFromPcm(pcmForExport, sampleRate);
     }
 
     window.EASSplicerFX = window.EASSplicerFX || {};
@@ -2253,9 +2586,24 @@
         }
     }
 
+    const noisyMacroId = 'NOISY_DX_RECORDING';
+    let staticNoisePreference = enableStaticNoiseCheckbox?.checked === true;
+
     if (macroSelect) {
         macroSelect.addEventListener('change', () => {
+            const macroValue = document.getElementById('spliceMacros').value;
+            if (macroValue === noisyMacroId) {
+                enableStaticNoiseCheckbox.checked = true;
+                enableStaticNoiseCheckbox.disabled = true;
+                staticNoiseOptions.style.display = 'none';
+            } else {
+                enableStaticNoiseCheckbox.disabled = false;
+                enableStaticNoiseCheckbox.checked = staticNoisePreference;
+                staticNoiseOptions.style.display = staticNoisePreference ? 'block' : 'none';
+            }
+
             invalidateMacroPreview();
+            scheduleMacroWaveformUpdate();
         });
     }
 
@@ -2283,6 +2631,61 @@
             exportWavWithCurrentMacro();
         });
     }
+
+    if (enableStaticNoiseCheckbox) {
+        enableStaticNoiseCheckbox.addEventListener('change', () => {
+            const enabled = enableStaticNoiseCheckbox.checked === true;
+            if (!enableStaticNoiseCheckbox.disabled) {
+                staticNoisePreference = enabled;
+            }
+            staticNoiseOptions.style.display = enabled ? 'block' : 'none';
+            scheduleMacroWaveformUpdate();
+        });
+    }
+
+    if (staticNoiseLevelInput && staticNoiseFadeDepthInput && staticNoiseFadeRateInput) {
+        const handleStaticNoiseParamChange = () => {
+            const level = parseFloat(staticNoiseLevelInput.value);
+            const fadeDepth = parseFloat(staticNoiseFadeDepthInput.value);
+            const fadeRate = parseFloat(staticNoiseFadeRateInput.value);
+
+            if (Number.isNaN(level) || level < 0 || level > 1) {
+                staticNoiseLevelInput.value = '0.14';
+            }
+            if (Number.isNaN(fadeDepth) || fadeDepth < 0 || fadeDepth > 1) {
+                staticNoiseFadeDepthInput.value = '0.45';
+            }
+            if (Number.isNaN(fadeRate) || fadeRate < 0) {
+                staticNoiseFadeRateInput.value = '0.6';
+            }
+            invalidateMacroPreview();
+            scheduleMacroWaveformUpdate();
+        };
+
+        staticNoiseLevelInput.addEventListener('change', handleStaticNoiseParamChange);
+        staticNoiseFadeDepthInput.addEventListener('change', handleStaticNoiseParamChange);
+        staticNoiseFadeRateInput.addEventListener('change', handleStaticNoiseParamChange);
+    }
+
+    if (spliceLoudnessInput) {
+        const handleLoudnessInputChange = () => {
+            let val = parseFloat(spliceLoudnessInput.value);
+            if (!Number.isFinite(val)) val = LOUDNESS_DBFS_DEFAULT;
+            if (val < LOUDNESS_DBFS_MIN) val = LOUDNESS_DBFS_MIN;
+            else if (val > LOUDNESS_DBFS_MAX) val = LOUDNESS_DBFS_MAX;
+            spliceLoudnessInput.value = val.toFixed(1);
+            drawWaveform();
+            invalidateMacroPreview();
+        };
+        spliceLoudnessInput.addEventListener('change', handleLoudnessInputChange);
+        spliceLoudnessInput.addEventListener('input', handleLoudnessInputChange);
+    }
+
+    enableStaticNoiseCheckbox?.dispatchEvent(new Event('change'));
+    staticNoiseLevelInput?.dispatchEvent(new Event('change'));
+    staticNoiseFadeDepthInput?.dispatchEvent(new Event('change'));
+    staticNoiseFadeRateInput?.dispatchEvent(new Event('change'));
+    spliceLoudnessInput?.dispatchEvent(new Event('change'));
 
     await loadSoxMacroDefs();
     bindEvents();

@@ -592,6 +592,25 @@
                         <span data-splice-silence-status class="status-line"></span>
                     </div>
                     <div>
+                        <label for="enable-static-noise">Enable Static Noise with Current Macro:</label>
+                        <input type="checkbox" id="enable-static-noise" data-splice-enable-static-noise>
+                        <div id="staticNoiseOptions" style="display: none;">
+                            <br>
+                            <label for="static-noise-level">Static Noise Level (0-1, 1 being max):</label>
+                            <input type="number" id="static-noise-level" data-splice-static-noise-level min="0" max="1" step="0.01" value="0.14">
+                            <br>
+                            <label for="static-noise-fade-depth">Static Noise Fade Depth (0-1):</label>
+                            <input type="number" id="static-noise-fade-depth" data-splice-static-noise-fade-depth min="0" max="1" step="0.01" value="0.45">
+                            <br>
+                            <label for="static-noise-fade-rate">Static Noise Fade Rate (Hz, 0 to disable):</label>
+                            <input type="number" id="static-noise-fade-rate" data-splice-static-noise-fade-rate min="0" max="1" step="0.01" value="0.6">
+                        </div>
+                        <br>
+                    </div>
+                    <label for="spliceLoudness">Adjust Loudness (dB, -60 to +12):</label>
+                    <input id="spliceLoudness" type="number" step="0.1" min="-60" max="12" value="0" data-splice-loudness>
+                    <br>
+                    <div>
                         <label for="spliceMacros">Apply Macro:</label>
                         <br>
                         <select id="spliceMacros" data-splice-macro-select>
