@@ -15,8 +15,72 @@ const lastUpdated = document.getElementById('last-updated');
 const lastCommitHash = document.getElementById('last-commit-hash');
 const ttsRequestsCounter = document.getElementById('tts-requests-counter');
 const ttsRequestsResetTime = document.getElementById('tts-requests-reset-time');
-const resetTime = new Date();
-resetTime.setHours(0, 0, 0, 0);
+const TIME_ZONE = 'America/Chicago';
+const timeFormatOptions = {
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+};
+const zonedFormatter = new Intl.DateTimeFormat('en-US', Object.assign({ timeZone: TIME_ZONE }, timeFormatOptions));
+const utcFormatter = new Intl.DateTimeFormat('en-US', Object.assign({ timeZone: 'UTC' }, timeFormatOptions));
+const resetTime = getNextMidnightInTimeZone(new Date());
+
+function getNextMidnightInTimeZone(baseDate) {
+    const zonedParts = getDateParts(zonedFormatter, baseDate);
+    const dayCursor = new Date(Date.UTC(zonedParts.year, zonedParts.month - 1, zonedParts.day, 12, 0, 0));
+    dayCursor.setUTCDate(dayCursor.getUTCDate() + 1);
+    const nextYear = dayCursor.getUTCFullYear();
+    const nextMonth = dayCursor.getUTCMonth() + 1;
+    const nextDay = dayCursor.getUTCDate();
+    const isoDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+
+    let offsetMinutes = getTimeZoneOffsetMinutes(baseDate);
+    let candidate = buildZonedMidnight(isoDate, offsetMinutes);
+    let resolvedOffset = getTimeZoneOffsetMinutes(candidate);
+
+    while (resolvedOffset !== offsetMinutes) {
+        offsetMinutes = resolvedOffset;
+        candidate = buildZonedMidnight(isoDate, offsetMinutes);
+        resolvedOffset = getTimeZoneOffsetMinutes(candidate);
+    }
+
+    return candidate;
+}
+
+function buildZonedMidnight(isoDate, offsetMinutes) {
+    return new Date(`${isoDate}T00:00:00${formatOffset(offsetMinutes)}`);
+}
+
+function getTimeZoneOffsetMinutes(date) {
+    const targetParts = getDateParts(zonedFormatter, date);
+    const utcParts = getDateParts(utcFormatter, date);
+    const targetEpoch = Date.UTC(targetParts.year, targetParts.month - 1, targetParts.day, targetParts.hour, targetParts.minute, targetParts.second);
+    const utcEpoch = Date.UTC(utcParts.year, utcParts.month - 1, utcParts.day, utcParts.hour, utcParts.minute, utcParts.second);
+    return (utcEpoch - targetEpoch) / 60000;
+}
+
+function getDateParts(formatter, date) {
+    const parts = formatter.formatToParts(date);
+    const result = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') {
+            result[part.type] = Number(part.value);
+        }
+    }
+    return result;
+}
+
+function formatOffset(minutes) {
+    const sign = minutes > 0 ? '-' : '+';
+    const absolute = Math.abs(minutes);
+    const hours = String(Math.floor(absolute / 60)).padStart(2, '0');
+    const mins = String(absolute % 60).padStart(2, '0');
+    return `${sign}${hours}:${mins}`;
+}
 
 function updateTTSRequestsResetTime() {
     const now = new Date();
@@ -46,7 +110,13 @@ window.updateTTSRequestsCounter = function () {
 }
 
 window.updateTTSRequestsCounter();
-setInterval(window.updateTTSRequestsCounter, 5 * 60 * 1000); //may be overridden elsewhere, but this is the safe default
+setInterval(window.updateTTSRequestsCounter, 5 * 60 * 1000);
+setInterval(() => {
+    const now = new Date();
+    if (now >= resetTime) {
+        window.updateTTSRequestsCounter();
+    }
+}, 1000);
 
 function formatTimestamps(commitDate) {
     const timeElements = document.querySelectorAll('time[datetime]');
