@@ -873,6 +873,7 @@ async function fetchAndStore() {
 
             xhr.onload = function() {
                 if (xhr.status >= 200 && xhr.status < 300 && xhr.getResponseHeader("Content-Type") === "audio/wav") {
+                    window.updateTTSRequestsCounter();
                     const rawPayload = xhr.response ?? xhr.responseText;
 
                     const toArrayBuffer = (payload) => {

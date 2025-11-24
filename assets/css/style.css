@@ -715,10 +715,41 @@ button[disabled] {
     }
 
     footer {
-        font-size: 0.7rem;
+        font-size: 0.8rem;
         position: sticky;
         bottom: 0;
+        overflow-y: scroll;
         z-index: 10000;
+    }
+
+    .footer-links {
+        list-style: none;
+        display: flex;
+        justify-content: left;
+        align-items: left;
+        gap: 0;
+        margin: 0;
+        padding: 0;
+        flex-wrap: nowrap;
+    }
+
+    .footer-links li:last-child {
+        padding-right: 5vw;
+    }
+
+    .footer-links li {
+        display: inline-flex;
+        align-items: left;
+    }
+
+    .footer-links li + li::before {
+        content: "•";
+        color: #555;
+        margin: 0 12px;
+    }
+
+    .footer-links p {
+        margin: 0;
     }
 
     .shorter-hr,
@@ -750,6 +781,10 @@ button[disabled] {
 
     #spliceWaveform {
         height: 8rem;
+    }
+
+    .splice-segment-list li div {
+        width: 3vw;
     }
 
     .splice-segment-list li {
@@ -795,7 +830,7 @@ button[disabled] {
         width: 70vw;
     }
 
-    #generatedHeader {
+    .generatedHeader {
         width: 100%;
         text-wrap: wrap;
     }
@@ -820,7 +855,11 @@ button[disabled] {
         width: 40vw;
     }
 
-    #spliceSilence {
+    #spliceSilence,
+    #spliceLoudness,
+    #static-noise-level,
+    #static-noise-fade-depth,
+    #static-noise-fade-rate {
         width: 20vw;
     }
 }

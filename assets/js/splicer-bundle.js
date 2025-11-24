@@ -470,7 +470,6 @@
         playStartedAt = ctxAudio ? ctxAudio.currentTime : 0;
         macroPreviewPlayback.paused = false;
         clearMacroPreviewInterval();
-        macroPreviewMarkerInterval = setInterval(updatePlaybackMarker, 1);
         setPreviewMacroButtonState('Pause Macro Preview', false);
         try {
             await audio.play();
@@ -770,7 +769,7 @@
         playingSource = source;
         clearPendingState();
 
-        playbackInterval = setInterval(updatePlaybackMarker, 1);
+        const playbackInterval = setInterval(updatePlaybackMarker, 1);
 
         playingMode = 'segment';
         playStartOffset = segmentStartTime + startOffset;
@@ -847,6 +846,7 @@
             const label = document.createElement('div');
             label.textContent = formatSegmentLabel(seg, idx);
             label.style.flex = '1';
+            label.style.marginRight = '24px';
 
             const playSectionBtn = document.createElement('button');
             playSectionBtn.type = 'button';
@@ -1109,15 +1109,27 @@
         ctx.strokeRect(selStartX + 0.5, 0.5, selWidth - 1, h - 1);
     };
 
+    const getMacroPreviewAbsoluteTime = () => {
+        if (playingMode !== 'macro-preview') return null;
+        const macroAudio = macroPreviewPlayback?.audio
+            || (typeof playingSource?.currentTime === 'number' ? playingSource : null);
+        if (macroAudio && typeof macroAudio.currentTime === 'number' && Number.isFinite(macroAudio.currentTime)) {
+            return Math.max(0, macroAudio.currentTime);
+        }
+        return null;
+    };
+
     const updatePlaybackMarker = () => {
         if (!playingSource || playSpan <= 0) return;
 
         drawWaveform();
 
-        const ctxAudio = audioCtx || getAudioCtx();
-        const elapsed = Math.max(0, ctxAudio.currentTime - playStartedAt);
-
-        const absoluteTime = playStartOffset + elapsed;
+        let absoluteTime = getMacroPreviewAbsoluteTime();
+        if (absoluteTime === null) {
+            const ctxAudio = audioCtx || getAudioCtx();
+            const elapsed = Math.max(0, ctxAudio.currentTime - playStartedAt);
+            absoluteTime = playStartOffset + elapsed;
+        }
 
         const viewStart = state.viewStart ?? 0;
         const viewEnd = state.viewEnd ?? duration();
@@ -1677,6 +1689,7 @@
                 const finishWithError = (err) => reject(err || new Error("TTS fetch failed"));
 
                 if (xhr.status >= 200 && xhr.status < 300 && contentType.startsWith("audio/wav")) {
+                    window.updateTTSRequestsCounter();
                     const rawPayload = xhr.response ?? xhr.responseText;
                     toArrayBuffer(rawPayload).then((arrayBuffer) => {
                         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -2133,6 +2146,7 @@
         spliceSilenceInput.value = payload.spliceOptions?.silence || 0.5;
         spliceLoudnessInput.value = payload.spliceOptions?.loudness || 0;
         enableStaticNoiseCheckbox.checked = payload.staticEnabled || false;
+        syncStaticNoiseUi();
         staticNoiseLevelInput.value = payload.staticOptions?.level || 0.14;
         staticNoiseFadeDepthInput.value = payload.staticOptions?.fadeDepth || 0.45;
         staticNoiseFadeRateInput.value = payload.staticOptions?.fadeRateHz || 0.6;
@@ -2458,6 +2472,9 @@
                 stopPlayback();
             }
 
+            clearMacroPreviewInterval();
+            const playbackInterval = setInterval(updatePlaybackMarker, 1);
+
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
             let urlCleaned = false;
@@ -2494,6 +2511,7 @@
                     pausedPlayback = null;
                     playSpan = 0;
                     playStartOffset = 0;
+                    clearInterval(playbackInterval);
                     drawWaveform();
                     syncPlayButtons();
                     resetPreviewMacroButton();
@@ -2535,8 +2553,6 @@
             playStartOffset = 0;
             playStartedAt = ctxAudio ? ctxAudio.currentTime : 0;
             syncPlayButtons();
-            clearMacroPreviewInterval();
-            macroPreviewMarkerInterval = setInterval(updatePlaybackMarker, 1);
 
             audio.play().catch((err) => {
                 finalizePlayback();
@@ -2545,6 +2561,7 @@
         } catch (err) {
             clearMacroPreviewInterval();
             macroPreviewPlayback = null;
+            const playbackInterval = null;
             resetPreviewMacroButton();
             reportErrorStatus(`previewCurrentMacro failed: ${err}`, err);
         }
@@ -2578,6 +2595,9 @@
             a.download = `splice-${safeLabel}.wav`;
             a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            const intervalId5 = setInterval(() => persistStatus('Macro WAV exported!', true), 5);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            clearInterval(intervalId5);
         } catch (err) {
             reportErrorStatus(
                 `FX: exportWavWithCurrentMacro failed for macro '${macroId}'.`,
@@ -2588,6 +2608,15 @@
 
     const noisyMacroId = 'NOISY_DX_RECORDING';
     let staticNoisePreference = enableStaticNoiseCheckbox?.checked === true;
+    const syncStaticNoiseUi = () => {
+        if (!enableStaticNoiseCheckbox || !staticNoiseOptions) return false;
+        const enabled = enableStaticNoiseCheckbox.checked === true;
+        if (!enableStaticNoiseCheckbox.disabled) {
+            staticNoisePreference = enabled;
+        }
+        staticNoiseOptions.style.display = enabled ? 'block' : 'none';
+        return enabled;
+    };
 
     if (macroSelect) {
         macroSelect.addEventListener('change', () => {
@@ -2633,12 +2662,10 @@
     }
 
     if (enableStaticNoiseCheckbox) {
+        syncStaticNoiseUi();
         enableStaticNoiseCheckbox.addEventListener('change', () => {
-            const enabled = enableStaticNoiseCheckbox.checked === true;
-            if (!enableStaticNoiseCheckbox.disabled) {
-                staticNoisePreference = enabled;
-            }
-            staticNoiseOptions.style.display = enabled ? 'block' : 'none';
+            syncStaticNoiseUi();
+            invalidateMacroPreview();
             scheduleMacroWaveformUpdate();
         });
     }
@@ -2652,12 +2679,15 @@
             if (Number.isNaN(level) || level < 0 || level > 1) {
                 staticNoiseLevelInput.value = '0.14';
             }
+
             if (Number.isNaN(fadeDepth) || fadeDepth < 0 || fadeDepth > 1) {
                 staticNoiseFadeDepthInput.value = '0.45';
             }
+
             if (Number.isNaN(fadeRate) || fadeRate < 0) {
                 staticNoiseFadeRateInput.value = '0.6';
             }
+
             invalidateMacroPreview();
             scheduleMacroWaveformUpdate();
         };
@@ -2668,7 +2698,7 @@
     }
 
     if (spliceLoudnessInput) {
-        const handleLoudnessInputChange = () => {
+        const applyLoudnessInput = () => {
             let val = parseFloat(spliceLoudnessInput.value);
             if (!Number.isFinite(val)) val = LOUDNESS_DBFS_DEFAULT;
             if (val < LOUDNESS_DBFS_MIN) val = LOUDNESS_DBFS_MIN;
@@ -2677,15 +2707,33 @@
             drawWaveform();
             invalidateMacroPreview();
         };
-        spliceLoudnessInput.addEventListener('change', handleLoudnessInputChange);
-        spliceLoudnessInput.addEventListener('input', handleLoudnessInputChange);
+
+        let loudnessInputTimeoutId;
+        const debounceLoudnessInput = (immediate = false) => {
+            if (loudnessInputTimeoutId) {
+                clearTimeout(loudnessInputTimeoutId);
+                loudnessInputTimeoutId = null;
+            }
+
+            if (immediate) {
+                applyLoudnessInput();
+                return;
+            }
+
+            loudnessInputTimeoutId = setTimeout(applyLoudnessInput, 3000);
+        };
+
+        spliceLoudnessInput.addEventListener('change', () => debounceLoudnessInput(true));
+        spliceLoudnessInput.addEventListener('input', () => debounceLoudnessInput());
     }
 
-    enableStaticNoiseCheckbox?.dispatchEvent(new Event('change'));
-    staticNoiseLevelInput?.dispatchEvent(new Event('change'));
-    staticNoiseFadeDepthInput?.dispatchEvent(new Event('change'));
-    staticNoiseFadeRateInput?.dispatchEvent(new Event('change'));
-    spliceLoudnessInput?.dispatchEvent(new Event('change'));
+    const changeEvent = new Event('change');
+
+    enableStaticNoiseCheckbox?.dispatchEvent(changeEvent);
+    staticNoiseLevelInput?.dispatchEvent(changeEvent);
+    staticNoiseFadeDepthInput?.dispatchEvent(changeEvent);
+    staticNoiseFadeRateInput?.dispatchEvent(changeEvent);
+    spliceLoudnessInput?.dispatchEvent(changeEvent);
 
     await loadSoxMacroDefs();
     bindEvents();

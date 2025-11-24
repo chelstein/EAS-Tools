@@ -5,6 +5,7 @@ footer.innerHTML = `
     <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
     <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
     <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
+    <li><p><span id="tts-requests-counter">0/20</span> TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
     <li><p><a href="docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
 </ul>
@@ -12,6 +13,40 @@ footer.innerHTML = `
 
 const lastUpdated = document.getElementById('last-updated');
 const lastCommitHash = document.getElementById('last-commit-hash');
+const ttsRequestsCounter = document.getElementById('tts-requests-counter');
+const ttsRequestsResetTime = document.getElementById('tts-requests-reset-time');
+const resetTime = new Date();
+resetTime.setHours(0, 0, 0, 0);
+
+function updateTTSRequestsResetTime() {
+    const now = new Date();
+    let nextReset = new Date(resetTime);
+    if (now >= nextReset) {
+        nextReset.setDate(nextReset.getDate() + 1);
+    }
+    const diffMs = nextReset - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    ttsRequestsResetTime.textContent = `${diffHours}h ${diffMinutes}m ${diffSeconds}s`;
+}
+
+updateTTSRequestsResetTime();
+setInterval(updateTTSRequestsResetTime, 1000);
+
+window.updateTTSRequestsCounter = function () {
+    fetch('https://wagspuzzle.space/tools/eas-tts/index.php?get_current_request_count=true')
+        .then(response => response.json())
+        .then(data => {
+            ttsRequestsCounter.textContent = data.current_request_count;
+        })
+        .catch(error => {
+            console.error('Error fetching TTS requests count:', error);
+        });
+}
+
+window.updateTTSRequestsCounter();
+setInterval(window.updateTTSRequestsCounter, 5 * 60 * 1000); //may be overridden elsewhere, but this is the safe default
 
 function formatTimestamps(commitDate) {
     const timeElements = document.querySelectorAll('time[datetime]');
