@@ -231,9 +231,12 @@ function purgeToSeconds(purgePair) {
   return hours * 3600 + minutes * 60;
 }
 
-function getOffsetFromTimeZoneName(tzName) {
+function getOffsetFromTimeZoneName(tzName, referenceDate) {
   try {
-    const now = new Date();
+    const baseDate =
+      referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+        ? referenceDate
+        : new Date();
     const dtf = new Intl.DateTimeFormat('en-US', {
       timeZone: tzName,
       hour12: false,
@@ -244,7 +247,7 @@ function getOffsetFromTimeZoneName(tzName) {
       minute: '2-digit',
       second: '2-digit'
     });
-    const parts = dtf.formatToParts(now).reduce((acc, part) => {
+    const parts = dtf.formatToParts(baseDate).reduce((acc, part) => {
       if (part.type !== 'literal') {
         acc[part.type] = part.value;
       }
@@ -258,27 +261,31 @@ function getOffsetFromTimeZoneName(tzName) {
       Number(parts.minute),
       Number(parts.second)
     );
-    const diffHours = (targetUTC - now.getTime()) / MS_PER_HOUR;
+    const diffHours = (targetUTC - baseDate.getTime()) / MS_PER_HOUR;
     return diffHours;
   } catch (err) {
     return null;
   }
 }
 
-function computeOffsetSeconds({ timeZone, timeZoneName, useLocaleTimezone }) {
+function computeOffsetSeconds({ timeZone, timeZoneName, useLocaleTimezone, referenceDate }) {
   if (typeof timeZone === 'number' && Number.isFinite(timeZone)) {
     return -timeZone * 3600;
   }
 
   if (typeof timeZoneName === 'string' && timeZoneName.trim()) {
-    const offsetHours = getOffsetFromTimeZoneName(timeZoneName.trim());
+    const offsetHours = getOffsetFromTimeZoneName(timeZoneName.trim(), referenceDate);
     if (typeof offsetHours === 'number' && Number.isFinite(offsetHours)) {
       return -offsetHours * 3600;
     }
   }
 
   if (useLocaleTimezone) {
-    const minutes = new Date().getTimezoneOffset();
+    const baseDate =
+      referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+        ? referenceDate
+        : new Date();
+    const minutes = baseDate.getTimezoneOffset();
     const offsetHours = -minutes / 60;
     return -offsetHours * 3600;
   }
@@ -333,7 +340,28 @@ class EAS2Text {
     return new EAS2Text(sameData, { ...options, resources, canada: true });
   }
 
-  static getTZ(offsetSeconds) {
+  static getTZ(offsetSeconds, options = {}) {
+    const { timeZoneName, referenceDate } = options;
+    if (typeof timeZoneName === 'string' && timeZoneName.trim()) {
+      const safeDate =
+        referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+          ? referenceDate
+          : new Date();
+      try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: timeZoneName.trim(),
+          timeZoneName: 'short'
+        });
+        const tzPart = formatter
+          .formatToParts(safeDate)
+          .find((part) => part.type === 'timeZoneName');
+        if (tzPart && tzPart.value) {
+          return tzPart.value.replace('GMT', 'UTC');
+        }
+      } catch (error) {
+        // Fallback to offset-based logic below when Intl lookup fails.
+      }
+    }
     const hours = Math.round(offsetSeconds / 3600);
     const dst = (() => {
       const now = new Date();
@@ -345,7 +373,7 @@ class EAS2Text {
       return dst ? 'ADT' : 'AST';
     }
     if (hours === 4) {
-      return dst ? 'EDT' : 'AST';
+      return dst ? 'EDT' : 'EST';
     }
     if (hours === 5) {
       return dst ? 'CDT' : 'CST';
@@ -357,7 +385,7 @@ class EAS2Text {
       return dst ? 'PDT' : 'PST';
     }
     if (hours === 8) {
-      return 'AKST';
+      return dst ? 'AKDT' : 'AKST';
     }
     if (hours === 9) {
       return 'HST';
@@ -428,17 +456,19 @@ class EAS2Text {
     this.purge = splitPurge(purgeRaw);
     this.timeStamp = timestampRaw;
 
-    const dtOffset = computeOffsetSeconds({
-      timeZone: this.timeZone,
-      timeZoneName: this.timeZoneName,
-      useLocaleTimezone: this.useLocaleTimezone
-    });
-    this.dtOffset = dtOffset;
-
     const utcNow = new Date();
     const alertStartMillis = parseJulianTimestamp(this.timeStamp, utcNow.getUTCFullYear());
     const purgeSeconds = purgeToSeconds(this.purge);
     const alertEndMillis = alertStartMillis + purgeSeconds * 1000;
+    const referenceDate = new Date(alertStartMillis);
+
+    const dtOffset = computeOffsetSeconds({
+      timeZone: this.timeZone,
+      timeZoneName: this.timeZoneName,
+      useLocaleTimezone: this.useLocaleTimezone,
+      referenceDate
+    });
+    this.dtOffset = dtOffset;
 
     this.startTime = new Date(alertStartMillis - dtOffset * 1000);
     this.endTime = new Date(alertEndMillis - dtOffset * 1000);
@@ -946,7 +976,10 @@ class EAS2Text {
 
     const descriptor = areaToken === 'Canada' ? 'for' : 'for the following counties:';
     this.startTimeText = '';
-    this.endTimeText = `${formatDate(this.endTime, '%m/%d/%y %H:%M:00')} ${EAS2Text.getTZ(this.dtOffset || 0)}`;
+    this.endTimeText = `${formatDate(this.endTime, '%m/%d/%y %H:%M:00')} ${EAS2Text.getTZ(this.dtOffset || 0, {
+      timeZoneName: this.timeZoneName,
+      referenceDate: this.endTime || this.startTime
+    })}`;
     const orgText = this.org === 'CIV' ? 'The Civil Authorities' : this.orgText;
     const verb = this.org === 'CIV' ? 'have' : 'has';
     this.EASText = `${orgText} ${verb} issued ${this.evntText} ${descriptor} ${formatted.join(', ')}. Effective Until ${this.endTimeText}. (${this.callsign})`;

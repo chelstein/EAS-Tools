@@ -37,7 +37,10 @@
     const TARGET_FRAMES_PER_SECOND = 1000 / TARGET_FRAME_MS;
     const PREMADE_BACKGROUND_LAYOUTS = Object.freeze({
         'assets/screens/xfinity.png': { topLeft: { x: 0, y: 475 } },
-        'assets/screens/directv.jpg': { topLeft: { x: 0, y: 1200 } }
+        'assets/screens/directv.jpg': { topLeft: { x: 0, y: 1200 } },
+        'easyplus': { topLeft: { x: 0, y: 175 } },
+        'easyplus_gray': { topLeft: { x: 0, y: 720 } },
+        'dasdec': { topLeft: { x: 9999, y: 9999 } }
     });
     const ALLOWED_CRAWL_BACKGROUND_MODES = new Set(['solid', 'transparent', 'image', 'premade']);
 
@@ -56,6 +59,7 @@
             { family: 'UPD6465', file: 'UPD6465.ttf' },
             { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf' },
             { family: 'PJF CharGen', file: 'pjf-chargen.ttf' },
+            { family: 'Luxi Mono', file: 'luximb.ttf' }
         ];
 
         await Promise.all(
@@ -315,6 +319,42 @@
         return Number.isFinite(raw) ? raw * TARGET_FRAMES_PER_SECOND : 0;
     }
 
+    function getDasdecRotationState() {
+        const state = window.__dasdecRotationState;
+        return state && typeof state === 'object' ? state : null;
+    }
+
+    function stopDasdecRotationState() {
+        const state = getDasdecRotationState();
+        if (state && typeof state.stop === 'function') {
+            state.stop();
+        }
+        window.__dasdecRotationState = null;
+    }
+
+    function pauseDasdecRotationState() {
+        const state = getDasdecRotationState();
+        if (state && typeof state.pause === 'function') {
+            state.pause();
+        }
+    }
+
+    function resumeDasdecRotationState() {
+        const state = getDasdecRotationState();
+        if (state && typeof state.resume === 'function') {
+            state.resume();
+        }
+    }
+
+    function stepDasdecRotationState(step) {
+        const state = getDasdecRotationState();
+        if (state && typeof state.step === 'function') {
+            state.step(step);
+            return true;
+        }
+        return false;
+    }
+
     function setProgressBarValue(progressBar, ratio) {
         if (!progressBar) {
             return;
@@ -563,24 +603,60 @@
             : 0;
         const framesPerCycle = framesNeeded + restartDelayFrames;
         let totalFrames = framesPerCycle * repetitions;
+        const dasdecBackground = window.__dasdecBackground;
+        const dasdecPages = dasdecBackground && Array.isArray(dasdecBackground.pages) ? dasdecBackground.pages : null;
+        const dasdecRotationDelay = dasdecBackground && Number.isFinite(dasdecBackground.rotationDelayMs)
+            ? dasdecBackground.rotationDelayMs
+            : null;
+        const dasdecRepetitionOverride = dasdecBackground && Number.isFinite(dasdecBackground.repetitions)
+            ? Math.max(1, Math.min(10, Math.round(dasdecBackground.repetitions)))
+            : repetitions;
+        const dasdecTotalDisplays = dasdecPages && dasdecPages.length && dasdecRotationDelay
+            ? Math.max(1, Number(dasdecBackground.totalDisplays) || (dasdecRepetitionOverride * dasdecPages.length))
+            : 0;
+        const dasdecFramesPerPage = dasdecRotationDelay
+            ? Math.max(1, Math.round(dasdecRotationDelay / frameDelay))
+            : null;
+        const getDasdecPageForFrame = dasdecPages && dasdecFramesPerPage
+            ? (frameIndex) => {
+                const displayIndex = Math.min(
+                    dasdecTotalDisplays - 1,
+                    Math.floor(frameIndex / dasdecFramesPerPage)
+                );
+                return dasdecPages[displayIndex % dasdecPages.length];
+            }
+            : null;
+        if (getDasdecPageForFrame) {
+            totalFrames = dasdecTotalDisplays * dasdecFramesPerPage;
+        }
         let delayFramesRemaining = 0;
         const reportProgress = createExportProgressReporter('GIF export');
         const captureProgressPortion = 0.25;
 
         let showTime = localStorage["showTime"];
 
-        const clearFrame = () => {
+        const clearFrame = (frameIndex = 0) => {
             captureCtx.save();
             captureCtx.setTransform(1, 0, 0, 1, 0, 0);
             captureCtx.globalAlpha = 1;
             captureCtx.globalCompositeOperation = 'copy';
-            drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
+            let drewCustomBackground = false;
+            if (getDasdecPageForFrame) {
+                const dasdecPage = getDasdecPageForFrame(frameIndex);
+                if (dasdecPage) {
+                    captureCtx.drawImage(dasdecPage, 0, 0, captureCanvas.width, captureCanvas.height);
+                    drewCustomBackground = true;
+                }
+            }
+            if (!drewCustomBackground) {
+                drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
+            }
             captureCtx.restore();
             captureCtx.globalCompositeOperation = 'source-over';
         };
 
-        const drawFrame = (offsetX) => {
-            clearFrame();
+        const drawFrame = (offsetX, frameIndex) => {
+            clearFrame(frameIndex);
             captureCtx.fillStyle = textColor;
             captureCtx.font = font;
 
@@ -626,7 +702,7 @@
         resetVdsExportState(vdsState);
         let offsetX = adjustedStartOffset;
         for (let i = 0; i < totalFrames; i++) {
-            drawFrame(offsetX);
+            drawFrame(offsetX, i);
             gif.addFrame(captureCanvas, { delay: frameDelay, copy: true });
             reportProgress(((i + 1) / totalFrames) * captureProgressPortion);
 
@@ -776,6 +852,32 @@
         const repetitions = Math.max(1, Math.min(10, Math.round(rawRepetitionInput || 0)));
         const framesPerCycle = framesNeeded + restartDelayFrames;
         let totalFrames = framesPerCycle * repetitions;
+        const dasdecBackground = window.__dasdecBackground;
+        const dasdecPages = dasdecBackground && Array.isArray(dasdecBackground.pages) ? dasdecBackground.pages : null;
+        const dasdecRotationDelay = dasdecBackground && Number.isFinite(dasdecBackground.rotationDelayMs)
+            ? dasdecBackground.rotationDelayMs
+            : null;
+        const dasdecRepetitionOverride = dasdecBackground && Number.isFinite(dasdecBackground.repetitions)
+            ? Math.max(1, Math.min(10, Math.round(dasdecBackground.repetitions)))
+            : repetitions;
+        const dasdecTotalDisplays = dasdecPages && dasdecPages.length && dasdecRotationDelay
+            ? Math.max(1, Number(dasdecBackground.totalDisplays) || (dasdecRepetitionOverride * dasdecPages.length))
+            : 0;
+        const dasdecFramesPerPage = dasdecRotationDelay
+            ? Math.max(1, Math.round(dasdecRotationDelay / frameDelay))
+            : null;
+        const getDasdecPageForFrame = dasdecPages && dasdecFramesPerPage
+            ? (frameIndex) => {
+                const displayIndex = Math.min(
+                    dasdecTotalDisplays - 1,
+                    Math.floor(frameIndex / dasdecFramesPerPage)
+                );
+                return dasdecPages[displayIndex % dasdecPages.length];
+            }
+            : null;
+        if (getDasdecPageForFrame) {
+            totalFrames = dasdecTotalDisplays * dasdecFramesPerPage;
+        }
 
         const clipWidth = captureCanvas.width - inset * 2;
         const shouldClip = inset > 0 && clipWidth > 0;
@@ -785,18 +887,28 @@
 
         let showTime = localStorage["showTime"];
 
-        const clearFrame = () => {
+        const clearFrame = (frameIndex = 0) => {
             captureCtx.save();
             captureCtx.setTransform(1, 0, 0, 1, 0, 0);
             captureCtx.globalAlpha = 1;
             captureCtx.globalCompositeOperation = 'copy';
-            drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
+            let drewCustomBackground = false;
+            if (getDasdecPageForFrame) {
+                const dasdecPage = getDasdecPageForFrame(frameIndex);
+                if (dasdecPage) {
+                    captureCtx.drawImage(dasdecPage, 0, 0, captureCanvas.width, captureCanvas.height);
+                    drewCustomBackground = true;
+                }
+            }
+            if (!drewCustomBackground) {
+                drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
+            }
             captureCtx.restore();
             captureCtx.globalCompositeOperation = 'source-over';
         };
 
-        const drawFrame = (offsetX) => {
-            clearFrame();
+        const drawFrame = (offsetX, frameIndex) => {
+            clearFrame(frameIndex);
             captureCtx.fillStyle = textColor;
             captureCtx.font = font;
 
@@ -947,7 +1059,7 @@
                     if (crawlExportController.isCancelled(webmCancelToken)) {
                         break;
                     }
-                    drawFrame(offsetX);
+                    drawFrame(offsetX, i);
                     requestFrame();
                     reportProgress(((i + 1) / totalFrames) * (captureProgressPortion + 0.75));
                     if (delayFramesRemaining > 0) {
@@ -1040,9 +1152,36 @@
             this._topLeftActive = false;
             this.repetitions = 0;
             this.crawlRepetitions = 0;
+            this._frameHistory = [];
+            this._frameHistoryLimit = 15;
 
             window.addEventListener('resize', () => this.resizeCanvas());
             this.resizeCanvas();
+        }
+
+        getNextFrame() {
+            if (!this.ctx || !this.canvas) {
+                return null;
+            }
+
+            const deltaMs = Number.isFinite(this.msPerFrame) && this.msPerFrame > 0
+                ? this.msPerFrame
+                : TARGET_FRAME_MS;
+            this._renderFrame({ deltaMs, advance: true });
+            return this.canvas;
+        }
+
+        getPrevFrame() {
+            if (!this.ctx || !this.canvas) {
+                return null;
+            }
+
+            const snapshot = this._frameHistory.pop();
+            if (snapshot) {
+                this._restoreFrameState(snapshot);
+            }
+            this._renderFrame({ advance: false });
+            return this.canvas;
         }
 
         resizeCanvas() {
@@ -1073,6 +1212,7 @@
             this.offsetY = this.canvas.height / 2;
             this.startFromRightInitialized = false;
             this._invalidateVdsState();
+            this._resetFrameHistory();
         }
 
         _normalizeExplicitDimension(value) {
@@ -1234,14 +1374,198 @@
             this._restartDelayRemaining = 0;
         }
 
+        _resetFrameHistory() {
+            if (Array.isArray(this._frameHistory)) {
+                this._frameHistory.length = 0;
+            } else {
+                this._frameHistory = [];
+            }
+        }
+
+        _cloneVdsState(state) {
+            if (!state) {
+                return null;
+            }
+            const cloneMetrics = state.charMetrics.map((metrics) => metrics.map((metric) => ({
+                char: metric.char,
+                offset: metric.offset,
+                width: metric.width,
+                state: metric.state,
+                framesRemaining: metric.framesRemaining
+            })));
+            return {
+                key: state.key,
+                lines: state.lines.slice(),
+                charMetrics: cloneMetrics,
+                lineWidths: state.lineWidths.slice(),
+                maxLineWidth: state.maxLineWidth
+            };
+        }
+
+        _captureFrameState() {
+            return {
+                offsetX: this.offsetX,
+                restartDelayRemaining: this._restartDelayRemaining,
+                startFromRightInitialized: this.startFromRightInitialized,
+                vdsState: this.vdsMode ? this._cloneVdsState(this.vdsState) : null
+            };
+        }
+
+        _recordFrameSnapshot() {
+            if (!Array.isArray(this._frameHistory)) {
+                this._frameHistory = [];
+            }
+            this._frameHistory.push(this._captureFrameState());
+            const limit = Number.isFinite(this._frameHistoryLimit) && this._frameHistoryLimit > 0
+                ? Math.floor(this._frameHistoryLimit)
+                : 0;
+            if (limit > 0 && this._frameHistory.length > limit) {
+                this._frameHistory.splice(0, this._frameHistory.length - limit);
+            }
+        }
+
+        _restoreFrameState(snapshot) {
+            if (!snapshot) {
+                return;
+            }
+            if (Number.isFinite(snapshot.offsetX)) {
+                this.offsetX = snapshot.offsetX;
+            }
+            if (Number.isFinite(snapshot.restartDelayRemaining)) {
+                this._restartDelayRemaining = snapshot.restartDelayRemaining;
+            }
+            if (typeof snapshot.startFromRightInitialized === 'boolean') {
+                this.startFromRightInitialized = snapshot.startFromRightInitialized;
+            }
+            if (snapshot.vdsState) {
+                this.vdsState = this._cloneVdsState(snapshot.vdsState);
+            }
+        }
+
+        _renderFrame(options = {}) {
+            if (!this.ctx || !this.canvas) {
+                return;
+            }
+
+            const { advance = true } = options;
+            const deltaMs = Number.isFinite(options.deltaMs) && options.deltaMs > 0
+                ? options.deltaMs
+                : this.msPerFrame;
+
+            this._clearBackground();
+            this.ctx.fillStyle = this.textColor;
+            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
+            this.ctx.textBaseline = 'middle';
+            this.ctx.lineJoin = this.outlineJoin;
+
+            const lines = (this.text || '').split('\n');
+
+            if (this.vdsMode) {
+                this.ctx.textAlign = 'left';
+                const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
+                const state = this._ensureVdsState(lines);
+                const maxLineWidth = state.maxLineWidth || 0;
+                const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
+                const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+                const bounds = this._computeCrawlBounds(maxLineWidth);
+                const { start: startOffset, end: endOffset, inset } = bounds;
+                const adjustedStartOffset = startOffset - translationX;
+                const adjustedEndOffset = endOffset - translationX;
+                const releaseClip = this._applyCrawlClip(this.ctx, inset);
+
+                if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
+                    this.offsetX = adjustedStartOffset;
+                    this.startFromRightInitialized = true;
+                    this._restartDelayRemaining = 0;
+                    this._resetVdsCharacters(state);
+                    this._resetFrameHistory();
+                }
+
+                if (advance) {
+                    this._recordFrameSnapshot();
+                }
+
+                const effectiveDelay = this.getEffectiveVdsDelay();
+                this._runWithTopLeftTranslation(translation, () => {
+                    if (advance) {
+                        this._updateVdsCharacters(state, effectiveDelay);
+                    }
+                    this._drawVdsLines(state, renderText);
+                });
+                releaseClip();
+
+                if (!advance) {
+                    return;
+                }
+
+                const frameStep = this._getFrameSpeedStep(deltaMs);
+                if (frameStep) {
+                    this.offsetX -= frameStep;
+                }
+
+                this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset, () => {
+                    this._resetVdsCharacters(state);
+                });
+
+                return;
+            }
+
+            this.ctx.textAlign = 'center';
+            const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
+            const maxLineWidth = lines.reduce((maxWidth, line) => {
+                const width = this.ctx.measureText(line).width;
+                return width > maxWidth ? width : maxWidth;
+            }, 0);
+            const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
+            const translationX = Number.isFinite(translation.x) ? translation.x : 0;
+            const bounds = this._computeCrawlBounds(maxLineWidth);
+            const { start: startOffset, end: endOffset, inset } = bounds;
+            const adjustedStartOffset = startOffset - translationX;
+            const adjustedEndOffset = endOffset - translationX;
+            const releaseClip = this._applyCrawlClip(this.ctx, inset);
+
+            if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
+                this.offsetX = adjustedStartOffset;
+                this.startFromRightInitialized = true;
+                this._restartDelayRemaining = 0;
+                this._resetFrameHistory();
+            }
+
+            if (advance) {
+                this._recordFrameSnapshot();
+            }
+
+            this._runWithTopLeftTranslation(translation, () => {
+                lines.forEach((line, index) => {
+                    const verticalOffset = index - (lines.length - 1) / 2;
+                    const y = this.offsetY + verticalOffset * (this.fontSize + 10);
+                    renderText(line, this.offsetX, y);
+                });
+            });
+            releaseClip();
+
+            if (!advance) {
+                return;
+            }
+
+            const frameStep = this._getFrameSpeedStep(deltaMs);
+            if (frameStep) {
+                this.offsetX -= frameStep;
+            }
+
+            this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset);
+        }
+
         setTopLeftOffsetX(offsetX) {
             this._topLeftOffsetX = offsetX;
             this._topLeftActive = true;
+            this._resetFrameHistory();
         }
 
         setTopLeftOffsetY(offsetY) {
             this._topLeftOffsetY = offsetY;
             this._topLeftActive = true;
+            this._resetFrameHistory();
         }
 
         setRepetitions(count) {
@@ -1259,6 +1583,7 @@
                 this.startFromRightInitialized = false;
                 this._restartDelayRemaining = 0;
                 this._invalidateVdsState();
+                this._resetFrameHistory();
             }
         }
 
@@ -1267,6 +1592,7 @@
             if (Number.isFinite(parsed) && parsed >= 500 && parsed <= 60000) {
                 this.crawlRestartDelay = parsed;
                 this._restartDelayRemaining = 0;
+                this._resetFrameHistory();
             }
         }
 
@@ -1274,6 +1600,7 @@
             this.text = text;
             this.startFromRightInitialized = false;
             this._invalidateVdsState();
+            this._resetFrameHistory();
         }
 
         setFontFamily(fontFamily) {
@@ -1289,6 +1616,7 @@
             if (Number.isFinite(parsed)) {
                 this.speed = parsed;
                 this._speedPerSecond = this._computeSpeedPerSecond(parsed);
+                this._resetFrameHistory();
             }
         }
 
@@ -1298,6 +1626,7 @@
                 this.fontSize = parsed;
                 this.startFromRightInitialized = false;
                 this._invalidateVdsState();
+                this._resetFrameHistory();
             }
         }
 
@@ -1395,6 +1724,7 @@
                 this.vdsMode = next;
                 this.startFromRightInitialized = false;
                 this._invalidateVdsState();
+                this._resetFrameHistory();
             }
         }
 
@@ -1544,6 +1874,8 @@
             const exportAsVideoButton = document.getElementById('exportCrawlVideo');
             const copyCrawlTextButton = document.getElementById('copyCrawlText');
             const destroyInstanceButton = document.getElementById('destroyCrawl');
+            const nextFrameButton = document.getElementById('nextFrame');
+            const prevFrameButton = document.getElementById('prevFrame');
 
             pauseCrawlButton.disabled = disabled;
             stopCrawlButton.disabled = disabled;
@@ -1551,6 +1883,8 @@
             exportAsVideoButton.disabled = disabled;
             copyCrawlTextButton.disabled = disabled;
             destroyInstanceButton.disabled = disabled;
+            nextFrameButton.disabled = disabled;
+            prevFrameButton.disabled = disabled;
         }
 
         start() {
@@ -1559,6 +1893,7 @@
                 this.startFromRightInitialized = false;
                 this.lastTimestamp = null;
                 this._restartDelayRemaining = 0;
+                this._resetFrameHistory();
                 requestAnimationFrame((timestamp) => this.animate(timestamp));
             }
         }
@@ -1582,6 +1917,7 @@
             this.offsetY = this.canvas.height / 2;
             this.startFromRightInitialized = false;
             this._restartDelayRemaining = 0;
+            this._resetFrameHistory();
 
             this._clearBackground();
             this.ctx.fillStyle = this.textColor;
@@ -1628,98 +1964,14 @@
             if (!this.isAnimating) return;
 
             const deltaMs = this._updateFrameTiming(timestamp);
-
-            this._clearBackground();
-            this.ctx.fillStyle = this.textColor;
-            this.ctx.font = `${this.fontStyle || 'normal'} ${this.fontSize}px "${this.fontFamily || 'Arial'}"`;
-            this.ctx.textBaseline = 'middle';
-            this.ctx.lineJoin = this.outlineJoin;
-
-            if (this.vdsMode) {
-                this.ctx.textAlign = 'left';
-                const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
-                const lines = (this.text || '').split('\n');
-                const state = this._ensureVdsState(lines);
-                const maxLineWidth = state.maxLineWidth || 0;
-                const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
-                const translationX = Number.isFinite(translation.x) ? translation.x : 0;
-                const bounds = this._computeCrawlBounds(maxLineWidth);
-                const { start: startOffset, end: endOffset, inset } = bounds;
-                const adjustedStartOffset = startOffset - translationX;
-                const adjustedEndOffset = endOffset - translationX;
-                const releaseClip = this._applyCrawlClip(this.ctx, inset);
-
-                if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
-                    this.offsetX = adjustedStartOffset;
-                    this.startFromRightInitialized = true;
-                    this._restartDelayRemaining = 0;
-                    this._resetVdsCharacters(state);
-                }
-
-                const effectiveDelay = this.getEffectiveVdsDelay();
-                this._runWithTopLeftTranslation(translation, () => {
-                    this._updateVdsCharacters(state, effectiveDelay);
-                    this._drawVdsLines(state, renderText);
-                });
-                releaseClip();
-
-                const frameStep = this._getFrameSpeedStep(deltaMs);
-                if (frameStep) {
-                    this.offsetX -= frameStep;
-                }
-
-                this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset, () => {
-                    this._resetVdsCharacters(state);
-                });
-
-                requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
-                return;
-            }
-
-            this.ctx.textAlign = 'center';
-            const renderText = createTextRenderer(this.ctx, this.outlineColor, this.outlineWidth);
-            const lines = (this.text || '').split('\n');
-            const maxLineWidth = lines.reduce((maxWidth, line) => {
-                const width = this.ctx.measureText(line).width;
-                return width > maxWidth ? width : maxWidth;
-            }, 0);
-            const translation = this._computeTopLeftTranslation(maxLineWidth, lines.length);
-            const translationX = Number.isFinite(translation.x) ? translation.x : 0;
-            const bounds = this._computeCrawlBounds(maxLineWidth);
-            const { start: startOffset, end: endOffset, inset } = bounds;
-            const adjustedStartOffset = startOffset - translationX;
-            const adjustedEndOffset = endOffset - translationX;
-            const releaseClip = this._applyCrawlClip(this.ctx, inset);
-
-            if (!this.startFromRightInitialized || !Number.isFinite(this.offsetX)) {
-                this.offsetX = adjustedStartOffset;
-                this.startFromRightInitialized = true;
-                this._restartDelayRemaining = 0;
-            }
-
-            this._runWithTopLeftTranslation(translation, () => {
-                lines.forEach((line, index) => {
-                    const verticalOffset = index - (lines.length - 1) / 2;
-                    const y = this.offsetY + verticalOffset * (this.fontSize + 10);
-                    renderText(line, this.offsetX, y);
-                });
-            });
-            releaseClip();
-
-            const frameStep = this._getFrameSpeedStep(deltaMs);
-            if (frameStep) {
-                this.offsetX -= frameStep;
-            }
-
-            this._handleRestartDelay(deltaMs, adjustedEndOffset, adjustedStartOffset);
-
+            this._renderFrame({ deltaMs, advance: true });
             requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
         }
     }
 
     const e2tReady = window.EAS2TextModulePromise;
     const resourcePromise = e2tReady.then(({ loadAllResources }) =>
-    loadAllResources({ fallbackBase: 'assets/E2T/' })
+        loadAllResources({ fallbackBase: 'assets/E2T/' })
     );
 
     async function header_to_readable(rawHeader, tzLocal, tzName, endecMode) {
@@ -1792,7 +2044,7 @@
         }
         const type = value.slice(0, colonIndex).trim();
         const source = value.slice(colonIndex + 1).trim();
-        if (!source || type !== 'image') {
+        if (!source) {
             return null;
         }
         return { type, source };
@@ -1897,6 +2149,16 @@
         const descriptor = parseBackgroundSelectionValue(premadeSelect.value);
         if (!descriptor) return;
         const requestId = ++premadeSizingRequestToken;
+        const initialTopLeft = getPremadeTopLeft(descriptor.source);
+        if (descriptor.source === 'dasdec') {
+            updateCrawlControlsFromAsset({
+                width: 640,
+                height: 480,
+                topLeft: initialTopLeft
+            });
+            return;
+        }
+        updateCrawlControlsFromAsset({ topLeft: initialTopLeft });
         const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
         if (!media || requestId !== premadeSizingRequestToken) {
             return;
@@ -1908,10 +2170,247 @@
         const width = media.naturalWidth;
         const height = media.naturalHeight;
         const topLeft = getPremadeTopLeft(descriptor.source);
-        updateCrawlControlsFromAsset({ width, height, inset: 0, topLeft });
+        updateCrawlControlsFromAsset({ width, height, topLeft });
+    }
+
+    function mapEasyplusOriginatorToFullName(originator) {
+        const originatorMap = window.entryPoints;
+        return originatorMap[originator].replace(/^(A|An|The) /, "") || originator.replace(/^The National/, "National");
+    }
+
+    function mapEasyplusEventCodeToFullName(eventCode) {
+        const eventCodeMap = window.events;
+        return eventCodeMap[eventCode] || eventCode;
+    }
+
+    async function generateEasyPlusMode1BackgroundImage(originatorInput, eventCodeInput) {
+        const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
+        const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ababab';
+
+        const fontSize = 84;
+        const fontStyle = 'normal';
+        const fontFamily = 'VCREAS_4.5';
+        const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
+            ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
+            : fontFamily;
+        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
+
+        await document.fonts.load(font);
+
+        ctx.font = font;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+
+        const aOrAn = /^[AEIOU]/i.test(eventCode) ? ' an ' : ' a ';
+        const offsetScale = fontSize / 36;
+        const centerY = canvas.height / 2;
+
+        ctx.fillText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
+        ctx.fillText(originator.trim(), canvas.width / 2, centerY - 70 * offsetScale);
+        ctx.fillText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 3 * offsetScale);
+        ctx.fillText(eventCode.trim(), canvas.width / 2, centerY + 65 * offsetScale);
+
+        const img = new Image();
+        img.src = canvas.toDataURL('image/png');
+        return img;
+    }
+
+    async function generateEasyPlusMode2BackgroundImage(originatorInput, eventCodeInput) {
+        const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
+        const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#ababab';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+
+        const fontSize = 84;
+        const fontStyle = 'normal';
+        const fontFamily = 'VCREAS_4.5';
+        const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
+            ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
+            : fontFamily;
+        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
+
+        await document.fonts.load(font);
+
+        ctx.font = font;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+
+        const renderText = createTextRenderer(ctx, "#000000", 5);
+        const aOrAn = /^[AEIOU]/i.test(eventCode) ? ' an ' : ' a ';
+        const offsetScale = fontSize / 36;
+        const centerY = canvas.height / 2;
+
+        renderText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
+        renderText(originator.trim(), canvas.width / 2, centerY - 100 * offsetScale);
+        renderText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 30 * offsetScale);
+        renderText(eventCode.trim(), canvas.width / 2, centerY + 35 * offsetScale);
+
+        const img = new Image();
+        img.src = canvas.toDataURL('image/png');
+        return img;
+    }
+
+    function formatDasdecPages(rawText) {
+        const maxLineLength = 35;
+        const maxLinesPerPage = 14;
+
+        const lines = rawText.replace(/; /g, '\n').split('\n');
+        const formattedLines = [];
+
+        lines.forEach((line) => {
+            const words = line.split(' ');
+            let currentLine = '';
+
+            words.forEach((word) => {
+                if ((currentLine.length + word.length + 1) <= maxLineLength) {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                } else {
+                    formattedLines.push(currentLine);
+                    currentLine = word;
+                }
+            });
+
+            if (currentLine) {
+                formattedLines.push(currentLine);
+            }
+        });
+
+        const pages = [];
+        const totalPages = Math.ceil(formattedLines.length / (maxLinesPerPage - 1));
+
+        for (let i = 0; i < formattedLines.length; i += (maxLinesPerPage - 1)) {
+            const pageContent = formattedLines.slice(i, i + (maxLinesPerPage - 1));
+            while (pageContent.length < (maxLinesPerPage - 1)) {
+                pageContent.push(''); // Fill empty lines if necessary
+            }
+            pageContent.push(`${pages.length + 1}/${totalPages}`);
+            pages.push(pageContent);
+        }
+
+        return pages;
+    }
+
+    async function formatDasdecEAS2Text(rawHeader) {
+        const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
+        const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value || 'UTC', tzLocal: document.getElementById('crawlUseLocalTZ').checked });
+
+        const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system');
+        const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
+
+        const fipsParts = [...eas.FIPSText];
+        let dasdecFips = '';
+
+        for (let i = 0; i < fipsParts.length; i++) {
+            const part = fipsParts[i];
+            const stateMatch = part.match(/\b([A-Z]{2})$/);
+            let countyName = part;
+            let stateAbbr = null;
+
+            if (stateMatch) {
+                stateAbbr = stateMatch[1];
+                countyName = part.slice(0, part.length - 4).trim();
+            }
+
+            dasdecFips += countyName;
+
+            const nextPart = fipsParts[i + 1];
+            const nextStateMatch = nextPart ? nextPart.match(/\b([A-Z]{2})$/) : null;
+            const nextStateAbbr = nextStateMatch ? nextStateMatch[1] : null;
+
+            if (stateAbbr && nextStateAbbr !== stateAbbr) {
+                dasdecFips += `, ${stateAbbr};\n`;
+            } else if (stateAbbr && !nextStateAbbr) {
+                dasdecFips += `, ${stateAbbr};\n`;
+            } else {
+                dasdecFips += ';\n';
+            }
+        }
+
+        const fipscodes = dasdecFips.trim();
+
+        const fullText = (
+            `${orgText.toUpperCase()}\n` +
+            `has issued ${eas.evntText.toUpperCase()}\n` +
+            `for the following counties or\nareas:\n` +
+            `${fipscodes}\n` +
+            `at ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n` +
+            `on ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n` +
+            `Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` +
+            msgFrom
+        );
+
+        const pages = formatDasdecPages(fullText);
+        return pages;
+    }
+
+    async function generateDasdecScreenImage(headerText) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#4b4569';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#7a2f4c';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+        const fontSize = 28;
+        const fontStyle = 'normal';
+        const fontFamily = 'Luxi Mono';
+        const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
+            ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
+            : fontFamily;
+        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
+
+        await document.fonts.load(font);
+
+        ctx.font = font;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+
+        const lines = headerText.flat();
+        const lineHeight = fontSize + 4;
+        let y = 10;
+
+        const centerX = canvas.width / 2;
+        const horizontalScale = 0.75;
+        lines.forEach((line) => {
+            const textY = y + lineHeight / 2;
+            ctx.save();
+            ctx.scale(horizontalScale, 1);
+            ctx.fillText(line, centerX / horizontalScale, textY);
+            ctx.restore();
+            y += lineHeight;
+        });
+
+        const img = new Image();
+        img.src = canvas.toDataURL('image/png');
+        return img;
     }
 
     async function loadCrawlBackgroundAssets(mode) {
+        if (mode !== 'premade') {
+            stopDasdecRotationState();
+            window.__dasdecBackground = null;
+        }
         if (mode === 'image') {
             const image = await loadImageFromInput('crawlBackgroundImageFile');
             return {
@@ -1922,11 +2421,15 @@
         }
 
         if (mode === 'premade') {
+            window.__dasdecBackground = null;
             const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
 
             if (premadeSelect) {
                 const descriptor = parseBackgroundSelectionValue(premadeSelect.value);
                 if (descriptor) {
+                    if (descriptor.source !== 'dasdec') {
+                        stopDasdecRotationState();
+                    }
                     if (descriptor && descriptor.type === 'image') {
                         const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
                         if (media) {
@@ -1935,11 +2438,180 @@
                                 image: media,
                                 width: media ? media.naturalWidth : null,
                                 height: media ? media.naturalHeight : null,
-                                inset: 0,
                                 topLeft,
                                 source: descriptor.source
                             };
                         }
+                    }
+
+                    else if (descriptor.source === 'easyplus_gray') {
+                        const originator = document.getElementById('easyplusOriginator').value;
+                        const eventCode = document.getElementById('easyplusEventCode').value;
+                        const media = await generateEasyPlusMode2BackgroundImage(originator, eventCode);
+                        if (media) {
+                            const topLeft = getPremadeTopLeft(descriptor.source);
+                            return {
+                                image: media,
+                                width: media ? media.naturalWidth : null,
+                                height: media ? media.naturalHeight : null,
+                                topLeft,
+                                source: descriptor.source
+                            };
+                        }
+                    }
+
+                    else if (descriptor.source === 'easyplus') {
+                        const easyplusSettings = document.getElementById('easyplusSettings');
+                        easyplusSettings.style.display = 'block';
+                        const originator = document.getElementById('easyplusOriginator').value;
+                        const eventCode = document.getElementById('easyplusEventCode').value;
+                        const media = await generateEasyPlusMode1BackgroundImage(originator, eventCode);
+                        if (media) {
+                            const topLeft = getPremadeTopLeft(descriptor.source);
+                            return {
+                                image: media,
+                                width: media ? media.naturalWidth : null,
+                                height: media ? media.naturalHeight : null,
+                                topLeft,
+                                source: descriptor.source
+                            };
+                        }
+                    }
+
+                    else if (descriptor.source === 'dasdec') {
+                        stopDasdecRotationState();
+                        window.__dasdecBackground = null;
+                        const rawHeader = document.getElementById('crawlRawHeader').value;
+                        let pages = await formatDasdecEAS2Text(rawHeader);
+                        pages = Array.isArray(pages) ? pages : [];
+
+                        const renderedPages = (await Promise.all(pages.map((page) => generateDasdecScreenImage(page)))).filter(Boolean);
+
+                        if (renderedPages.length) {
+                            const rotationDelayMs = 4000;
+                            const repetitionsEl = document.getElementById('crawlRepetitions');
+                            const rawRepetitionInput = repetitionsEl ? Number(repetitionsEl.value) : 1;
+                            const repetitions = Math.max(1, Math.min(10, Math.round(rawRepetitionInput || 1)));
+                            const totalDisplays = repetitions * renderedPages.length;
+                            const baseMedia = renderedPages[0];
+                            const baseWidth = baseMedia ? (baseMedia.naturalWidth || baseMedia.width || 640) : 640;
+                            const baseHeight = baseMedia ? (baseMedia.naturalHeight || baseMedia.height || 480) : 480;
+                            const rotatingImage = new Image();
+                            const waitForImageLoad = (image) => new Promise((resolve) => {
+                                if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+                                    resolve();
+                                    return;
+                                }
+                                image.addEventListener('load', resolve, { once: true });
+                                image.addEventListener('error', resolve, { once: true });
+                            });
+                            rotatingImage.src = baseMedia.src;
+                            await waitForImageLoad(rotatingImage);
+
+                            const dasdecBackgroundMeta = {
+                                pages: renderedPages,
+                                rotationDelayMs,
+                                repetitions,
+                                totalDisplays,
+                                width: baseWidth,
+                                height: baseHeight
+                            };
+                            window.__dasdecBackground = dasdecBackgroundMeta;
+
+                            const rotationState = {
+                                timer: null,
+                                delay: rotationDelayMs,
+                                pages: renderedPages,
+                                image: rotatingImage,
+                                index: 0,
+                                paused: false,
+                                destroyed: false,
+                                stop() {
+                                    this.destroyed = true;
+                                    this.paused = true;
+                                    if (this.timer) {
+                                        clearTimeout(this.timer);
+                                        this.timer = null;
+                                    }
+                                },
+                                pause() {
+                                    if (this.paused) {
+                                        return;
+                                    }
+                                    this.paused = true;
+                                    if (this.timer) {
+                                        clearTimeout(this.timer);
+                                        this.timer = null;
+                                    }
+                                },
+                                resume() {
+                                    if (this.destroyed) {
+                                        return;
+                                    }
+                                    const wasPaused = this.paused;
+                                    this.paused = false;
+                                    if (wasPaused || !this.timer) {
+                                        this._scheduleNext();
+                                    }
+                                },
+                                step(stepDelta) {
+                                    if (!Array.isArray(this.pages) || !this.pages.length) {
+                                        return;
+                                    }
+                                    const len = this.pages.length;
+                                    if (len === 1) {
+                                        this.index = 0;
+                                        this.image.src = this.pages[0].src;
+                                        return;
+                                    }
+                                    const delta = Number(stepDelta);
+                                    if (!Number.isFinite(delta)) {
+                                        return;
+                                    }
+                                    const normalized = ((Math.trunc(delta) % len) + len) % len;
+                                    if (normalized === 0) {
+                                        this._restartTimer();
+                                        return;
+                                    }
+                                    this.index = (this.index + normalized) % len;
+                                    this.image.src = this.pages[this.index].src;
+                                    this._restartTimer();
+                                },
+                                _restartTimer() {
+                                    if (this.timer) {
+                                        clearTimeout(this.timer);
+                                        this.timer = null;
+                                    }
+                                    this._scheduleNext();
+                                },
+                                _scheduleNext() {
+                                    if (this.destroyed || this.paused || !Array.isArray(this.pages) || this.pages.length <= 1) {
+                                        return;
+                                    }
+                                    this.timer = setTimeout(() => {
+                                        if (this.destroyed || this.paused) {
+                                            this.timer = null;
+                                            return;
+                                        }
+                                        this.index = (this.index + 1) % this.pages.length;
+                                        this.image.src = this.pages[this.index].src;
+                                        this._scheduleNext();
+                                    }, this.delay);
+                                }
+                            };
+
+                            window.__dasdecRotationState = rotationState;
+                            rotationState.resume();
+                            const topLeft = getPremadeTopLeft(descriptor.source);
+                            return {
+                                image: rotatingImage,
+                                width: baseWidth,
+                                height: baseHeight,
+                                topLeft,
+                                source: descriptor.source
+                            };
+                        }
+                        window.__dasdecBackground = null;
                     }
                 }
             }
@@ -1959,7 +2631,29 @@
         }
     }
 
-    let pauseClicks = 0;
+    let crawlPaused = false;
+
+    function setPauseButtonState(paused) {
+        crawlPaused = Boolean(paused);
+        const pauseButton = document.getElementById('pauseCrawl');
+        if (pauseButton) {
+            pauseButton.innerText = crawlPaused ? 'Unpause Crawl' : 'Pause Crawl';
+        }
+    }
+
+    function handleFrameStep(step) {
+        if (Number(step) >= 0) {
+            stepDasdecRotationState(1);
+            if (window.crawlGenerator) {
+                window.crawlGenerator.getNextFrame();
+            }
+        } else {
+            stepDasdecRotationState(-1);
+            if (window.crawlGenerator) {
+                window.crawlGenerator.getPrevFrame();
+            }
+        }
+    }
 
     document.getElementById('startCrawl').addEventListener('click', async () => {
         const crawlDisplay = document.getElementById('crawlDisplay');
@@ -1987,6 +2681,9 @@
         const crawlInset = document.getElementById('crawlInset').value;
         const crawlRestartDelay = document.getElementById('crawlRestartDelay').value;
         const crawlBackgroundMode = document.getElementById('crawlBackgroundMode').value;
+        const crawlBackgroundPremade = document.getElementById('crawlBackgroundPremadeSelect').value;
+        const easyplusOriginator = document.getElementById('easyplusOriginator').value;
+        const easyplusEventCode = document.getElementById('easyplusEventCode').value;
         const crawlTopLeftOffsetX = document.getElementById('crawlTopLeftPixelX').value;
         const crawlTopLeftOffsetY = document.getElementById('crawlTopLeftPixelY').value;
         const repetitions = document.getElementById('crawlRepetitions').value;
@@ -2020,6 +2717,9 @@
             crawlInset,
             crawlRestartDelay,
             crawlBackgroundMode,
+            crawlBackgroundPremade,
+            easyplusOriginator,
+            easyplusEventCode,
             crawlTopLeftOffsetX,
             crawlTopLeftOffsetY,
             repetitions
@@ -2037,15 +2737,15 @@
         const generator = window.crawlGenerator;
         let appliedAutoSizing = false;
         if (crawlBackgroundMode === 'premade') {
-            appliedAutoSizing = updateCrawlControlsFromAsset(
-                {
-                    width: backgroundAssets.width,
-                    height: backgroundAssets.height,
-                    inset: Number.isFinite(backgroundAssets.inset) ? backgroundAssets.inset : 0,
-                    topLeft: backgroundAssets.topLeft
-                },
-                { generator }
-            );
+            const autoMeta = {
+                width: backgroundAssets.width,
+                height: backgroundAssets.height,
+                topLeft: backgroundAssets.topLeft
+            };
+            if (Number.isFinite(backgroundAssets.inset)) {
+                autoMeta.inset = backgroundAssets.inset;
+            }
+            appliedAutoSizing = updateCrawlControlsFromAsset(autoMeta, { generator });
         }
 
         if (!appliedAutoSizing) {
@@ -2057,6 +2757,9 @@
         if (rawHeader && crawlMode === 'header') {
             let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
             if (readable != 'Invalid EAS Header Format') {
+                if (readable.match(/for All of The United States/gi) && document.getElementById('endecMode').value === "EASY") {
+                    readable = readable.replace(/for All of The United States/gi, 'for the United States');
+                }
                 generator.setText(readable);
             }
             else {
@@ -2093,28 +2796,42 @@
         generator.vdsBaseDelayFrames = normalizedVdsDelay;
         generator.setVDSMode(useVDSMode);
         generator.setRepetitions(repetitions);
-        pauseClicks = 0;
-        document.getElementById('pauseCrawl').innerText = 'Pause Crawl';
+        setPauseButtonState(false);
+        resumeDasdecRotationState();
         window.crawlGenerator._updateButtons(false);
         generator.start();
     });
 
     document.getElementById('stopCrawl').addEventListener('click', () => {
         if (!window.crawlGenerator) return;
+        stopDasdecRotationState();
         window.crawlGenerator.stop();
+        setPauseButtonState(false);
     });
 
     document.getElementById('pauseCrawl').addEventListener('click', () => {
-        pauseClicks++;
-        if (pauseClicks % 2 === 1) {
-            document.getElementById('pauseCrawl').innerText = 'Unpause Crawl';
+        if (!window.crawlGenerator) return;
+        const shouldPause = !crawlPaused;
+        setPauseButtonState(shouldPause);
+        if (shouldPause) {
             window.crawlGenerator.pause();
+            pauseDasdecRotationState();
         }
         else {
-            document.getElementById('pauseCrawl').innerText = 'Pause Crawl';
             window.crawlGenerator.unpause();
+            resumeDasdecRotationState();
         }
     });
+
+    const nextFrameButton = document.getElementById('nextFrame');
+    if (nextFrameButton) {
+        nextFrameButton.addEventListener('click', () => handleFrameStep(1));
+    }
+
+    const prevFrameButton = document.getElementById('prevFrame');
+    if (prevFrameButton) {
+        prevFrameButton.addEventListener('click', () => handleFrameStep(-1));
+    }
 
     document.getElementById('exportCrawlGIF').addEventListener('click', () => {
         if (window.crawlGenerator) {
@@ -2206,10 +2923,53 @@
     });
 
     document.getElementById('copyCrawlText').addEventListener('click', async () => {
-        const crawlText = window.crawlGenerator.getCrawlText();
+        if (!window.crawlGenerator) {
+            alert('Please start the crawl before copying text.');
+            return;
+        }
+
+        const crawlModeSelect = document.getElementById('crawlMode');
+        const backgroundModeSelect = document.getElementById('crawlBackgroundMode');
+        const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
+        const usingHeaderMode = crawlModeSelect && crawlModeSelect.value === 'header';
+        const usingDasdecBackground = backgroundModeSelect
+            && backgroundModeSelect.value === 'premade'
+            && premadeSelect
+            && premadeSelect.value.includes('dasdec');
+
+        let textToCopy = window.crawlGenerator.getCrawlText() || '';
+
+        if (usingHeaderMode && usingDasdecBackground) {
+            const rawHeader = document.getElementById('crawlRawHeader').value;
+            if (!rawHeader) {
+                alert('Please provide an EAS header before copying DASDEC text.');
+                return;
+            }
+            try {
+                const pages = await formatDasdecEAS2Text(rawHeader);
+                if (Array.isArray(pages) && pages.length) {
+                    const formattedPages = pages.map((page) => {
+                        if (Array.isArray(page)) {
+                            return page.join('\n').trimEnd();
+                        }
+                        if (page && typeof page === 'object' && typeof page.flat === 'function') {
+                            return page.flat().join('\n').trimEnd();
+                        }
+                        return String(page || '').trimEnd();
+                    });
+                    textToCopy = formattedPages.join('\n\n').trim();
+                }
+            } catch (error) {
+                console.error('Failed to format DASDEC text for copying:', error);
+                addStatus('Failed to format DASDEC text. Falling back to displayed crawl text.', 'WARN');
+            }
+        }
+
         try {
-            await navigator.clipboard.writeText(crawlText);
-            addStatus('Crawl text copied to clipboard!');
+            await navigator.clipboard.writeText(textToCopy);
+            addStatus(usingHeaderMode && usingDasdecBackground
+                ? 'Formatted DASDEC text copied to clipboard!'
+                : 'Crawl text copied to clipboard!');
         } catch (err) {
             alert('Failed to copy text: ' + err);
             addStatus('Failed to copy text: ' + err, 'ERROR');
@@ -2261,9 +3021,11 @@
     const destroyInstanceButton = document.getElementById('destroyCrawl');
     if (destroyInstanceButton) {
         destroyInstanceButton.addEventListener('click', () => {
+            stopDasdecRotationState();
             if (window.crawlGenerator) {
                 window.crawlGenerator.destroy();
                 window.crawlGenerator = null;
+                setPauseButtonState(false);
                 addStatus('Crawl generator instance destroyed.');
                 destroyInstanceButton.disabled = true;
             } else {
@@ -2319,7 +3081,6 @@
 
     if (savedSettings) {
         const settings = JSON.parse(savedSettings);
-
         document.getElementById('crawlText').value = settings.text;
         document.getElementById('crawlSpeed').value = settings.speed;
         document.getElementById('crawlFontSize').value = settings.fontSize;
@@ -2338,6 +3099,16 @@
         document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;
         document.getElementById('crawlOutlineJoin').value = settings.outlineJoin || 'round';
         document.getElementById('crawlRepetitions').value = settings.repetitions || 1;
+        document.getElementById('easyplusOriginator').value = settings.easyplusOriginator || '';
+        document.getElementById('easyplusEventCode').value = settings.easyplusEventCode || '';
+
+        const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
+        if (premadeSelect && typeof settings.crawlBackgroundPremade === 'string' && settings.crawlBackgroundPremade) {
+            const hasValue = Array.from(premadeSelect.options || []).some((option) => option.value === settings.crawlBackgroundPremade);
+            if (hasValue) {
+                premadeSelect.value = settings.crawlBackgroundPremade;
+            }
+        }
 
         const storedBackgroundMode = normalizeCrawlBackgroundMode(settings.crawlBackgroundMode);
         document.getElementById('crawlBackgroundMode').value = storedBackgroundMode;
@@ -2383,10 +3154,95 @@
             dispatchChange(crawlTextSource);
         };
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', refreshSavedCrawlControls, { once: true });
-        } else {
+        const ensurePremadeSizing = () => {
+            const modeSelect = document.getElementById('crawlBackgroundMode');
+            if (modeSelect && modeSelect.value === 'premade') {
+                requestPremadeBackgroundSizing();
+            }
+        };
+
+        const runSavedControlRefresh = () => {
             refreshSavedCrawlControls();
+            ensurePremadeSizing();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runSavedControlRefresh, { once: true });
+        } else {
+            runSavedControlRefresh();
         }
     }
+
+    function parseEASHeaderAndUpdateEasyPlusSettings(rawHeader) {
+        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})-$/m;
+        const match = regex.exec(rawHeader);
+        if (!match) {
+            return;
+        }
+
+        const originatorCode = match[1];
+        const eventCode = match[2];
+
+        const originatorInput = document.getElementById('easyplusOriginator');
+        const eventCodeInput = document.getElementById('easyplusEventCode');
+
+        if (originatorInput) {
+            originatorInput.value = originatorCode;
+        }
+
+        if (eventCodeInput) {
+            eventCodeInput.value = eventCode;
+        }
+    }
+
+    const initializeRawHeaderInput = () => {
+        const headerInput = document.getElementById('crawlRawHeader');
+        if (!headerInput) {
+            return false;
+        }
+
+        const parseHeader = () => {
+            parseEASHeaderAndUpdateEasyPlusSettings(headerInput.value);
+        };
+
+        headerInput.addEventListener('blur', parseHeader);
+
+        const originatorSelect = document.getElementById('easyplusOriginator');
+        const eventSelect = document.getElementById('easyplusEventCode');
+
+        const attemptInitialParse = () => {
+            if (!originatorSelect || !eventSelect) {
+                return false;
+            }
+            if (!originatorSelect.options.length || !eventSelect.options.length) {
+                return false;
+            }
+            parseHeader();
+            return true;
+        };
+
+        if (!attemptInitialParse()) {
+            const targets = [originatorSelect, eventSelect].filter(Boolean);
+            if (targets.length) {
+                const observer = new MutationObserver(() => {
+                    if (attemptInitialParse()) {
+                        observer.disconnect();
+                    }
+                });
+                targets.forEach((target) => observer.observe(target, { childList: true }));
+            }
+        }
+
+        return true;
+    };
+
+    if (!initializeRawHeaderInput() && document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeRawHeaderInput, { once: true });
+    }
+
+    if (crawlBackgroundPremadeSelect.value.includes('easyplus')) {
+        const easyplusSettings = document.getElementById('easyplusSettings');
+        easyplusSettings.style.display = 'block';
+    }
+
 })();

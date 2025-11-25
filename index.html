@@ -400,6 +400,7 @@
                         <option value="UPD6465">UPD6465</option>
                         <option value="VCREAS_4.5">VCR EAS 4.5</option>
                         <option value="PJF CharGen">PJF CharGen</option>
+                        <option value="Luxi Mono">Luxi Mono</option>
                     </select>
                     <br>
                     <label for="crawlFontStyle">Font Style:</label>
@@ -434,6 +435,10 @@
                     <label for="crawlRepetitions">Crawl Export Repetitions (1-10):</label>
                     <input type="number" id="crawlRepetitions" min="1" max="10" value="1">
                     <hr class="shorter-hr">
+                    <label for="crawlTextColor">Text Color: &ensp;&ensp;&ensp;&ensp;&ensp;</label>
+                    <input type="color" id="crawlTextColor" value="#FFFFFF">
+                    <br>
+                    <br>
                     <label for="crawlBackgroundMode">Background Mode:</label>
                     <select id="crawlBackgroundMode">
                         <option value="solid" selected>Solid Color Background</option>
@@ -457,11 +462,23 @@
                         <select id="crawlBackgroundPremadeSelect">
                             <option value="image:assets/screens/xfinity.png">Comcast/Xfinity "EMERGENCY ALERT"</option>
                             <option value="image:assets/screens/directv.jpg">DirecTV</option>
+                            <option value="easyplus:easyplus">EASyPLUS</option>
+                            <option value="easyplus:easyplus_gray">EASyPLUS Gray</option>
+                            <option value="dasdec:dasdec">DASDEC</option>
                         </select>
+                        <div id="easyplusSettings" style="display: none;">
+                            <br>
+                            <label for="easyplusOriginator">EASyPLUS Originator:</label>
+                            <select id="easyplusOriginator">
+                                <!-- will be populated by js -->
+                            </select>
+                            <br>
+                            <label for="easyplusEventCode">EASyPLUS Event Code:</label>
+                            <select id="easyplusEventCode">
+                                <!-- will be populated by js -->
+                            </select>
+                        </div>
                     </div>
-                    <br>
-                    <label for="crawlTextColor">Text Color: &ensp;&ensp;&ensp;&ensp;&ensp;</label>
-                    <input type="color" id="crawlTextColor" value="#FFFFFF">
                     <hr class="shorter-hr">
                     <label for="crawlOutlineColor">Text Outline Color (set outline width to >0 to enable):</label>
                     <input type="color" id="crawlOutlineColor" value="#000000">
@@ -480,6 +497,8 @@
                 <div class="control-panel" style="position: sticky; top: 0; padding-top: 10px; padding-bottom: 10px; z-index: 10;">
                     <button type="button" id="startCrawl">Start Crawl</button>
                     <button type="button" id="pauseCrawl" disabled>Pause Crawl</button>
+                    <button type="button" id="prevFrame" disabled>Previous Frame</button>
+                    <button type="button" id="nextFrame" disabled>Next Frame</button>
                     <button type="button" id="stopCrawl" disabled>Stop/Reset Crawl</button>
                     <button type="button" id="exportCrawlGIF" disabled>Export as GIF</button>
                     <button type="button" id="exportCrawlVideo" disabled>Export as video (.webm)</button>

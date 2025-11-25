@@ -89,6 +89,7 @@ async function fetchAndStore() {
             const name = sameCodes['EVENTS'][code];
             window.events = window.events || {};
             window.events[code] = name.replace(/^(a|an|the) /, '').trim();
+            document.getElementById("easyplusEventCode").innerHTML += `<option value="${code}">${window.events[code]}</option>`;
         }
 
         for (const code in sameCodes['SAME']) {
@@ -102,6 +103,11 @@ async function fetchAndStore() {
                 const abbrv = window.abbrvs[statename] || statename;
                 window.state[stcode] = abbrv;
             }
+        }
+
+        for (const code in window.entryNames) {
+            const name = window.entryNames[code];
+            document.getElementById("easyplusOriginator").innerHTML += `<option value="${code}">${name}</option>`;
         }
     }
 
