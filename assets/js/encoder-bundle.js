@@ -1148,7 +1148,8 @@ async function fetchAndStore() {
     saveb.addEventListener("click", saveToWav);
     var NWR = 1;
     var hr = 0;
-    var locations = ["036071"];
+    window.locations = ["036071"];
+    var locations = window.locations;
     var es = false;
     var em = false;
     var cl = false;
@@ -1399,6 +1400,7 @@ async function fetchAndStore() {
     function updateTable() {
         var fcont = document.getElementById("container");
         var fipstable = document.getElementById("fips");
+        locations = window.locations;
         fcont.innerHTML = "";
         for (var i = 0; i < locations.length; i++) {
             var tr = document.createElement("tr");
@@ -1757,4 +1759,42 @@ async function fetchAndStore() {
     announcementTypeSelect.dispatchEvent(new Event('change'));
     ttsTextInput.dispatchEvent(new Event('change'));
     voiceSelect.dispatchEvent(new Event('change'));
+
+    // currently not used in main iife, but exported for console use and potential future use
+    const noaaProductToFips = function(noaaProduct) {
+        const regex = /([A-Z]{3}\d{3}-)(\d{3}-)*/g;
+        const matches = noaaProduct.matchAll(regex);
+        const locationsToPropagate = [];
+        for (const match of matches) {
+            try {
+                if (match[0] && match[1]) {
+                    const stateCode = match[1];
+                    const countyCodes = [];
+                    countyCodes.push(match[1].slice(3, 6));
+                    countyCodes.push(...match[0].slice(stateCode.length).split('-').filter(Boolean));
+                    const stateAbbr = stateCode.slice(0, 2).replace(/[C-]/, '').toUpperCase();
+                    const stateFips = Object.keys(state).find(key => state[key].toUpperCase() === stateAbbr);
+                    if (stateFips) {
+                        const countyFips = countyCodes.map(countyCode => {
+                            const countyAbbr = countyCode.padStart(3, '0');
+                            const county = window.county || {};
+                            const countyFipsKey = Object.keys(county[stateFips] || {}).find(key => key === countyAbbr);
+                            const countyName = countyFipsKey ? county[stateFips][countyFipsKey] : null;
+                            return countyName ? { fips: `0${stateFips}${countyFipsKey}`, name: countyName } : null;
+                        });
+                        locationsToPropagate.push(...countyFips.filter(c => c !== null));
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to convert NOAA product to FIPS:", error);
+                return 0;
+            }
+        }
+        console.log("Converted NOAA product to FIPS:", locationsToPropagate);
+        window.locations = locationsToPropagate.map(c => c.fips);
+        updateTable();
+        return 1;
+    };
+
+    window.noaaProductToFips = noaaProductToFips;
 })();

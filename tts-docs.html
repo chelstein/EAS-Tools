@@ -34,7 +34,7 @@
     </head>
     <body>
         <header>
-            <h1><a href="/EAS-Tools/">EAS Tools - TTS Documentation</a></h1>
+            <h1><a href="./index.html">EAS Tools - TTS Documentation</a></h1>
         </header>
         <main>
             <article style="padding-left: 2rem; padding-right: 2rem; padding-bottom: 2rem;">
@@ -55,7 +55,7 @@
                     <li>[NanoTTS] NanoTTS (local) Voice</li>
                     <!-- Voice list will be populated here by JavaScript -->
                 </ul>
-                <p>NOTE: <b>Except for the WebAssembly voice</b>, all voices listed here are processed by an outside server located at <a href="https://wagspuzzle.space/tools/eas-tts/">Wags' Puzzle Space</a>. This is because they require server-side processing to generate the speech audio, which is beyond the capabilities of a simple GitHub Pages site.</p>
+                <p>NOTE: <b>Except for the WebAssembly voices</b>, all voices listed here are processed by an outside server located at <a href="https://wagspuzzle.space/tools/eas-tts/">Wags' Puzzle Space</a>. This is because they require server-side processing to generate the speech audio, which is beyond the capabilities of a simple GitHub Pages site.</p>
                 <h3>Voice Descriptions</h3>
                 <p>Each voice has its own unique sound and characteristics. For example, the DECTalk voices are known for their distinctive robotic sound, while the other voices offer a more natural-sounding speech synthesis. Users can experiment with different voices to find the one that best suits their needs. If you want a small taste of each voice, you can listen to the demos provided on the <a href="demos.html">demos page</a>.</p>
                 <h3>Additional Notes</h3>
@@ -75,7 +75,7 @@
                 <p>Here are some specific pronunciation codes for different backends:</p>
                 <ul>
                     <li><b>[WASM] WebAssembly:</b> Does not apply, since the voice would need further training for specific phrases/words. There is no built-in way to modify pronunciation or speed with WebAssembly voices.</li>
-                    <li><b>[NanoTTS] NanoTTS:</b> See above.</li>
+                    <li><b>[NanoTTS] NanoTTS:</b> See above, this voice is based on WebAssembly as well.</li>
                     <li><b>[VT] VoiceText/NeoSpeech:</b> See the detailed <a href="./assets/vtml.pdf">documentation PDF</a> for a full list of examples and documentation for the VTML format. A complete example of VoiceText is below for demonstration purposes.</li>
                     <li><b>[BAL] Balabolka/Balcon:</b> You can use the SAPI/Microsoft Speech Platform codes to adjust things like silence periods, speech rate (how fast the text is spoken), speech pitch, volume, and phonemes (the big one). Phonemes are formatted like so: <code><pron sym="t eh - 1 k ey - m ax"/></code>, which would pronounce the word "Tekamah" (city in Nebraska) correctly. A full list of phonemes is below in HTML table format (copy-paste friendly):<table id="balconTable"><thead><tr><th>Phoneme</th><th>Description/Example</th></tr></thead><tbody><tr><td>-</td><td>Syllable boundary (hyphen)</td></tr><tr><td>!</td><td>Sentence terminator (exclamation mark)</td></tr><tr><td>&amp;</td><td>Word boundary (ampersand)</td></tr><tr><td>,</td><td>Sentence terminator (comma)</td></tr><tr><td>.</td><td>Sentence terminator (period)</td></tr><tr><td>?</td><td>Sentence terminator (question mark)</td></tr><tr><td>_</td><td>Silence (underscore)</td></tr><tr><td>1</td><td>Primary stress</td></tr><tr><td>2</td><td>Secondary stress</td></tr><tr><td>aa</td><td>father</td></tr><tr><td>ae</td><td>cat</td></tr><tr><td>ah</td><td>cut</td></tr><tr><td>ao</td><td>dog</td></tr><tr><td>aw</td><td>foul</td></tr><tr><td>ax</td><td>ago</td></tr><tr><td>ay</td><td>bite</td></tr><tr><td>b</td><td>big</td></tr><tr><td>ch</td><td>chin</td></tr><tr><td>d</td><td>dig</td></tr><tr><td>dh</td><td>then</td></tr><tr><td>eh</td><td>pet</td></tr><tr><td>er</td><td>fur</td></tr><tr><td>ey</td><td>ate</td></tr><tr><td>f</td><td>fork</td></tr><tr><td>g</td><td>gut</td></tr><tr><td>h</td><td>help</td></tr><tr><td>ih</td><td>fill</td></tr><tr><td>iy</td><td>feel</td></tr><tr><td>jh</td><td>joy</td></tr><tr><td>k</td><td>cut</td></tr><tr><td>l</td><td>lid</td></tr><tr><td>m</td><td>mat</td></tr><tr><td>n</td><td>no</td></tr><tr><td>ng</td><td>sing</td></tr><tr><td>ow</td><td>go</td></tr><tr><td>oy</td><td>toy</td></tr><tr><td>p</td><td>put</td></tr><tr><td>r</td><td>red</td></tr><tr><td>s</td><td>sit</td></tr><tr><td>sh</td><td>she</td></tr><tr><td>t</td><td>talk</td></tr><tr><td>th</td><td>thin</td></tr><tr><td>uh</td><td>book</td></tr><tr><td>uw</td><td>too</td></tr><tr><td>v</td><td>vat</td></tr><tr><td>w</td><td>with</td></tr><tr><td>y</td><td>yard</td></tr><tr><td>z</td><td>zap</td></tr><tr><td>zh</td><td>pleasure</td></tr></tbody></table></li>
                     <li><b>[DT] DECTalk:</b> DECTalk has its own set of phoneme codes that can be used to adjust pronunciation. An example would be <code>[:phoneme on] [axs'owshiyeyt]</code>. This will pronounce the word "associate" like "uh-soh-shee-ayt" (to associate something with someone or something), not like "uh-soh-shee-at" (an associate/worker at a store). A full list of DECTalk phoneme codes can be found in the <a href="https://dectalk.github.io/dectalk/idh_ref_1_phoneme_interpretation_phoneme.htm">DECTalk documentation</a>.</li>
@@ -109,6 +109,15 @@
                 let vtmlCodemirrorPre = null;
                 let balCodemirrorPre = null;
 
+                const current24Hour = new Date().getHours()
+                const current12Hour = current24Hour % 12 || 12;
+                const currentHour = current12Hour;
+                const currentMinute = new Date().getMinutes()
+                const currentAMPM = current24Hour >= 12 ? 'PM' : 'AM';
+                const currentTimeZoneIANA = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const currentTimeZoneLong = new Intl.DateTimeFormat('en-US', { timeZone: currentTimeZoneIANA, timeZoneName: 'long' }).formatToParts(new Date()).find(part => part.type === 'timeZoneName').value;
+                const currentTime = `${currentHour}, ${currentMinute}, ${currentAMPM}, ${currentTimeZoneLong}`;
+
                 function initVtmlPre() {
                     if (vtmlCodemirrorPre || !window.CodeMirror) return vtmlCodemirrorPre;
 
@@ -134,7 +143,7 @@ SPOTTER INFORMATION STATEMENT<vtml_pause time="200"/>Spotter activation is not e
 
 This is NOAA All Hazards Radio Station K I H 61 in Omaha<vtml_pause time="200"/>Nebraska.
 
-The current time is, 1, 37, PM, Central Standard Time.
+The current time is, ${currentTime}.
 
 <vtml_pitch value="150">This sentence is higher pitched than normal.</vtml_pitch>
 
@@ -173,7 +182,7 @@ SPOTTER INFORMATION STATEMENT<silence msec="200"/>Spotter activation is not expe
 
 This is NOAA All Hazards Radio Station K I H 61 in Omaha<silence msec="200"/>Nebraska.
 
-The current time is, 1, 37, PM, Central Standard Time.
+The current time is, ${currentTime}.
 
 <pitch absmiddle="5">This sentence is higher pitched than normal.</pitch>
 

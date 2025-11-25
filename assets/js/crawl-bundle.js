@@ -2175,7 +2175,9 @@
 
     function mapEasyplusOriginatorToFullName(originator) {
         const originatorMap = window.entryPoints;
-        return originatorMap[originator].replace(/^(A|An|The) /, "") || originator.replace(/^The National/, "National");
+        const regex = /^(A|An|The) /gi;
+        const regex2 = /rity$/gi;
+        return originatorMap[originator].replace(regex, "").replace(regex2, "rities") || originator.replace(regex, "").replace(regex2, "rities");
     }
 
     function mapEasyplusEventCodeToFullName(eventCode) {

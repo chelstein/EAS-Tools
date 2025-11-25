@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="robots" content="index, nofollow">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>EAS Tools - FAQ/Docs</title>
+        <meta name="title" content="Emergency Alert System (EAS) Tools">
+        <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
+        <meta name="language" content="English">
+        <meta name="image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+        <meta name="author" content="https://github.com/wagwan-piffting-blud/">
+        <link rel="canonical" href="https://wagwan-piffting-blud.github.io/EAS-Tools/">
+        <meta property="og:type" content="website">
+        <meta property="og:title" content="Emergency Alert System (EAS) Tools">
+        <meta property="og:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta property="og:url" content="https://wagwan-piffting-blud.github.io/EAS-Tools/">
+        <meta property="og:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+        <meta property="og:site_name" content="EAS Tools">
+        <meta name="twitter:card" content="summary">
+        <meta name="twitter:title" content="Emergency Alert System (EAS) Tools">
+        <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+        <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/codemirror.css">
+        <link rel="stylesheet" href="assets/css/dracula.css">
+        <link rel="stylesheet" href="assets/css/style.css">
+        <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
+        <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
+    </head>
+    <body>
+        <header>
+            <h1><a href="./index.html">EAS Tools - FAQ/Documentation</a></h1>
+        </header>
+        <main>
+            <nav>
+                <ul>
+                    <li><a href="#faq">Frequently Asked Questions</a></li>
+                    <li><a href="#documentation">Documentation</a></li>
+                </ul>
+            </nav>
+            <article style="padding-left: 2rem; padding-right: 2rem;" id="faq">
+                <h2>Frequently Asked Questions about the EAS and EAS-Tools itself</h2>
+                <p>This section addresses common questions regarding the Emergency Alert System (EAS) in general, and some questions about the EAS-Tools web application specifically.</p>
+                <div id="faq-nav">
+                    <ul id="faq-nav-ul">
+                        <li><a href="#">What is the EAS?</a></li>
+                        <li><a href="#">What is EAS-Tools?</a></li>
+                        <li><a href="#">What is SAME encoding?</a></li>
+                        <li><a href="#">What is AFSK modulation?</a></li>
+                        <li><a href="#">What is the purpose of the EAS-Tools web application?</a></li>
+                        <li><a href="#">How does EAS-Tools work?</a></li>
+                        <li><a href="#">Is EAS-Tools free to use?</a></li>
+                        <li><a href="#">What technologies does EAS-Tools use?</a></li>
+                        <li><a href="#">Who developed EAS-Tools?</a></li>
+                        <li><a href="#">How can I contribute to EAS-Tools?</a></li>
+                        <li><a href="#">Where can I report bugs or request features without knowing how to code?</a></li>
+                        <li><a href="#">You mentioned a web TTS service? What's that, and how does it work?</a></li>
+                        <li><a href="#">How can I support the development of EAS-Tools?</a></li>
+                        <li><a href="#">Are there currently any known issues or limitations with EAS-Tools? (updated as of 2025-11-25)</a></li>
+                        <li><a href="#">How can I get more involved in the overall EAS community?</a></li>
+                    </ul>
+                </div>
+                <section>
+                    <h3>What is the EAS?</h3>
+                    <p>The Emergency Alert System (EAS) is a national public warning system used in the United States that allows authorized government officials to send emergency alerts and warnings to the public via radio, television, and other communication channels. <a href="https://en.wikipedia.org/wiki/Emergency_Alert_System" target="_blank">Learn more at Wikipedia</a>.</p>
+                </section>
+                <section>
+                    <h3>What is EAS-Tools?</h3>
+                    <p>EAS-Tools is a web-based application designed to help users decode and encode EAS SAME headers, generate text crawls, and splice audio files for EAS alerts. It provides a user-friendly interface for working with EAS data and is provided for lab, testing, hobbyist, and educational purposes only. The author is NOT responsible for ANY misuse.</p>
+                </section>
+                <section>
+                    <h3>What is SAME encoding?</h3>
+                    <p><a href="https://en.wikipedia.org/wiki/Specific_Area_Message_Encoding" target="_blank">SAME (Specific Area Message Encoding)</a> is a protocol used in the EAS to encode information about emergency alerts, including the type of alert, affected areas, and duration. SAME headers are transmitted as part of the EAS message and are used by receiving devices to determine whether to activate and display the alert. You can most commonly find SAME technology in weather radios and some newer TVs using the ATSC 3 standard. The SAME tones are those 3 repeat distinctive audio signals that accompany the alert messages before and after the alert announcement (if any, usually Required Weekly Tests skip the announcement).</p>
+                </section>
+                <section>
+                    <h3>What is AFSK modulation?</h3>
+                    <p>AFSK (Audio Frequency-Shift Keying) modulation is a method of encoding digital data using audio tones of different frequencies. In the context of the EAS, AFSK modulation is used to transmit SAME headers as audio signals that can be decoded by receiving devices. The EAS SAME tones use AFSK modulation at 520.83 bits per second, with a mark frequency of 2083.3 Hz and a space frequency of 1562.5 Hz. You only really need to know this information if you're making your own encoder/decoder, but since this repository provides the necessary tools to work with AFSK modulation in the context of the EAS, there's no real need to know this info (unless you want to be a developer).</p>
+                </section>
+                <section>
+                    <h3>What is the purpose of the EAS-Tools web application?</h3>
+                    <p>The purpose of the EAS-Tools web application is to provide a convenient and accessible way for users to work with EAS SAME headers and related data. It allows users to decode and encode SAME headers, generate text crawls, and splice audio files for EAS alerts, all within a web browser. This makes it easy for hobbyists, educators, and developers to experiment with EAS data without needing complicated, usually hard to use, specialized software or hardware. Anyone can freely use the application without any cost or licensing fees.</p>
+                </section>
+                <section>
+                    <h3>How does EAS-Tools work?</h3>
+                    <p>EAS-Tools is a web-based application that allows users to decode and encode EAS SAME headers directly in their web browser, among other features. It uses JavaScript to process the data locally, ensuring that no data is sent to external servers (except for web TTS requests, more on that below). No analytics or tracking is performed on user data. Any web TTS requests are only logged until Midnight Central Time, for debugging purposes only, and the logs and generated audio are automatically deleted after that time from the server. Your privacy is important to me, and I am committed to protecting it as best as I know how.</p>
+                </section>
+                <section>
+                    <h3>Is EAS-Tools free to use?</h3>
+                    <p>Yes, EAS-Tools is completely free (as in beer AND speech) to use. It is an open-source project available on <a href="https://github.com/wagwan-piffting-blud/EAS-Tools" target="_blank">GitHub</a>, licensed under the GNU GPL 3, a widely used free software license that allows for redistribution and modification with proper attribution. This entire website is also hosted proudly on GitHub Pages. Download the source code, modify it as you see fit, and contribute to the project if you'd like, especially if you know your way around HTML/CSS/JavaScript comfortably! Heck, you can even run a copy of the ENTIRE site locally, so long as you're comfortable with the command line and have the necessary tools installed. The only thing that relies on an outside internet connection is Web TTS. That's it!</p>
+                </section>
+                <section>
+                    <h3>What technologies does EAS-Tools use?</h3>
+                    <p>EAS-Tools is built using standard web technologies, including HTML, CSS, JavaScript, and WebAssembly. It leverages a number of JavaScript libraries for the various functionality provided. Everything is bundled with the GitHub repository, there are absolutely no external dependencies that can get in the way. The application is designed to run entirely in the user's web browser, from any device, ensuring that no data is sent to external servers (except for web TTS requests, again, more on that below).</p>
+                </section>
+                <section>
+                    <h3>Who developed EAS-Tools?</h3>
+                    <p>EAS-Tools was developed by me, <a href="https://wagspuzzle.space/" target="_blank">wagwan-piffting-blud (but you can call me Wags)</a>! I am a hobbyist developer with a specialized interest in the EAS and technology. Though the intersection of those two interests is hardly mainstream, I believe in making the EAS more accessible to everyone and anyone with even a moderate interest in the topic. Whether that be for mocks, educational purposes, or just personal projects, I truly hope that EAS-Tools can be a valuable resource in anyone's back pocket. I work on EAS-Tools solely in my free time, and I welcome any feedback or suggestions you may have!</p>
+                </section>
+                <section>
+                    <h3>How can I contribute to EAS-Tools?</h3>
+                    <p>You can contribute to EAS-Tools by visiting the project's <a href="https://github.com/wagwan-piffting-blud/EAS-Tools" target="_blank">GitHub repository</a>. From there, make a Pull Request with your changes or improvements, and I will review it ASAP! If you don't know how to code, that's okay too, see the section below on contributing without coding.</p>
+                </section>
+                <section>
+                    <h3>Where can I report bugs or request features without knowing how to code?</h3>
+                    <p>You can report bugs or request features by visiting the project's <a href="https://github.com/wagwan-piffting-blud/EAS-Tools/issues" target="_blank">GitHub Issues page</a>. Your feedback is valuable and helps improve the project! I love reading user feedback, especially with regards to new features that can potentially be added.</p>
+                </section>
+                <section>
+                    <h3>You mentioned a web TTS service? What's that, and how does it work?</h3>
+                    <p>The web TTS (Text-to-Speech) service is a server-side component that generates speech audio from text input. When you use the EAS-Tools Encoder or Audio Splicer tools and select the Text-to-Speech announcement option and a voice other than WebAssembly/NanoTTS, your text is sent to the TTS server located at <a href="https://wagspuzzle.space/tools/eas-tts" target="_blank">Wags' Puzzle Space</a>. The server processes the text and returns the generated audio back to your browser for inclusion in the EAS alert. This allows for dynamic generation of speech audio without relying on client-side TTS capabilities, which are extremely limited when it comes to being able to synthesize real voices used in actual alerts. Please note that any/all requests made to the TTS server are logged temporarily for debugging purposes only, and all logs and generated audio are automatically deleted at exactly Midnight Central Time. Users are limited to 20 requests per day overall to prevent abuse of the service. If you find yourself running into the request limit often, try installing some of the voices you're looking to synthesize on a regular basis and using them locally! The web TTS service is provided AS-IS, with no guarantees or warranties, or uptime promises. It may go down randomly, it may not. The server tries to check and make sure it is up before it processes audio, but if it happens to suddenly, randomly go down in the middle of this processing, it may not be able to complete your request successfully. Keep this in mind when using the Web TTS service.</p>
+                </section>
+                <section>
+                    <h3>How can I support the development of EAS-Tools?</h3>
+                    <p>You can support the development of EAS-Tools by contributing code, reporting bugs, requesting features, or spreading the word about the project. While I do not accept donations (monetarily or otherwise), I greatly appreciate any support in the form of feedback, suggestions, or contributions to the project, or just spreading the word!</p>
+                </section>
+                <section>
+                    <h3>Are there currently any known issues or limitations with EAS-Tools?</h3>
+                    <p>Every effort is made to make sure EAS-Tools works at its best. Some features may not work as expected on all browsers or devices, and there may be occasional bugs or glitches with the code. Changes are made regularly to improve the application and address any issues that possibly arise. A best effort is made to keep the application as stable and functional as possible, but please understand that this is a hobby project developed in my free time with no monetary support. If you encounter any issues, please report them on the project's <a href="https://github.com/wagwan-piffting-blud/EAS-Tools/issues" target="_blank">GitHub Issues page</a> as soon as you notice them, and they will get addressed ASAP.</p>
+                    <p>Current issues:</p>
+                    <ul>
+                        <li>The crawl export feature works, so long as your machine is sufficiently powerful to handle the processing load of exporting the crawl. If there is a noticeable stuttering in the output, this is sadly nothing I can fix myself (trust me, I've tried!). The only true solution is to use another, more powerful device for exporting, if at all possible.</li>
+                        <li>Some of the state machines in the tools to update things like available options or retrieve/save options may not work 100% as expected (a popular example is options not appearing on initial page load). These require targeted updates to the JS code, but everything is being actively worked on and maintained for the most optimal experience possible. If you find options missing when they shouldn't be, or vice versa, let me know and I will fix it!</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>How can I get more involved in the overall EAS community?</h3>
+                    <p>You can get more involved in the EAS community by joining online forums, participating in discussions on social media, and connecting with other hobbyists and professionals interested in the EAS. There are many online communities dedicated to the EAS where you can share your experiences, and connect with others who share your interest. Some popular places to start include the <a href="https://globaleas.org/" target="_blank">Global Weather and EAS Society Discord</a> (of which I am an active member), <a href="https://www.reddit.com/r/EmergencyAlertSystem/" target="_blank">the EAS sub-reddit</a>, and I'm sure there are more that are not mentioned here. Additionally, consider reaching out to local professionals that deal with the EAS, such as your local broadcasters or even HAM radio operators.</p>
+            </article>
+            <hr>
+            <article style="padding-left: 2rem; padding-right: 2rem; padding-bottom: 2rem;" id="documentation">
+                <h2>Documentation</h2>
+                <p>This section provides comprehensive documentation on how to use EAS Tools effectively and to its maximum potential.</p>
+                <div id="doc-nav">
+                    <ul id="doc-nav-ul">
+                        <li><a href="#">Getting Started with EAS-Tools</a></li>
+                        <li><a href="#">Understanding SAME Header formatting</a></li>
+                        <li><a href="#">Tool: Decoder</a></li>
+                        <li><a href="#">Tool: Encoder</a></li>
+                        <li><a href="#">Tool: Text Crawl Generator</a></li>
+                        <li><a href="#">Tool: Audio Splicer</a></li>
+                        <li><a href="#">Troubleshooting</a></li>
+                    </ul>
+                </div>
+                <section>
+                    <h3>Getting Started with EAS-Tools</h3>
+                    <p>To get started with EAS-Tools, simply navigate to the main page and select the tool you wish to use from the available options in the top right navigation section. Each tool has its own dedicated section (below) with detailed instructions on how to use it effectively and efficiently.</p>
+                </section>
+                <section>
+                    <h3>Understanding SAME Header formatting</h3>
+                    <p>SAME headers follow a specific format that includes various fields such as Originator, Event Code, Location Codes, Valid Time Period, and sender ID. Familiarizing yourself with this format is essential for effectively using the Decoder and Encoder tools. Summed up as quickly as possible, a SAME header consists of a series of hyphen-separated values that convey important information about the alert. A sample SAME header looks like the following:</p>
+                    <pre class="generatedHeader">ZCZC-PEP-NPT-000000+0100-0011337-ORIGIN-</pre>
+                    <p>Each segment of the header represents specific information about the alert, such as the type of event, the location it pertains to, and the time it was issued. Let's break it down into its parts, one by one, and go over what each one does or means:</p>
+                    <ul>
+                        <li><strong>ZCZC</strong>: This is the start of the SAME header, indicating the beginning of the message. This is what encoders and decoders look for when processing the alert.</li>
+                        <li><strong>PEP</strong>: The Originator code, indicating who issued the alert (e.g., PEP for Primary Entry Point). The only options are PEP, EAS (Emergency Alert System Participant, usually a sole TV/AM/FM station), CIV (Civil Authorities), and WXR (NOAA Weather Radio).</li>
+                        <li><strong>NPT</strong>: The Event Code, specifying the type of alert (e.g., NPT for National Periodic Test). There's a whole list of event codes on <a target="_blank" href="https://en.wikipedia.org/wiki/Specific_Area_Message_Encoding#Event_codes">Wikipedia</a>.</li>
+                        <li><strong>000000</strong>: The Location Code (or codes, if there are multiple), representing the areas affected by the alert. There can be between 1 and 31 location codes.</li>
+                        <li><strong>+0100-0011337</strong>: The Valid Time Period, indicating how long the alert is valid for (duration and issuance Julian date/UTC time).</li>
+                        <li><strong>ORIGIN</strong>: The Originator Identifier, providing additional information about the source of the alert. This is usually where the station's call sign or other identifying information would be included.</li>
+                        <li><strong>-</strong>: The end of the SAME header, indicating the conclusion of the message.</li>
+                    </ul>
+                    <p>So, in the example above, we have a SAME header that indicates a National Periodic Test (NPT) issued by a Primary Entry Point (PEP) for the whole of the United States (000000), valid for 1 hour from 13:37 UTC on January 1 of the issuance year. IMPORTANT NOTE: SAME does NOT specify a year in the header! It simply <a class="funny-haha" target="_blank" href="https://youtu.be/mOvhHim78YA?t=199">assumes</a> that all alerts are issued for the current year. EAS-Tools follows this assumption and automatically uses the current year when processing SAME headers.</p>
+                </section>
+                <section>
+                    <h3>Tool: Decoder</h3>
+                    <p>The Decoder tool allows you to decode EAS SAME headers, either from real-time audio via your computer's microphone inputs, or via a pre-recorded audio file.</p>
+                    <p>To use the Decoder tool, follow these steps:</p>
+                    <ol>
+                        <li>Select the "Start Decoder" button to decode live audio from your microphone. Otherwise, select "Upload Audio File" to upload a pre-recorded audio file.</li>
+                        <li>Wait for an alert to come in on whatever microphone input you chose, or wait for your file to be processed by the JavaScript decoder.</li>
+                        <li>Once a SAME header is detected, it will be displayed in the output section alongside a "View Alert" button.</li>
+                        <li>Click the "View Alert" button to see detailed information about the decoded SAME header.</li>
+                        <li>(optional) Click "Clear Logs" to clear the output section.</li>
+                    </ol>
+                    <p>The output section will display the decoded SAME header information, including all relevant fields and their values. This can be useful for verifying the accuracy of the decoding process and your own personal knowledge of the SAME protocol.</p>
+                </section>
+                <section>
+                    <h3>Tool: Encoder</h3>
+                    <p>The Encoder tool allows you to create full EAS alerts by filling out a form with the necessary information. Once the form is completed, you can generate a valid alert for lab, testing, hobbyist, and educational purposes only.</p>
+                    <p>To use the Encoder tool, follow these steps:</p>
+                    <ol>
+                        <li>Choose your header generation mode. If you choose "Build your own", you can customize every part of the generated alert. If "Custom header" is chosen instead, you can only paste an existing SAME header into the form.</li>
+                        <li>Fill out the form with the required information, including the event type, originator, effective time, start date/time, sender ID, and locations.</li>
+                        <li>Choose some settings related to the generated audio, such as the type of attention tone used, how long the attention tone should last, extra marks (for SAGE-sounding encoding), extra spaces (for NWR encoding), and if you want the audio clipped (for authenticity).</li>
+                        <li>Select an announcement type, if any. The default is "No Announcement". You can choose that, "Text-to-Speech Announcement", or "Custom Audio Announcement".</li>
+                        <li>If you chose "Text-to-Speech Announcement", enter the announcement text in the provided text area. If you chose "Custom Audio Announcement", upload your own audio file.</li>
+                        <li>Click the "Generate" button to create the EAS alert audio. If you chose to use the TTS web service, the audio will be generated for you by the server located at <a href="https://wagspuzzle.space/tools/eas-tts" target="_blank">Wags' Puzzle Space</a>. This process can either be extremely fast, or take up to 90 seconds (maximum) depending on a number of factors, like the voice used, how long your text is, things like that.</li>
+                        <li>Wait for the audio to be generated. Once complete, a "Save as wav file" button will appear, and you can play/preview the audio in-line with the audio player below the generate/save buttons.</li>
+                        <li>(optional) Click "Clear Logs" to clear the log section.</li>
+                    </ol>
+                    <p>The generated alert can then be downloaded as a simple WAV file to your local computer for later use. It is important to reiterate that this tool is intended for lab, testing, hobbyist, and educational purposes only. The author is NOT responsible for ANY misuse.</p>
+                </section>
+                <section>
+                    <h3>Tool: Text Crawl Generator</h3>
+                    <p>The Text Crawl Generator tool allows you to create scrolling text crawls that can be used in conjunction with EAS alert audio. Note, however, you must generate the audio and crawl separately and combine them using an outside tool like <a href="https://ffmpeg.org/" target="_blank">ffmpeg</a> or a standard video editor, you can NOT combine them with this tool alone. You can customize pretty much any aspect of the crawl that is generated to fit your needs or scenario.</p>
+                    <p>To use the Text Crawl Generator tool, follow these steps:</p>
+                    <ol>
+                        <li>Select a crawl text source. You can choose to enter your own text, or use a SAME header. SAME headers pull the alert text using a JavaScript port of the Python library <a href="https://github.com/Newton-Communications/E2T" target="_blank">EAS2Text</a>.</li>
+                        <li>If you chose "Custom Text", enter your desired crawl text in the provided text area. If you chose "Generate from EAS Header", enter a valid SAME header in the input field.</li>
+                        <li>The following aspects of the crawl can be customized for maximum effect: Speed (how fast the crawl scrolls), "VDS Mode" (see <a href="https://www.youtube.com/watch?v=W3r1ZnIkYx8" target="_blank">here</a> for an example of VDS Mode in action in a real alert, specifically noting how the letters "pop up" like a typewriter), font size/family/style (bold/italic/bold italic, or normal), crawl width/height/inset (how far the text is inset from the edges), top left location (if you need the crawl to be dynamically located on a custom screen, for example), restart delay (how long to wait before restarting the crawl), and export repetitions (how many times to repeat the crawl in exports, the live display loops infinitely), text color, background mode (select from "Solid, Transparent, Custom Image, or from a pre-defined image library included with EAS-Tools), and finally, text outline color/width/join style. Whew!</li>
+                        <li>Click the "Start Crawl" button to create the text crawl.</li>
+                        <li>Wait for the crawl to be generated. Once complete, a preview of the text crawl will be displayed below the button controls.</li>
+                        <li>Click "Pause Crawl" to pause the text crawl in place. Use the "Previous Frame" or "Next Frame" controls to go frame-by-frame. Click "Stop/Reset" to reset the crawl position to the start. Click "Export as GIF" or "Export as video (.webm)" to save your crawl to a file, GIF and WebM are supported. You can also click "Copy to Clipboard" to copy the crawl text to your clipboard (especially helpful for E2T crawl text).</li>
+                        <li>(optional) Click "Clear Logs" to clear the log section.</li>
+                    </ol>
+                    <p>The generated text crawl can then be used in conjunction with EAS alerts or for other purposes as needed.</p>
+                </section>
+                <section>
+                    <h3>Tool: Audio Splicer</h3>
+                    <p>The Audio Splicer tool allows you to splice together multiple audio files into a single audio file. This can be useful for creating custom EAS alerts that include multiple segments, or customizing an alert to use different voices within the alert.</p>
+                    <p>To use the Audio Splicer tool, follow these steps:</p>
+                    <ol>
+                        <li>Choose whether to load an audio file, add TTS, or use both interchangeably at will.</li>
+                        <li>If you chose to load an audio file, click the "Load File" button to select and upload your desired audio file(s). You can upload multiple files if needed.</li>
+                        <li>If you chose to add TTS, enter your desired text in the provided text area, select a voice from the dropdown menu, and click the "Generate TTS" button to create the TTS audio segment.</li>
+                        <li>Repeat steps 2 and 3 as needed to add as many audio segments to the timeline as needed.</li>
+                        <li>Once all desired audio segments have been added, arrange them however you see fit using the timeline controls below the waveform preview and other button controls. You can split the selected audio into left/right (selected/unselected), join all segments into one singular segment, trim to selection, delete selection, and save selection as a independent segment.</li>
+                        <li>You can then preview individual segments, the currently selected segment in the waveform editor, and the whole audio file within the interface. You are also able to rename sections and move them up and down in the timeline, or remove them entirely.</li>
+                        <li>You can also insert silence as needed, adjust the loudness of the entire audio, and use macros! Macros determine how the audio will sound after some choice post-processing. By default, no macro is selected, but you can only add one at a time. To chain macros, export and re-import your audio. You can also add static noise as needed to your macro for maximum effect.</li>
+                        <li>Click the "Export WAV" button to create the final spliced audio file with NO MACROS. If you wish to have macros, instead click "Export WAV with Macro".</li>
+                        <li>Once you have exported your audio, it will automatically download it to your local computer for later use.</li>
+                        <li>(optional) Click "Clear Project" to clear the ENTIRE project and start over. YOU WILL LOSE ALL YOUR PREVIOUS PROGRESS!</li>
+                    </ol>
+                    <p>The spliced audio can then be downloaded as a single WAV file to your local computer for later use. Projects are saved on any edit action, and are stored locally, on your device, so you can resume your previous session with ease.</p>
+                </section>
+                <section>
+                    <h3>Troubleshooting</h3>
+                    <p>If you encounter any issues while using EAS-Tools, here are some common troubleshooting steps to help resolve them:</p>
+                    <ul>
+                        <li>Ensure that you are using a compatible web browser. EAS-Tools is designed to work with modern browsers such as Google Chrome, Mozilla Firefox, and Microsoft Edge. Other browsers are untested, and may not function as expected. If you run into any issues, try switching to one of these supported browsers.</li>
+                        <li>Clear your browser cache and cookies. Sometimes, cached data can cause issues with web applications. Clearing your cache and cookies can help resolve these problems.</li>
+                        <li>Ensure JavaScript is enabled in your browser settings. EAS-Tools relies on JavaScript for its functionality, so make sure it is not blocked or disabled. Otherwise, it's pretty useless without JS enabled.</li>
+                        <li>Check for any browser extensions or plugins that may interfere with EAS-Tools. Some extensions can block certain scripts or functionalities, so try disabling them temporarily to see if it resolves the issue. Ad blockers should not interfere normally with the functionality of EAS-Tools (there are no ads/trackers anywhere to speak of, anyhow...), but privacy-focused extensions may cause issues.</li>
+                        <li>Ensure that your internet connection is stable. A weak or intermittent connection can cause issues with loading or using EAS-Tools. Once the tools are fully loaded in, you should be able to use all of them offline if you want, but a stable internet connection is recommended for the best experience.</li>
+                        <li>If you are using the Decoder tool, ensure that your microphone is properly connected and configured. Check your browser's permissions to make sure it has access to your microphone. The audio coming in from the mic needs to be relatively clean to be processed correctly.</li>
+                        <li>If you are using the Encoder/Splicer tools with Text-to-Speech announcements, ensure that you have a stable internet connection, as the TTS generation is performed on an external server.</li>
+                        <li>Refer to the FAQ section above for answers to common questions and issues. You may find a solution to your problem there.</li>
+                        <li>If you continue to experience any issues, consider reaching out for help and support. You can report bugs or request features by visiting the project's <a href="https://github.com/wagwan-piffting-blud/EAS-Tools/issues">GitHub Issues</a> page.</li>
+                    </ul>
+                    <p>By following these fairly straightforward troubleshooting steps, you should be able to resolve most common issues encountered while using EAS-Tools. If you need further assistance, don't hesitate to seek help from the community or myself.</p>
+                </section>
+                <p>You made it! Congratulations on reaching the end of the FAQ/Docs. Have a cookie! 🍪</p>
+            </article>
+        </main>
+        <footer></footer>
+        <script src="assets/js/footer.js"></script>
+        <script>
+            const faqNavLinks = document.querySelectorAll('#faq-nav-ul li a');
+            const faqSections = document.querySelectorAll('main article section');
+
+            faqNavLinks.forEach((link, index) => {
+                faqSections[index].id = `faq-section-${index + 1}`;
+                link.href = `#${faqSections[index].id}`;
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    faqSections[index].scrollIntoView({ behavior: 'smooth' });
+                    window.history.pushState(null, null, `#${faqSections[index].id}`);
+                });
+            });
+
+            const docNavLinks = document.querySelectorAll('#doc-nav-ul li a');
+            const docSections = document.querySelectorAll('main article:nth-of-type(2) section');
+
+            docNavLinks.forEach((link, index) => {
+                docSections[index].id = `doc-section-${index + 1}`;
+                link.href = `#${docSections[index].id}`;
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    docSections[index].scrollIntoView({ behavior: 'smooth' });
+                    window.history.pushState(null, null, `#${docSections[index].id}`);
+                });
+            });
+        </script>
+    </body>
+</html>

@@ -1,3 +1,4 @@
+/* Animation CSS */
 @keyframes fill-progress {
   0% {
     width: 0;
@@ -5,6 +6,15 @@
   100% {
     width: 40vw;
   }
+}
+
+@keyframes rainbow-animation {
+    0% {
+        background-position: 0%;
+    }
+    100% {
+        background-position: 100%;
+    }
 }
 
 /* Element-level CSS */
@@ -154,6 +164,17 @@ button[disabled] {
 }
 
 /* ID-level CSS */
+#faq-link {
+    background: linear-gradient(270deg, #ff0000, #ff7f00, #ffff00, #00ff00, #5b5bf1, #7612bd, #8b00ff, #ff0000);
+    background-size: 1400% 1400%;
+    -webkit-background-clip: text;
+    -moz-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: rainbow-animation 60s ease infinite;
+}
+
 #audioPlayback {
     display: block;
     margin-top: 8px;
@@ -378,6 +399,11 @@ button[disabled] {
 }
 
 /* Class-level CSS */
+.funny-haha {
+    color: #f5f5f5 !important;
+    text-decoration: none;
+}
+
 .codemirror-example > .cm-s-dracula .CodeMirror-cursor {
     border-left: solid thin #282a36 !important;
 }
@@ -1003,5 +1029,13 @@ button[disabled] {
     .generatedHeader {
         background-color: #f5f5f5 !important;
         color: #050505 !important;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
     }
 }

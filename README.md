@@ -127,7 +127,7 @@ Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, 
 
 ### Documentation
 
-For more detailed documentation on the TTS feature, see the [docs page](https://wagwan-piffting-blud.github.io/EAS-Tools/docs.html).
+For more detailed documentation on the TTS feature, see the [TTS docs page](https://wagwan-piffting-blud.github.io/EAS-Tools/tts-docs.html).
 
 If you need help coming up with phonemes/pronunciations for the TTS voice of your choosing, check out the [TTS Phoneme Helper GPT](https://chatgpt.com/g/g-6919e0f83e4c8191b57400362668981c-tts-phoneme-helper) **(NOTE: Requires a free ChatGPT account)**.
 

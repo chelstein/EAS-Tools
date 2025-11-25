@@ -2,11 +2,12 @@ const footer = document.querySelector('footer');
 
 footer.innerHTML = `
 <ul class="footer-links">
+    <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
     <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
     <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
     <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
     <li><p><span id="tts-requests-counter">0/20</span> TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
-    <li><p><a href="docs.html">TTS Documentation</a></p></li>
+    <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
 </ul>
 `;
