@@ -828,7 +828,7 @@
         const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
             ? recordedMsPerFrame
             : fallbackMsPerFrame;
-        const MIN_CAPTURE_FPS = 60;
+        const MIN_CAPTURE_FPS = 30;
         const captureFrameDelay = 1000 / MIN_CAPTURE_FPS;
         const frameDelay = Math.max(1, Math.min(targetMsPerFrame, captureFrameDelay));
         const speedPerSecond = getGeneratorSpeedPerSecond(generator);
@@ -2272,7 +2272,7 @@
         const maxLineLength = 35;
         const maxLinesPerPage = 14;
 
-        const lines = rawText.replace(/; /g, '\n').split('\n');
+        const lines = rawText.replace(/; /g, ';\n').split('\n');
         const formattedLines = [];
 
         lines.forEach((line) => {
@@ -2308,54 +2308,62 @@
         return pages;
     }
 
-    async function formatDasdecEAS2Text(rawHeader) {
-        const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
-        const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value || 'UTC', tzLocal: document.getElementById('crawlUseLocalTZ').checked });
+    async function formatDasdec(rawHeader, e2tMode) {
+        let fullText = '';
 
-        const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system');
-        const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
+        if(e2tMode === true) {
+            const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
+            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value || 'UTC', tzLocal: document.getElementById('crawlUseLocalTZ').checked });
 
-        const fipsParts = [...eas.FIPSText];
-        let dasdecFips = '';
+            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system');
+            const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
 
-        for (let i = 0; i < fipsParts.length; i++) {
-            const part = fipsParts[i];
-            const stateMatch = part.match(/\b([A-Z]{2})$/);
-            let countyName = part;
-            let stateAbbr = null;
+            const fipsParts = [...eas.FIPSText];
+            let dasdecFips = '';
 
-            if (stateMatch) {
-                stateAbbr = stateMatch[1];
-                countyName = part.slice(0, part.length - 4).trim();
+            for (let i = 0; i < fipsParts.length; i++) {
+                const part = fipsParts[i];
+                const stateMatch = part.match(/\b([A-Z]{2})$/);
+                let countyName = part;
+                let stateAbbr = null;
+
+                if (stateMatch) {
+                    stateAbbr = stateMatch[1];
+                    countyName = part.slice(0, part.length - 4).trim();
+                }
+
+                dasdecFips += countyName;
+
+                const nextPart = fipsParts[i + 1];
+                const nextStateMatch = nextPart ? nextPart.match(/\b([A-Z]{2})$/) : null;
+                const nextStateAbbr = nextStateMatch ? nextStateMatch[1] : null;
+
+                if (stateAbbr && nextStateAbbr !== stateAbbr) {
+                    dasdecFips += `, ${stateAbbr};\n`;
+                } else if (stateAbbr && !nextStateAbbr) {
+                    dasdecFips += `, ${stateAbbr};\n`;
+                } else {
+                    dasdecFips += ';\n';
+                }
             }
 
-            dasdecFips += countyName;
+            const fipscodes = dasdecFips.trim();
 
-            const nextPart = fipsParts[i + 1];
-            const nextStateMatch = nextPart ? nextPart.match(/\b([A-Z]{2})$/) : null;
-            const nextStateAbbr = nextStateMatch ? nextStateMatch[1] : null;
-
-            if (stateAbbr && nextStateAbbr !== stateAbbr) {
-                dasdecFips += `, ${stateAbbr};\n`;
-            } else if (stateAbbr && !nextStateAbbr) {
-                dasdecFips += `, ${stateAbbr};\n`;
-            } else {
-                dasdecFips += ';\n';
-            }
+            fullText = (
+                `${orgText.toUpperCase()}\n` +
+                `has issued ${eas.evntText.toUpperCase()}\n` +
+                `for the following counties or\nareas:\n` +
+                `${fipscodes}\n` +
+                `at ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n` +
+                `on ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n` +
+                `Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` +
+                msgFrom
+            );
         }
 
-        const fipscodes = dasdecFips.trim();
-
-        const fullText = (
-            `${orgText.toUpperCase()}\n` +
-            `has issued ${eas.evntText.toUpperCase()}\n` +
-            `for the following counties or\nareas:\n` +
-            `${fipscodes}\n` +
-            `at ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n` +
-            `on ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n` +
-            `Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` +
-            msgFrom
-        );
+        else {
+            fullText = rawHeader;
+        }
 
         const pages = formatDasdecPages(fullText);
         return pages;
@@ -2483,8 +2491,8 @@
                     else if (descriptor.source === 'dasdec') {
                         stopDasdecRotationState();
                         window.__dasdecBackground = null;
-                        const rawHeader = document.getElementById('crawlRawHeader').value;
-                        let pages = await formatDasdecEAS2Text(rawHeader);
+                        const rawHeader = document.getElementById('crawlMode').value === "header" ? document.getElementById('crawlRawHeader').value : document.getElementById('crawlText').value;
+                        let pages = await formatDasdec(rawHeader, document.getElementById('crawlMode').value === "header" ? true : false);
                         pages = Array.isArray(pages) ? pages : [];
 
                         const renderedPages = (await Promise.all(pages.map((page) => generateDasdecScreenImage(page)))).filter(Boolean);
