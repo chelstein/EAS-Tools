@@ -52,38 +52,39 @@
     const fontLoader = async () => {
         const fontDir = './assets/fonts/';
         const fontsToLoad = [
-            { family: 'Arial', file: 'arial.ttf' },
-            { family: 'Verdana', file: 'verdana.ttf' },
-            { family: 'Helvetica', file: 'helvetica.ttf' },
-            { family: 'Times New Roman', file: 'times.ttf' },
-            { family: 'Courier New', file: 'couriernew.ttf' },
-            { family: 'Georgia', file: 'georgia.ttf' },
-            { family: 'Trebuchet MS', file: 'trebuchetms.ttf' },
-            { family: 'Impact', file: 'impact.ttf' },
-            { family: 'Comic Sans MS', file: 'comic.ttf' },
-            { family: 'STV5730A', file: 'stv5730a.ttf' },
-            { family: 'VCREAS', file: 'VCREAS.ttf' },
-            { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf' },
-            { family: 'Akzidenz', file: 'Akzidenz.ttf' },
-            { family: 'Helvetica Narrow', file: 'helvn.ttf' },
-            { family: 'Swiss721', file: 'Swiss721.ttf' },
-            { family: 'UPD6465', file: 'UPD6465.ttf' },
-            { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf' },
-            { family: 'PJF CharGen', file: 'pjf-chargen.ttf' },
-            { family: 'Luxi Mono', file: 'luximb.ttf' },
-            { family: 'Bitstream Vera Sans', file: 'VeraBd.ttf' },
-            { family: 'Texscan', file: 'texscan.ttf' }
+            { family: 'Arial', file: 'arial.ttf', description: 'a default Windows font' },
+            { family: 'Verdana', file: 'verdana.ttf', description: 'a default Windows font' },
+            { family: 'Helvetica', file: 'helvetica.ttf', description: 'a default Windows font' },
+            { family: 'Times New Roman', file: 'times.ttf', description: 'a default Windows font' },
+            { family: 'Courier New', file: 'couriernew.ttf', description: 'a default Windows font' },
+            { family: 'Georgia', file: 'georgia.ttf', description: 'a default Windows font' },
+            { family: 'Trebuchet MS', file: 'trebuchetms.ttf', description: 'a default Windows font' },
+            { family: 'Impact', file: 'impact.ttf', description: 'a default Windows font' },
+            { family: 'Comic Sans MS', file: 'comic.ttf', description: 'a default Windows font' },
+            { family: 'STV5730A', file: 'stv5730a.ttf', description: 'mod of "VCR EAS"/EASyPLUS font' },
+        //  { family: 'VCREAS', file: 'VCREAS.ttf' },                   // Disabled due to being a duplicate of VCREAS_4.5
+            { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf', description: 'small caps font used on VDS crawls' },
+            { family: 'Akzidenz', file: 'Akzidenz.ttf', description: 'sans-serif font used on Verizon crawls' },
+            { family: 'Helvetica Narrow', file: 'helvn.ttf', description: 'narrower version of Helvetica' },
+            { family: 'Swiss721', file: 'Swiss721.ttf', description: 'more modern sans-serif font' },
+            { family: 'UPD6465', file: 'UPD6465.ttf', description: 'font from the UPD6465 chipset' },
+            { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf', description: 'serif font used on EASyPLUS screens/crawls' },
+            { family: 'PJF CharGen', file: 'pjf-chargen.ttf', description: 'PajamaFrix\'s custom font' },
+            { family: 'Luxi Mono', file: 'luximb.ttf', description: 'monospace font used on DASDECs' },
+            { family: 'Bitstream Vera Sans', file: 'VeraBd.ttf', description: 'sans-serif font' },
+            { family: 'Texscan', file: 'texscan.ttf', description: 'older style of sans-serif crawl font' },
+            { family: 'Arial Bold', file: 'arialbd.ttf', description: 'sans-serif font used on Bevelled scrolls' },
         ];
 
         const fontSelect = document.getElementById('crawlFontFamily');
         if (!fontSelect) return;
 
         await Promise.all(
-            fontsToLoad.map(({ family, file }) => {
+            fontsToLoad.map(({ family, file, description }) => {
                 const font = new FontFace(family, `url(${fontDir}${file})`);
                 return font.load().then((loaded) => {
                     document.fonts.add(loaded);
-                    fontSelect.appendChild(new Option(family, family));
+                    fontSelect.appendChild(new Option(`${family} (${description})`, family));
                 });
             })
         );
@@ -2447,7 +2448,7 @@
 
         if(e2tMode === true) {
             const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
-            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value || 'UTC', tzLocal: document.getElementById('crawlUseLocalTZ').checked });
+            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value, useLocaleTimezone: document.getElementById('crawlUseLocalTZ').checked });
 
             const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system').replace(/Civil Authority/, 'civil authority');
             const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
@@ -2484,14 +2485,7 @@
             const fipscodes = dasdecFips.trim().replace(/ County/gi, '');
 
             fullText = (
-                `${orgText}\n` +
-                `has issued ${eas.evntText.toUpperCase()}\n` +
-                `for the following counties or\nareas:\n` +
-                `${fipscodes}\n` +
-                `at ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\n` +
-                `on ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n` +
-                `Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` +
-                msgFrom
+                `${orgText} has issued ${eas.evntText.toUpperCase().replace(/EVACUATION/, 'EVACUATION NOTICE')} for the following counties or areas:\n${fipscodes}\nat ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\non ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${msgFrom}`
             );
         }
 
