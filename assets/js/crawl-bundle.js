@@ -40,7 +40,7 @@
         'assets/screens/directv.jpg': { topLeft: { x: 0, y: 1200 } },
         'easyplus': { topLeft: { x: 0, y: 175 } },
         'easyplus_gray': { topLeft: { x: 0, y: 720 } },
-        'easyplus_gray_2plus': { topLeft: { x: 0, y: 800 } },
+        'easyplus_gray_2plus': { topLeft: { x: 0, y: 820 } },
         'dasdec': { topLeft: { x: 9999, y: 9999 } }
     });
     const ALLOWED_CRAWL_BACKGROUND_MODES = new Set(['solid', 'transparent', 'image', 'premade']);
@@ -2281,9 +2281,39 @@
         return lines.length > 1;
     }
 
-    async function generateEasyPlusMode1BackgroundImage(originatorInput, eventCodeInput) {
+    async function generateEasyPlusBackgroundImage(mode, originatorInput, eventCodeInput) {
         const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
-        const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
+        const eventCodeInputText = eventCodeInput ? eventCodeInput.trim() : '';
+        const eventCode = mapEasyplusEventCodeToFullName(eventCodeInputText);
+        const modeConfigs = {
+            mode1: {
+                background: '#000000',
+                textColor: '#ababab',
+                rendererFactory: null,
+                offsets: { headline: -173, originator: -70, issued: -3, linesStart: 60 },
+                lineSpacing: 120,
+                markTwoPlusLines: false
+            },
+            mode2: {
+                background: '#ababab',
+                textColor: '#ffffff',
+                rendererFactory: (ctx) => createTextRenderer(ctx, '#000000', 5),
+                offsets: { headline: -173, originator: -100, issued: -30, linesStart: 40 },
+                lineSpacing: 120,
+                markTwoPlusLines: true
+            }
+        };
+        const normalizedMode = (() => {
+            if (mode === 2 || mode === '2') return 'mode2';
+            if (typeof mode === 'string') {
+                const lower = mode.toLowerCase();
+                if (lower.includes('gray') || lower === 'mode2') {
+                    return 'mode2';
+                }
+            }
+            return 'mode1';
+        })();
+        const config = modeConfigs[normalizedMode] || modeConfigs.mode1;
 
         await ensureFontsReady();
         const canvas = document.createElement('canvas');
@@ -2291,9 +2321,9 @@
         canvas.height = 1080;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = config.background;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ababab';
+        ctx.fillStyle = config.textColor;
 
         const fontSize = 84;
         const fontStyle = 'normal';
@@ -2309,70 +2339,36 @@
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'center';
 
+        const renderText = config.rendererFactory
+            ? config.rendererFactory(ctx)
+            : (text, x, y) => {
+                if (text === undefined || text === null) return;
+                const stringText = typeof text === 'string' ? text : String(text);
+                if (!stringText) return;
+                ctx.fillText(stringText, x, y);
+            };
+
         const aOrAn = /^[AEIOU]/i.test(eventCode) ? ' an ' : ' a ';
         const offsetScale = fontSize / 36;
         const centerY = canvas.height / 2;
+        const headlineText = eventCodeInputText.toUpperCase() === 'EAN' || eventCodeInputText.toUpperCase() === 'EAT'
+            ? 'NATIONAL ALERT'
+            : 'EMERGENCY ALERT SYSTEM';
 
-        ctx.fillText(eventCodeInput.trim().toUpperCase() === "EAN" || eventCodeInput.trim().toUpperCase() === "EAT" ? "NATIONAL ALERT".trim() : "EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
-        ctx.fillText(originator.trim(), canvas.width / 2, centerY - 70 * offsetScale);
-        ctx.fillText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 3 * offsetScale);
+        renderText(headlineText, canvas.width / 2, centerY + config.offsets.headline * offsetScale);
+        renderText(originator.trim(), canvas.width / 2, centerY + config.offsets.originator * offsetScale);
+        renderText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY + config.offsets.issued * offsetScale);
 
         const eventCodeLines = splitTextIntoLines(eventCode.trim(), canvas.width / 2 + 150, ctx);
         eventCodeLines.forEach((line, index) => {
-            ctx.fillText(line, canvas.width / 2, centerY + 60 * offsetScale + index * 120);
+            renderText(line, canvas.width / 2, centerY + config.offsets.linesStart * offsetScale + index * config.lineSpacing);
         });
 
         const img = new Image();
         img.src = canvas.toDataURL('image/png');
-        return img;
-    }
-
-    async function generateEasyPlusMode2BackgroundImage(originatorInput, eventCodeInput) {
-        const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
-        const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
-
-        await ensureFontsReady();
-        const canvas = document.createElement('canvas');
-        canvas.width = 1920;
-        canvas.height = 1080;
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = '#ababab';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ffffff';
-
-        const fontSize = 84;
-        const fontStyle = 'normal';
-        const fontFamily = 'VCREAS_4.5';
-        const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
-            ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
-            : fontFamily;
-        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
-
-        await document.fonts.load(font);
-
-        ctx.font = font;
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'center';
-
-        const renderText = createTextRenderer(ctx, "#000000", 5);
-        const aOrAn = /^[AEIOU]/i.test(eventCode) ? ' an ' : ' a ';
-        const offsetScale = fontSize / 36;
-        const centerY = canvas.height / 2;
-
-        renderText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
-        renderText(originator.trim(), canvas.width / 2, centerY - 100 * offsetScale);
-        renderText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 30 * offsetScale);
-
-        const eventCodeLines = splitTextIntoLines(eventCode.trim(), canvas.width / 2 + 150, ctx);
-        eventCodeLines.forEach((line, index) => {
-            renderText(line, canvas.width / 2, centerY + 40 * offsetScale + index * 120);
-        });
-
-        const img = new Image();
-        img.src = canvas.toDataURL('image/png');
-        // we need to tell the generator that the image has multiple lines since this specific mode has the line count affect the layout
-        img.isTwoPlusLines = eventCodeLines.length > 1;
+        if (config.markTwoPlusLines) {
+            img.isTwoPlusLines = eventCodeLines.length > 1;
+        }
         return img;
     }
 
@@ -2567,7 +2563,7 @@
                         const originator = document.getElementById('easyplusOriginator').value;
                         const eventCode = document.getElementById('easyplusEventCode').value;
                         const [media, usesTwoPlusLayout] = await Promise.all([
-                            generateEasyPlusMode2BackgroundImage(originator, eventCode),
+                            generateEasyPlusBackgroundImage('mode2', originator, eventCode),
                             determineEasyplusMode2UsesTwoPlusLayout(eventCode)
                         ]);
                         if (media) {
@@ -2588,7 +2584,7 @@
                         easyplusSettings.style.display = 'block';
                         const originator = document.getElementById('easyplusOriginator').value;
                         const eventCode = document.getElementById('easyplusEventCode').value;
-                        const media = await generateEasyPlusMode1BackgroundImage(originator, eventCode);
+                        const media = await generateEasyPlusBackgroundImage('mode1', originator, eventCode);
                         if (media) {
                             const topLeft = getPremadeTopLeft(descriptor.source);
                             return {
