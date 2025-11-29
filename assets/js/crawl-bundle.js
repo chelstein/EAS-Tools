@@ -2313,7 +2313,7 @@
         const offsetScale = fontSize / 36;
         const centerY = canvas.height / 2;
 
-        ctx.fillText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
+        ctx.fillText(eventCodeInput.trim().toUpperCase() === "EAN" || eventCodeInput.trim().toUpperCase() === "EAT" ? "NATIONAL ALERT".trim() : "EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
         ctx.fillText(originator.trim(), canvas.width / 2, centerY - 70 * offsetScale);
         ctx.fillText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 3 * offsetScale);
 
