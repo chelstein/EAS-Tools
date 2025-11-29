@@ -40,6 +40,7 @@
         'assets/screens/directv.jpg': { topLeft: { x: 0, y: 1200 } },
         'easyplus': { topLeft: { x: 0, y: 175 } },
         'easyplus_gray': { topLeft: { x: 0, y: 720 } },
+        'easyplus_gray_2plus': { topLeft: { x: 0, y: 800 } },
         'dasdec': { topLeft: { x: 9999, y: 9999 } }
     });
     const ALLOWED_CRAWL_BACKGROUND_MODES = new Set(['solid', 'transparent', 'image', 'premade']);
@@ -72,7 +73,17 @@
         );
     };
 
-    fontLoader();
+    const fontLoaderPromise = fontLoader().catch((err) => {
+        console.error('Failed to load fonts', err);
+    });
+
+    async function ensureFontsReady() {
+        try {
+            await fontLoaderPromise;
+        } catch (err) {
+            // font load failures are logged when the loader runs
+        }
+    }
 
     window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
         window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
@@ -2149,7 +2160,23 @@
         const descriptor = parseBackgroundSelectionValue(premadeSelect.value);
         if (!descriptor) return;
         const requestId = ++premadeSizingRequestToken;
-        const initialTopLeft = getPremadeTopLeft(descriptor.source);
+        let initialTopLeft;
+        if (descriptor.source === 'easyplus_gray') {
+            const eventCodeInput = document.getElementById('easyplusEventCode');
+            const eventCode = eventCodeInput ? eventCodeInput.value : '';
+            if (eventCode) {
+                const usesTwoPlusLayout = await determineEasyplusMode2UsesTwoPlusLayout(eventCode);
+                if (requestId !== premadeSizingRequestToken) {
+                    return;
+                }
+                const layoutKey = usesTwoPlusLayout ? `${descriptor.source}_2plus` : descriptor.source;
+                initialTopLeft = getPremadeTopLeft(layoutKey);
+            } else {
+                initialTopLeft = getPremadeTopLeft(descriptor.source);
+            }
+        } else {
+            initialTopLeft = getPremadeTopLeft(descriptor.source);
+        }
         if (descriptor.source === 'dasdec') {
             updateCrawlControlsFromAsset({
                 width: 640,
@@ -2174,21 +2201,91 @@
     }
 
     function mapEasyplusOriginatorToFullName(originator) {
-        const originatorMap = window.entryPoints;
+        const originatorMap = window.entryPoints || {};
         const regex = /^(A|An|The) /gi;
         const regex2 = /rity$/gi;
-        return originatorMap[originator].replace(regex, "").replace(regex2, "rities") || originator.replace(regex, "").replace(regex2, "rities");
+        const source = (originator && originatorMap[originator]) ? originatorMap[originator] : originator;
+        if (typeof source !== 'string') {
+            return '';
+        }
+        return source.replace(regex, "").replace(regex2, "rities");
     }
 
     function mapEasyplusEventCodeToFullName(eventCode) {
-        const eventCodeMap = window.events;
-        return eventCodeMap[eventCode] || eventCode;
+        const eventCodeMap = window.events || {};
+        const regex = /^national emergency/gi;
+        const source = (eventCode && eventCodeMap[eventCode]) ? eventCodeMap[eventCode] : eventCode;
+        if (typeof source !== 'string') {
+            return '';
+        }
+        return source.replace(regex, "Emergency");
+    }
+
+    function splitTextIntoLines(text, maxWidth, ctx) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        words.forEach(word => {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        });
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        return lines;
+    }
+
+    let easyplusMode2MeasureContext = null;
+
+    function getEasyplusMode2MeasureContext() {
+        if (easyplusMode2MeasureContext && easyplusMode2MeasureContext.canvas) {
+            return easyplusMode2MeasureContext;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        easyplusMode2MeasureContext = canvas.getContext('2d');
+        return easyplusMode2MeasureContext;
+    }
+
+    async function determineEasyplusMode2UsesTwoPlusLayout(eventCodeInput) {
+        await ensureFontsReady();
+        const ctx = getEasyplusMode2MeasureContext();
+        if (!ctx) {
+            return false;
+        }
+        const fontSize = 84;
+        const fontStyle = 'normal';
+        const fontFamily = 'VCREAS_4.5';
+        const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
+            ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
+            : fontFamily;
+        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
+        await document.fonts.load(font);
+        ctx.font = font;
+        const normalizedInput = typeof eventCodeInput === 'string' ? eventCodeInput.trim() : '';
+        const eventCode = mapEasyplusEventCodeToFullName(normalizedInput);
+        if (!eventCode) {
+            return false;
+        }
+        const lines = splitTextIntoLines(eventCode.trim(), ctx.canvas.width / 2 + 150, ctx);
+        return lines.length > 1;
     }
 
     async function generateEasyPlusMode1BackgroundImage(originatorInput, eventCodeInput) {
         const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
         const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
 
+        await ensureFontsReady();
         const canvas = document.createElement('canvas');
         canvas.width = 1920;
         canvas.height = 1080;
@@ -2219,7 +2316,11 @@
         ctx.fillText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
         ctx.fillText(originator.trim(), canvas.width / 2, centerY - 70 * offsetScale);
         ctx.fillText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 3 * offsetScale);
-        ctx.fillText(eventCode.trim(), canvas.width / 2, centerY + 65 * offsetScale);
+
+        const eventCodeLines = splitTextIntoLines(eventCode.trim(), canvas.width / 2 + 150, ctx);
+        eventCodeLines.forEach((line, index) => {
+            ctx.fillText(line, canvas.width / 2, centerY + 60 * offsetScale + index * 120);
+        });
 
         const img = new Image();
         img.src = canvas.toDataURL('image/png');
@@ -2230,6 +2331,7 @@
         const originator = mapEasyplusOriginatorToFullName(originatorInput ? originatorInput.trim() : '').replace(/A Primary/gi, 'Primary');
         const eventCode = mapEasyplusEventCodeToFullName(eventCodeInput ? eventCodeInput.trim() : '');
 
+        await ensureFontsReady();
         const canvas = document.createElement('canvas');
         canvas.width = 1920;
         canvas.height = 1080;
@@ -2261,10 +2363,16 @@
         renderText("EMERGENCY ALERT SYSTEM".trim(), canvas.width / 2, centerY - 173 * offsetScale);
         renderText(originator.trim(), canvas.width / 2, centerY - 100 * offsetScale);
         renderText(('Issued' + aOrAn).trim(), canvas.width / 2, centerY - 30 * offsetScale);
-        renderText(eventCode.trim(), canvas.width / 2, centerY + 35 * offsetScale);
+
+        const eventCodeLines = splitTextIntoLines(eventCode.trim(), canvas.width / 2 + 150, ctx);
+        eventCodeLines.forEach((line, index) => {
+            renderText(line, canvas.width / 2, centerY + 40 * offsetScale + index * 120);
+        });
 
         const img = new Image();
         img.src = canvas.toDataURL('image/png');
+        // we need to tell the generator that the image has multiple lines since this specific mode has the line count affect the layout
+        img.isTwoPlusLines = eventCodeLines.length > 1;
         return img;
     }
 
@@ -2390,6 +2498,7 @@
             : fontFamily;
         const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
 
+        await ensureFontsReady();
         await document.fonts.load(font);
 
         ctx.font = font;
@@ -2457,9 +2566,13 @@
                     else if (descriptor.source === 'easyplus_gray') {
                         const originator = document.getElementById('easyplusOriginator').value;
                         const eventCode = document.getElementById('easyplusEventCode').value;
-                        const media = await generateEasyPlusMode2BackgroundImage(originator, eventCode);
+                        const [media, usesTwoPlusLayout] = await Promise.all([
+                            generateEasyPlusMode2BackgroundImage(originator, eventCode),
+                            determineEasyplusMode2UsesTwoPlusLayout(eventCode)
+                        ]);
                         if (media) {
-                            const topLeft = getPremadeTopLeft(descriptor.source);
+                            const layoutKey = usesTwoPlusLayout ? `${descriptor.source}_2plus` : descriptor.source;
+                            const topLeft = getPremadeTopLeft(layoutKey);
                             return {
                                 image: media,
                                 width: media ? media.naturalWidth : null,
@@ -2694,15 +2807,46 @@
         const crawlBackgroundPremade = document.getElementById('crawlBackgroundPremadeSelect').value;
         const easyplusOriginator = document.getElementById('easyplusOriginator').value;
         const easyplusEventCode = document.getElementById('easyplusEventCode').value;
-        const crawlTopLeftOffsetX = document.getElementById('crawlTopLeftPixelX').value;
-        const crawlTopLeftOffsetY = document.getElementById('crawlTopLeftPixelY').value;
+        let crawlTopLeftOffsetX = document.getElementById('crawlTopLeftPixelX').value;
+        let crawlTopLeftOffsetY = document.getElementById('crawlTopLeftPixelY').value;
         const repetitions = document.getElementById('crawlRepetitions').value;
 
         if (crawlBackgroundMode === 'transparent') {
             bgColor = 'transparent';
         }
 
+        await ensureFontsReady();
         await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
+
+        const backgroundAssets = await loadCrawlBackgroundAssets(crawlBackgroundMode);
+        const isNewGenerator = !window.crawlGenerator;
+
+        if (isNewGenerator) {
+            window.crawlGenerator = new TextCrawlGenerator(crawlDisplay);
+        }
+
+        const generator = window.crawlGenerator;
+        let appliedAutoSizing = false;
+        if (crawlBackgroundMode === 'premade') {
+            const autoMeta = {
+                width: backgroundAssets.width,
+                height: backgroundAssets.height,
+                topLeft: backgroundAssets.topLeft
+            };
+            if (Number.isFinite(backgroundAssets.inset)) {
+                autoMeta.inset = backgroundAssets.inset;
+            }
+            appliedAutoSizing = updateCrawlControlsFromAsset(autoMeta, { generator });
+        }
+
+        const topLeftXInput = document.getElementById('crawlTopLeftPixelX');
+        const topLeftYInput = document.getElementById('crawlTopLeftPixelY');
+        if (topLeftXInput && topLeftXInput.value !== undefined) {
+            crawlTopLeftOffsetX = topLeftXInput.value;
+        }
+        if (topLeftYInput && topLeftYInput.value !== undefined) {
+            crawlTopLeftOffsetY = topLeftYInput.value;
+        }
 
         const settings = {
             text,
@@ -2737,27 +2881,6 @@
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
 
-        const backgroundAssets = await loadCrawlBackgroundAssets(crawlBackgroundMode);
-        const isNewGenerator = !window.crawlGenerator;
-
-        if (isNewGenerator) {
-            window.crawlGenerator = new TextCrawlGenerator(crawlDisplay);
-        }
-
-        const generator = window.crawlGenerator;
-        let appliedAutoSizing = false;
-        if (crawlBackgroundMode === 'premade') {
-            const autoMeta = {
-                width: backgroundAssets.width,
-                height: backgroundAssets.height,
-                topLeft: backgroundAssets.topLeft
-            };
-            if (Number.isFinite(backgroundAssets.inset)) {
-                autoMeta.inset = backgroundAssets.inset;
-            }
-            appliedAutoSizing = updateCrawlControlsFromAsset(autoMeta, { generator });
-        }
-
         if (!appliedAutoSizing) {
             applyCrawlSizeToGenerator(generator);
         }
@@ -2766,10 +2889,9 @@
 
         if (rawHeader && crawlMode === 'header') {
             let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
-            if (readable != 'Invalid EAS Header Format') {
-                if (readable.match(/for All of The United States/gi) && document.getElementById('endecMode').value === "EASY") {
-                    readable = readable.replace(/for All of The United States/gi, 'for the United States');
-                }
+            if (readable != 'Invalid EAS Header Format' && document.getElementById('endecMode').value === "EASY") {
+                readable = readable.replace(/for All of The United States/gi, 'for the United States').replace(/a national emergency/gi, 'an Emergency').replace(/Washington DC/gi, 'District of Columbia DC');
+
                 generator.setText(readable);
             }
             else {
