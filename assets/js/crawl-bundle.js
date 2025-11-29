@@ -52,6 +52,16 @@
     const fontLoader = async () => {
         const fontDir = './assets/fonts/';
         const fontsToLoad = [
+            { family: 'Arial', file: 'arial.ttf' },
+            { family: 'Verdana', file: 'verdana.ttf' },
+            { family: 'Helvetica', file: 'helvetica.ttf' },
+            { family: 'Times New Roman', file: 'times.ttf' },
+            { family: 'Courier New', file: 'couriernew.ttf' },
+            { family: 'Georgia', file: 'georgia.ttf' },
+            { family: 'Trebuchet MS', file: 'trebuchetms.ttf' },
+            { family: 'Impact', file: 'impact.ttf' },
+            { family: 'Comic Sans MS', file: 'comic.ttf' },
+            { family: 'STV5730A', file: 'stv5730a.ttf' },
             { family: 'VCREAS', file: 'VCREAS.ttf' },
             { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf' },
             { family: 'Akzidenz', file: 'Akzidenz.ttf' },
@@ -60,17 +70,37 @@
             { family: 'UPD6465', file: 'UPD6465.ttf' },
             { family: 'VCREAS_4.5', file: 'VCREAS_4.5.ttf' },
             { family: 'PJF CharGen', file: 'pjf-chargen.ttf' },
-            { family: 'Luxi Mono', file: 'luximb.ttf' }
+            { family: 'Luxi Mono', file: 'luximb.ttf' },
+            { family: 'Bitstream Vera Sans', file: 'VeraBd.ttf' },
+            { family: 'Texscan', file: 'texscan.ttf' }
         ];
+
+        const fontSelect = document.getElementById('crawlFontFamily');
+        if (!fontSelect) return;
 
         await Promise.all(
             fontsToLoad.map(({ family, file }) => {
                 const font = new FontFace(family, `url(${fontDir}${file})`);
                 return font.load().then((loaded) => {
                     document.fonts.add(loaded);
+                    fontSelect.appendChild(new Option(family, family));
                 });
             })
         );
+
+        const previousValue = fontSelect.value;
+        const sortedOptions = Array.from(fontSelect.options).sort((a, b) =>
+            a.text.localeCompare(b.text, undefined, { sensitivity: 'base' })
+        );
+        const frag = document.createDocumentFragment();
+        sortedOptions.forEach((option) => frag.appendChild(option));
+        fontSelect.replaceChildren(frag);
+
+        if (previousValue && sortedOptions.some((option) => option.value === previousValue)) {
+            fontSelect.value = previousValue;
+        } else if (fontSelect.selectedIndex === -1 && fontSelect.options.length) {
+            fontSelect.selectedIndex = 0;
+        }
     };
 
     const fontLoaderPromise = fontLoader().catch((err) => {
@@ -2419,7 +2449,7 @@
             const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
             const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value || 'UTC', tzLocal: document.getElementById('crawlUseLocalTZ').checked });
 
-            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system');
+            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system').replace(/Civil Authority/, 'civil authority');
             const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
 
             const fipsParts = [...eas.FIPSText];
@@ -2451,10 +2481,10 @@
                 }
             }
 
-            const fipscodes = dasdecFips.trim();
+            const fipscodes = dasdecFips.trim().replace(/ County/gi, '');
 
             fullText = (
-                `${orgText.toUpperCase()}\n` +
+                `${orgText}\n` +
                 `has issued ${eas.evntText.toUpperCase()}\n` +
                 `for the following counties or\nareas:\n` +
                 `${fipscodes}\n` +
@@ -3221,7 +3251,17 @@
         document.getElementById('endecMode').value = settings.endecMode;
         document.getElementById('crawlUseVDSMode').checked = settings.useVDSMode;
         document.getElementById('vdsFrameDelay').value = settings.vdsFrameDelay || DEFAULT_VDS_BASE_DELAY;
-        document.getElementById('crawlFontFamily').value = settings.fontFamily || 'Arial';
+        const crawlFontFamilySelect = document.getElementById('crawlFontFamily');
+        const savedFontFamily = settings.fontFamily || 'Arial';
+        if (crawlFontFamilySelect) {
+            crawlFontFamilySelect.value = savedFontFamily;
+            ensureFontsReady().then(() => {
+                const hasOption = Array.from(crawlFontFamilySelect.options || []).some((option) => option.value === savedFontFamily);
+                if (hasOption) {
+                    crawlFontFamilySelect.value = savedFontFamily;
+                }
+            });
+        }
         document.getElementById('crawlFontStyle').value = settings.fontStyle || 'normal';
         document.getElementById('crawlOutlineColor').value = settings.outlineColor || '#000000';
         document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;

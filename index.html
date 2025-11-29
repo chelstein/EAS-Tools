@@ -405,31 +405,15 @@
                     <label for="vdsFrameDelay">VDS Frame Delay (fps/hz, 1-360):</label>
                     <input type="number" id="vdsFrameDelay" min="1" max="360" value="30">
                     <hr class="shorter-hr">
+                    <label for="crawlTextColor">Font Color:</label>
+                    <input type="color" id="crawlTextColor" value="#FFFFFF">
+                    <br>
                     <label for="crawlFontSize">Font Size (pixels, 10-100):</label>
                     <input type="number" id="crawlFontSize" min="10" max="100" value="24">
                     <br>
                     <label for="crawlFontFamily">Font Family:</label>
                     <select id="crawlFontFamily">
-                        <option value="Arial" selected>Arial</option>
-                        <option value="Verdana">Verdana</option>
-                        <option value="Helvetica">Helvetica</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Courier New">Courier New</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Trebuchet MS">Trebuchet MS</option>
-                        <option value="Impact">Impact</option>
-                        <option value="Comic Sans MS">Comic Sans MS</option>
-                        <option value="Hack">Hack</option>
-                        <option value="STV5730A">STV5730A (EASyPLUS Font)</option>
-                        <option value="VCREAS">VCR EAS (older EASyPLUS Font)</option>
-                        <option value="Geneva Blue">Geneva Blue</option>
-                        <option value="Akzidenz">Akzidenz-Grotesk</option>
-                        <option value="Helvetica Narrow">Helvetica Narrow</option>
-                        <option value="Swiss721">Swiss 721</option>
-                        <option value="UPD6465">UPD6465</option>
-                        <option value="VCREAS_4.5">VCR EAS 4.5</option>
-                        <option value="PJF CharGen">PJF CharGen</option>
-                        <option value="Luxi Mono">Luxi Mono</option>
+                        <!-- will be populated by fontLoader in crawl-bundle.js -->
                     </select>
                     <br>
                     <label for="crawlFontStyle">Font Style:</label>
@@ -464,10 +448,6 @@
                     <label for="crawlRepetitions">Crawl Export Repetitions (1-10):</label>
                     <input type="number" id="crawlRepetitions" min="1" max="10" value="1">
                     <hr class="shorter-hr">
-                    <label for="crawlTextColor">Text Color: &ensp;&ensp;&ensp;&ensp;&ensp;</label>
-                    <input type="color" id="crawlTextColor" value="#FFFFFF">
-                    <br>
-                    <br>
                     <label for="crawlBackgroundMode">Background Mode:</label>
                     <select id="crawlBackgroundMode">
                         <option value="solid" selected>Solid Color Background</option>
