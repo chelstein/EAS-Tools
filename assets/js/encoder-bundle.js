@@ -1,11 +1,11 @@
 if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
-    console.error('Uncaught error:', event.message, event.filename, event.lineno, event.error);
-  });
+    window.addEventListener('error', (event) => {
+        console.error('Uncaught error:', event.message, event.filename, event.lineno, event.error);
+    });
 
-  window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled rejection:', event.reason);
-  });
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled rejection:', event.reason);
+    });
 }
 
 (async function () {
@@ -336,7 +336,7 @@ async function fetchAndStore() {
             job.reject(error);
         } finally {
             if (typeof audioContext.close === "function") {
-                audioContext.close().catch(() => {});
+                audioContext.close().catch(() => { });
             }
             nanoTtsState.currentJob = null;
             startNextNanoTtsJob();
@@ -638,6 +638,138 @@ async function fetchAndStore() {
         }
     }
 
+    function generate_complex_tone(frequencies, modFrequency, durationSeconds) {
+        if (!frequencies || !frequencies.length) {
+            return;
+        }
+
+        var duration = typeof durationSeconds === "number" && durationSeconds > 0 ? durationSeconds : tlen;
+        var totalSamples = Math.floor(duration * SAMPLE_RATE);
+        if (totalSamples <= 0) {
+            return;
+        }
+
+        var twoPi = 2 * Math.PI;
+        var freqCount = frequencies.length;
+        var freqSteps = new Array(freqCount);
+        var phases = new Array(freqCount);
+
+        for (var i = 0; i < freqCount; i++) {
+            freqSteps[i] = (twoPi * frequencies[i]) / SAMPLE_RATE;
+            phases[i] = 0;
+        }
+
+        var modPhase = 0;
+        var modStep = modFrequency ? (twoPi * modFrequency) / SAMPLE_RATE : 0;
+        var invCount = 1 / freqCount;
+
+        for (var sampleIndex = 0; sampleIndex < totalSamples; sampleIndex++) {
+            var carrier = 0;
+            for (var j = 0; j < freqCount; j++) {
+                carrier += Math.sin(phases[j]);
+                phases[j] += freqSteps[j];
+                if (phases[j] > Math.PI) {
+                    phases[j] -= twoPi;
+                } else if (phases[j] < -Math.PI) {
+                    phases[j] += twoPi;
+                }
+            }
+            carrier *= invCount;
+
+            var modulation = modStep ? (1 + Math.sin(modPhase)) * 0.5 : 1;
+            modPhase += modStep;
+            if (modPhase > Math.PI) {
+                modPhase -= twoPi;
+            } else if (modPhase < -Math.PI) {
+                modPhase += twoPi;
+            }
+
+            var s = carrier * modulation;
+
+            if (cl) {
+                if (s > 0.79) {
+                    s = 0.79;
+                } else if (s < -0.79) {
+                    s = -0.79;
+                }
+            }
+            samples.push(s);
+        }
+    }
+
+    var pelmorexTonePromise = null;
+
+    function loadPelmorexAttentionTone() {
+        if (pelmorexTonePromise) {
+            return pelmorexTonePromise;
+        }
+
+        pelmorexTonePromise = (async function () {
+            try {
+                const response = await fetch("assets/pelmorex.wav");
+                if (!response.ok) {
+                    throw new Error("Failed to fetch Pelmorex attention tone reference.");
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const decodeContext = new (window.AudioContext || window.webkitAudioContext)();
+                const decode = decodeContext.decodeAudioData.bind(decodeContext);
+                const audioBuffer = decode.length > 1
+                    ? await new Promise((resolve, reject) => decode(arrayBuffer.slice(0), resolve, reject))
+                    : await decode(arrayBuffer.slice(0));
+
+                if (typeof decodeContext.close === "function") {
+                    decodeContext.close().catch(() => { });
+                }
+
+                const channels = Math.max(1, audioBuffer.numberOfChannels);
+                const length = audioBuffer.length;
+                const merged = new Float32Array(length);
+                const invChannels = 1 / channels;
+
+                for (let channel = 0; channel < channels; channel++) {
+                    const channelData = audioBuffer.getChannelData(channel);
+                    for (let i = 0; i < length; i++) {
+                        merged[i] += channelData[i] * invChannels;
+                    }
+                }
+
+                return audioBuffer.sampleRate === SAMPLE_RATE
+                    ? merged
+                    : resamplePcm(merged, audioBuffer.sampleRate, SAMPLE_RATE);
+            } catch (error) {
+                console.error("Unable to decode Pelmorex reference tone.", error);
+                return null;
+            }
+        })();
+
+        return pelmorexTonePromise;
+    }
+
+    async function create_pelmorex_attention_tone() {
+        const referenceTone = await loadPelmorexAttentionTone();
+        if (referenceTone && referenceTone.length) {
+            appendPcmToSamples(referenceTone);
+            return;
+        }
+
+        var tone1 = [932.33, 1046.5, 3135.96];
+        var tone2 = [440, 659.26, 3135.96];
+        var mod1 = 7271.96;
+        var mod2 = 1099.26;
+        var toneDuration = 0.5;
+        var totalDuration = 8;
+        var segmentCount = Math.round(totalDuration / toneDuration);
+
+        for (var i = 0; i < segmentCount; i++) {
+            if (i % 2 === 0) {
+                generate_complex_tone(tone1, mod1, toneDuration);
+            } else {
+                generate_complex_tone(tone2, mod2, toneDuration);
+            }
+        }
+    }
+
     function create_header_string(origin, event, locations, length, date, par) {
         var h = "";
         h += HEADER;
@@ -691,7 +823,7 @@ async function fetchAndStore() {
                     const backendMatch = voiceName.match(/\[(.*?)\]/);
                     let backend = backendMatch ? backendMatch[1] : "Unknown";
 
-                    if(voiceName.toLowerCase().includes("bal/spfy")) {
+                    if (voiceName.toLowerCase().includes("bal/spfy")) {
                         backend = "BAL";
                     }
 
@@ -871,7 +1003,7 @@ async function fetchAndStore() {
             xhr.setRequestHeader("User-Agent", "EAS-Tools/wagwan-piffting-blud.github.io");
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (xhr.status >= 200 && xhr.status < 300 && xhr.getResponseHeader("Content-Type") === "audio/wav") {
                     window.updateTTSRequestsCounter();
                     const rawPayload = xhr.response ?? xhr.responseText;
@@ -932,7 +1064,7 @@ async function fetchAndStore() {
 
                         decodePromise.then((buffer) => {
                             if (typeof audioContext.close === "function") {
-                                audioContext.close().catch(() => {});
+                                audioContext.close().catch(() => { });
                             }
 
                             const pcm = resamplePcm(buffer.getChannelData(0), buffer.sampleRate, SAMPLE_RATE);
@@ -946,7 +1078,7 @@ async function fetchAndStore() {
                             safeResolve();
                         }).catch((error) => {
                             if (typeof audioContext.close === "function") {
-                                audioContext.close().catch(() => {});
+                                audioContext.close().catch(() => { });
                             }
                             handleDecodeError(error);
                         });
@@ -1006,7 +1138,7 @@ async function fetchAndStore() {
                 }
             };
 
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 console.error("Unhandled network error occurred.", xhr.status, xhr.statusText);
                 addStatus("Unhandled network error occurred while fetching TTS audio. There will instead be silence.", "ERROR");
                 finishWithSilence();
@@ -1021,8 +1153,22 @@ async function fetchAndStore() {
         document.getElementById("save").disabled = true;
         addStatus("Generating EAS...");
 
-        create_header_tones(header);
-        if (tone) { create_nwr_tone(); } else { create_wat(); }
+        if (tone !== null) {
+            switch (tone.toString()) {
+                case "0":
+                    create_header_tones(header);
+                    create_wat();
+                    break;
+                case "1":
+                    create_header_tones(header);
+                    create_nwr_tone();
+                    break;
+                case "2":
+                    await create_pelmorex_attention_tone();
+                    break;
+            }
+        }
+
         const appendAnnouncement = (pcmRaw) => {
             const pcm = normalizeTtsPcm(pcmRaw, { targetDb: 3, maxGainDb: 24, softClip: cl, softClipK: 1.6 });
             generate_silence(Math.floor(SAMPLE_RATE * 0.25));
@@ -1119,7 +1265,18 @@ async function fetchAndStore() {
             generate_silence(SAMPLE_RATE);
         }
 
-        create_eom_tones();
+        if (tone !== null) {
+            switch (tone.toString()) {
+                case "0":
+                    create_eom_tones();
+                    break;
+                case "1":
+                    create_eom_tones();
+                    break;
+                case "2":
+                    break;
+            }
+        }
 
         document.getElementById("generate").disabled = false;
         document.getElementById("save").disabled = false;
@@ -1316,7 +1473,7 @@ async function fetchAndStore() {
         es = spaces.checked;
         var usesCustomHeader = (window.useCustom && window.mode === "header");
 
-        if(!rawinput.value && usesCustomHeader) {
+        if (!rawinput.value && usesCustomHeader) {
             alert("ZCZC header cannot be empty!");
             return;
         }
@@ -1424,7 +1581,7 @@ async function fetchAndStore() {
 
     stateselect.innerHTML = "";
 
-    stateselect.addEventListener("change", function() {
+    stateselect.addEventListener("change", function () {
         updateCounties(stateselect.value);
     });
 
@@ -1686,7 +1843,7 @@ async function fetchAndStore() {
 
     await getVoiceList();
 
-    if(!headerParam) {
+    if (!headerParam) {
         localStorage.getItem("eas-tools-encoder-settings") && (() => {
             try {
                 const savedSettings = JSON.parse(localStorage.getItem("eas-tools-encoder-settings"));
@@ -1761,7 +1918,7 @@ async function fetchAndStore() {
     voiceSelect.dispatchEvent(new Event('change'));
 
     // currently not used in main iife, but exported for console use and potential future use
-    const noaaProductToFips = function(noaaProduct) {
+    const noaaProductToFips = function (noaaProduct) {
         const regex = /([A-Z]{3}\d{3}-)(\d{3}-)*/g;
         const matches = noaaProduct.matchAll(regex);
         const locationsToPropagate = [];

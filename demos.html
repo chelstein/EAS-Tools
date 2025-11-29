@@ -1,256 +1,266 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <meta name="robots" content="index, nofollow">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>EAS Tools - TTS Voice Demos</title>
-        <link rel="stylesheet" href="assets/css/hack.css">
-        <link rel="stylesheet" href="assets/css/style.css">
-        <meta name="title" content="Emergency Alert System (EAS) Tools">
-        <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
-        <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
-        <meta name="language" content="English">
-        <meta name="image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
-        <meta name="author" content="https://github.com/wagwan-piffting-blud/">
-        <link rel="canonical" href="https://wagwan-piffting-blud.github.io/EAS-Tools/">
-        <meta property="og:type" content="website">
-        <meta property="og:title" content="Emergency Alert System (EAS) Tools">
-        <meta property="og:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
-        <meta property="og:url" content="https://wagwan-piffting-blud.github.io/EAS-Tools/">
-        <meta property="og:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
-        <meta property="og:site_name" content="EAS Tools">
-        <meta name="twitter:card" content="summary">
-        <meta name="twitter:title" content="Emergency Alert System (EAS) Tools">
-        <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
-        <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
-        <meta name="twitter:image:alt" content="Emergency Alert System Logo">
-    </head>
-    <body>
-        <header>
-            <h1><a href="/EAS-Tools/">EAS Tools - TTS Voice Demos</a></h1>
-        </header>
-        <main>
-            <article style="padding-left: 2rem; padding-right: 2rem; padding-bottom: 2rem;">
-                <h2>Text-to-Speech (TTS) Voice Demos</h2>
-                <span>This page showcases the <span id="voice-count"></span> various Text-to-Speech (TTS) voices that can be used for generating Emergency Alert System (EAS) announcements.</span>
-                <section>
-                    <h3>Available TTS Voices</h3>
-                    <p>Select a voice to hear a demo:</p>
-                    <ul id="voice-list">
-                        <!-- Voice list will be populated here by JavaScript -->
-                    </ul>
-                </section>
-                <p>Click on one of the play buttons to hear each voice in action. Choose the one you like best or fits your scenario!</p>
-                <button onclick="location.href='index.html'">Back to EAS Tools</button>
-            </article>
-        </main>
-        <footer></footer>
-        <script src="assets/js/footer.js"></script>
-    </body>
-    <script>
-        let activeAudio = null;
-        let activeButton = null;
 
-        function extractDisplayName(desc) {
-            desc = desc.replace(/[\/\\:?<>|*"']/g, '_');
-            desc = desc.replace(/^\[[^\]]+\]\s*/, "").trim();
-            desc = desc.replace(/\s*\([^)]*\)\s*$/, "").trim();
-            return desc;
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="robots" content="index, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EAS Tools - TTS Voice Demos</title>
+    <link rel="stylesheet" href="assets/css/hack.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <meta name="title" content="Emergency Alert System (EAS) Tools">
+    <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+    <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
+    <meta name="language" content="English">
+    <meta name="image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+    <meta name="author" content="https://github.com/wagwan-piffting-blud/">
+    <link rel="canonical" href="https://wagwan-piffting-blud.github.io/EAS-Tools/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Emergency Alert System (EAS) Tools">
+    <meta property="og:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+    <meta property="og:url" content="https://wagwan-piffting-blud.github.io/EAS-Tools/">
+    <meta property="og:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+    <meta property="og:site_name" content="EAS Tools">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Emergency Alert System (EAS) Tools">
+    <meta name="twitter:description"
+        content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+    <meta name="twitter:image" content="https://wagwan-piffting-blud.github.io/EAS-Tools/assets/eas-logo-banner.png">
+    <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+</head>
+
+<body>
+    <header>
+        <h1><a href="/EAS-Tools/">EAS Tools - TTS Voice Demos</a></h1>
+    </header>
+    <main>
+        <article style="padding-left: 2rem; padding-right: 2rem; padding-bottom: 2rem;">
+            <h2>Text-to-Speech (TTS) Voice Demos</h2>
+            <span>This page showcases the <span id="voice-count"></span> various Text-to-Speech (TTS) voices that can be
+                used for generating Emergency Alert System (EAS) announcements.</span>
+            <section>
+                <h3>Available TTS Voices</h3>
+                <p>Select a voice to hear a demo:</p>
+                <ul id="voice-list">
+                    <!-- Voice list will be populated here by JavaScript -->
+                </ul>
+            </section>
+            <p>Click on one of the play buttons to hear each voice in action. Choose the one you like best or fits your
+                scenario!</p>
+            <button onclick="location.href='index.html'">Back to EAS Tools</button>
+        </article>
+    </main>
+    <footer></footer>
+    <script src="assets/js/footer.js"></script>
+</body>
+<script>
+    let activeAudio = null;
+    let activeButton = null;
+
+    function extractDisplayName(desc) {
+        desc = desc.replace(/[\/\\:?<>|*"']/g, '_');
+        desc = desc.replace(/^\[[^\]]+\]\s*/, "").trim();
+        desc = desc.replace(/\s*\([^)]*\)\s*$/, "").trim();
+        return desc;
+    }
+
+    function getDemoAudioSrc(labelText, overrideName = null) {
+        const displayName = (overrideName || extractDisplayName(labelText || '')).trim();
+        if (!displayName) {
+            throw new Error(`Unable to derive voice display name from label "${labelText}"`);
+        }
+        const encodedFileName = encodeURIComponent(`${displayName} Demo.wav`);
+        return `assets/demo_files/${encodedFileName}`;
+    }
+
+    function audioHandler(playButton, audioSrc) {
+        let audioInstance = null;
+
+        function resetActiveState(instance) {
+            if (instance && activeAudio === instance) {
+                activeAudio = null;
+                activeButton = null;
+            }
+            playButton.textContent = 'Play Demo';
         }
 
-        function getDemoAudioSrc(labelText, overrideName = null) {
-            const displayName = (overrideName || extractDisplayName(labelText || '')).trim();
-            if (!displayName) {
-                throw new Error(`Unable to derive voice display name from label "${labelText}"`);
+        function ensureAudio() {
+            if (!audioInstance) {
+                audioInstance = new Audio(audioSrc);
+                audioInstance.preload = 'auto';
+                audioInstance.addEventListener('ended', () => {
+                    resetActiveState(audioInstance);
+                    audioInstance.currentTime = 0;
+                });
+                audioInstance.addEventListener('error', (event) => {
+                    console.error(`Error loading TTS demo from ${audioSrc}:`, event);
+                    resetActiveState(audioInstance);
+                    audioInstance = null;
+                });
             }
-            const encodedFileName = encodeURIComponent(`${displayName} Demo.wav`);
-            return `assets/demo_files/${encodedFileName}`;
+
+            return audioInstance;
         }
 
-        function audioHandler(playButton, audioSrc) {
-            let audioInstance = null;
+        return async () => {
+            const audio = ensureAudio();
 
-            function resetActiveState(instance) {
-                if (instance && activeAudio === instance) {
-                    activeAudio = null;
-                    activeButton = null;
-                }
-                playButton.textContent = 'Play Demo';
+            if (!audio.paused) {
+                audio.pause();
+                audio.currentTime = 0;
+                resetActiveState(audio);
+                return;
             }
 
-            function ensureAudio() {
-                if (!audioInstance) {
-                    audioInstance = new Audio(audioSrc);
-                    audioInstance.preload = 'auto';
-                    audioInstance.addEventListener('ended', () => {
-                        resetActiveState(audioInstance);
-                        audioInstance.currentTime = 0;
-                    });
-                    audioInstance.addEventListener('error', (event) => {
-                        console.error(`Error loading TTS demo from ${audioSrc}:`, event);
-                        resetActiveState(audioInstance);
-                        audioInstance = null;
-                    });
+            if (activeAudio && activeAudio !== audio) {
+                activeAudio.pause();
+                activeAudio.currentTime = 0;
+                if (activeButton) {
+                    activeButton.textContent = 'Play Demo';
                 }
-
-                return audioInstance;
+                activeAudio = null;
+                activeButton = null;
             }
 
-            return async () => {
-                const audio = ensureAudio();
-
-                if (!audio.paused) {
-                    audio.pause();
-                    audio.currentTime = 0;
-                    resetActiveState(audio);
-                    return;
+            try {
+                await audio.play();
+                playButton.textContent = 'Stop Demo';
+                activeAudio = audio;
+                activeButton = playButton;
+            } catch (error) {
+                console.error('Error playing TTS demo:', error);
+                resetActiveState(audio);
+                if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+                    audioInstance = null;
                 }
+            }
+        };
+    }
 
-                if (activeAudio && activeAudio !== audio) {
-                    activeAudio.pause();
-                    activeAudio.currentTime = 0;
-                    if (activeButton) {
-                        activeButton.textContent = 'Play Demo';
-                    }
-                    activeAudio = null;
-                    activeButton = null;
-                }
+    async function fetchVoiceList() {
+        try {
+            const cachedData = localStorage.getItem('voiceList');
+            const cacheTime = localStorage.getItem('voiceListCacheTime');
+            const now = Date.now();
 
-                try {
-                    await audio.play();
-                    playButton.textContent = 'Stop Demo';
-                    activeAudio = audio;
-                    activeButton = playButton;
-                } catch (error) {
-                    console.error('Error playing TTS demo:', error);
-                    resetActiveState(audio);
-                    if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
-                        audioInstance = null;
-                    }
+            if (cachedData && cacheTime && now - cacheTime < 7 * 24 * 60 * 60 * 1000) {
+                const data = JSON.parse(cachedData);
+                populateVoiceList(data);
+                return;
+            }
+
+            const response = await fetch('https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true');
+            const data = await response.json();
+            localStorage.setItem('voiceList', JSON.stringify(data));
+            localStorage.setItem('voiceListCacheTime', now);
+            populateVoiceList(data);
+        }
+
+        catch (error) {
+            console.error('Error fetching voice list:', error);
+            //JSON Fallback data - needs to be updated manually when voices change
+            const fallbackData = {
+                "voices": {
+                    "paul": "[VT] NWS Paul (takes longest time to process all requests)",
+                    "ScanSoft Tom_Full_22kHz": "[BAL] Scansoft Tom",
+                    "ATT Mike16": "[BAL] AT&T Mike",
+                    "ATT Crystal16": "[BAL] AT&T Crystal (Donna)",
+                    "Microsoft David Desktop": "[BAL] Microsoft David",
+                    "DECTalkPaulV1": "[DT] DECTalk Paul v1 (SAPI 4, slightly quieter)",
+                    "DECTalkHarryIgor": "[DT] DECTalk Harry\/Igor",
+                    "DECTalkFrank": "[DT] DECTalk Frank",
+                    "DECTalkDennis": "[DT] DECTalk Dennis",
+                    "DECTalkBetty": "[DT] DECTalk Betty",
+                    "DECTalkUrsula": "[DT] DECTalk Ursula",
+                    "DECTalkWendy": "[DT] DECTalk Wendy",
+                    "DECTalkRita": "[DT] DECTalk Rita",
+                    "DECTalkKit": "[DT] DECTalk Kit",
+                    "DECTalkVariableVal": "[DT] DECTalk Variable Val (identical to DECTalk Paul v1 unless pitch is modified)",
+                    "DECTalkPaulV2": "[BAL] DECTalk Paul v2 (SAPI 5, louder)",
+                    "FestvoxKal": "[FEST] Festvox Kal",
+                    "Loquendo Dave": "[BAL] Loquendo Dave",
+                    "Loquendo Allison": "[BAL] Loquendo Allison",
+                    "Cepstral David": "[BAL] Cepstral David",
+                    "Cepstral William": "[BAL] Cepstral William",
+                    "EMNet": "[EMNet] EMNet (use ZCZC EAS string as text!)",
+                    "Speechify Tom": "[BAL\/SPFY] Speechify Tom (takes longer time depending on text length)",
+                    "VE_American_English_Ava_22kHz": "[BAL] Nuance Ava (WeatherRadio Canada)",
+                    "VE_American_English_Tom_22kHz": "[BAL] Nuance Tom (WeatherRadio Canada)",
+                    "VE_Canadian_French_Chantal_22kHz": "[BAL] Nuance Chantal (WeatherRadio Canada French)",
+                    "VE_Canadian_French_Nicolas_22kHz": "[BAL] Nuance Nicolas (WeatherRadio Canada French)"
                 }
             };
+            populateVoiceList(fallbackData);
         }
+    }
 
-        async function fetchVoiceList() {
-            try {
-                const cachedData = localStorage.getItem('voiceList');
-                const cacheTime = localStorage.getItem('voiceListCacheTime');
-                const now = Date.now();
+    function populateVoiceList(data) {
+        const voiceList = document.getElementById('voice-list');
 
-                if (cachedData && cacheTime && now - cacheTime < 7 * 24 * 60 * 60 * 1000) {
-                    const data = JSON.parse(cachedData);
-                    populateVoiceList(data);
-                    return;
-                }
+        try {
+            if (data.voices) {
+                document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 2; // +2 for WASM/NanoTTS voice
+                const wasmListItem = document.createElement('li');
+                const wasmPlayButton = document.createElement('button');
+                wasmPlayButton.textContent = 'Play Demo';
+                const wasmVoiceLabel = document.createElement('span');
+                wasmVoiceLabel.textContent = '[WASM] WebAssembly (local) Voice';
+                wasmListItem.appendChild(wasmPlayButton);
+                wasmListItem.appendChild(document.createTextNode(' '));
+                wasmListItem.appendChild(wasmVoiceLabel);
+                const wasmAudioSrc = getDemoAudioSrc(wasmVoiceLabel.textContent, 'WASM');
+                wasmPlayButton.onclick = audioHandler(wasmPlayButton, wasmAudioSrc);
+                voiceList.appendChild(wasmListItem);
 
-                const response = await fetch('https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit&voicelist=true');
-                const data = await response.json();
-                localStorage.setItem('voiceList', JSON.stringify(data));
-                localStorage.setItem('voiceListCacheTime', now);
-                populateVoiceList(data);
-            }
+                const nanottsListItem = document.createElement('li');
+                const nanottsPlayButton = document.createElement('button');
+                nanottsPlayButton.textContent = 'Play Demo';
+                const nanottsVoiceLabel = document.createElement('span');
+                nanottsVoiceLabel.textContent = '[NanoTTS] NanoTTS (local) Voice';
+                nanottsListItem.appendChild(nanottsPlayButton);
+                nanottsListItem.appendChild(document.createTextNode(' '));
+                nanottsListItem.appendChild(nanottsVoiceLabel);
+                const nanottsAudioSrc = getDemoAudioSrc(nanottsVoiceLabel.textContent, 'NanoTTS');
+                nanottsPlayButton.onclick = audioHandler(nanottsPlayButton, nanottsAudioSrc);
+                voiceList.appendChild(nanottsListItem);
 
-            catch (error) {
-                console.error('Error fetching voice list:', error);
-                //JSON Fallback data - needs to be updated manually when voices change
-                const fallbackData = {
-                    "voices": {
-                        "paul": "[VT] NWS Paul (takes longest time to process all requests)",
-                        "ScanSoft Tom_Full_22kHz": "[BAL] Scansoft Tom",
-                        "ATT Mike16": "[BAL] AT&T Mike",
-                        "ATT Crystal16": "[BAL] AT&T Crystal (Donna)",
-                        "Microsoft David Desktop": "[BAL] Microsoft David",
-                        "DECTalkPaulV1": "[DT] DECTalk Paul v1 (SAPI 4, slightly quieter)",
-                        "DECTalkHarryIgor": "[DT] DECTalk Harry\/Igor",
-                        "DECTalkFrank": "[DT] DECTalk Frank",
-                        "DECTalkDennis": "[DT] DECTalk Dennis",
-                        "DECTalkBetty": "[DT] DECTalk Betty",
-                        "DECTalkUrsula": "[DT] DECTalk Ursula",
-                        "DECTalkWendy": "[DT] DECTalk Wendy",
-                        "DECTalkRita": "[DT] DECTalk Rita",
-                        "DECTalkKit": "[DT] DECTalk Kit",
-                        "DECTalkVariableVal": "[DT] DECTalk Variable Val (identical to DECTalk Paul v1 unless pitch is modified)",
-                        "DECTalkPaulV2": "[BAL] DECTalk Paul v2 (SAPI 5, louder)",
-                        "FestvoxKal": "[FEST] Festvox Kal",
-                        "Loquendo Dave": "[BAL] Loquendo Dave",
-                        "Loquendo Allison": "[BAL] Loquendo Allison",
-                        "Cepstral David": "[BAL] Cepstral David",
-                        "Cepstral William": "[BAL] Cepstral William",
-                        "EMNet": "[EMNet] EMNet (use ZCZC EAS string as text!)",
-                        "Speechify Tom": "[BAL\/SPFY] Speechify Tom (takes longer time depending on text length)"
+                for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
+                    if (voiceName.includes('EMNet')) {
+                        continue;
                     }
+                    const listItem = document.createElement('li');
+                    const playButton = document.createElement('button');
+                    playButton.textContent = 'Play Demo';
+                    const voiceLabel = document.createElement('span');
+                    voiceLabel.textContent = voiceDesc;
+                    listItem.appendChild(playButton);
+                    listItem.appendChild(document.createTextNode(' '));
+                    listItem.appendChild(voiceLabel);
+                    const audioSrc = getDemoAudioSrc(voiceDesc);
+                    playButton.onclick = audioHandler(playButton, audioSrc);
+                    voiceList.appendChild(listItem);
                 }
-                populateVoiceList(fallbackData);
+                const emnetListItem = document.createElement('li');
+                const emnetPlayButton = document.createElement('button');
+                emnetPlayButton.textContent = 'Play Demo';
+                const emnetVoiceLabel = document.createElement('span');
+                emnetVoiceLabel.textContent = '[EMNet] EMNet (uses ZCZC string as input)';
+                emnetListItem.appendChild(emnetPlayButton);
+                emnetListItem.appendChild(document.createTextNode(' '));
+                emnetListItem.appendChild(emnetVoiceLabel);
+                const emnetAudioSrc = getDemoAudioSrc(emnetVoiceLabel.textContent, 'EMNet');
+                emnetPlayButton.onclick = audioHandler(emnetPlayButton, emnetAudioSrc);
+                voiceList.appendChild(emnetListItem);
             }
         }
 
-        function populateVoiceList(data) {
-            const voiceList = document.getElementById('voice-list');
-
-            try {
-                if (data.voices) {
-                    document.getElementById('voice-count').textContent = Object.keys(data.voices).length + 2; // +2 for WASM/NanoTTS voice
-                    const wasmListItem = document.createElement('li');
-                    const wasmPlayButton = document.createElement('button');
-                    wasmPlayButton.textContent = 'Play Demo';
-                    const wasmVoiceLabel = document.createElement('span');
-                    wasmVoiceLabel.textContent = '[WASM] WebAssembly (local) Voice';
-                    wasmListItem.appendChild(wasmPlayButton);
-                    wasmListItem.appendChild(document.createTextNode(' '));
-                    wasmListItem.appendChild(wasmVoiceLabel);
-                    const wasmAudioSrc = getDemoAudioSrc(wasmVoiceLabel.textContent, 'WASM');
-                    wasmPlayButton.onclick = audioHandler(wasmPlayButton, wasmAudioSrc);
-                    voiceList.appendChild(wasmListItem);
-
-                    const nanottsListItem = document.createElement('li');
-                    const nanottsPlayButton = document.createElement('button');
-                    nanottsPlayButton.textContent = 'Play Demo';
-                    const nanottsVoiceLabel = document.createElement('span');
-                    nanottsVoiceLabel.textContent = '[NanoTTS] NanoTTS (local) Voice';
-                    nanottsListItem.appendChild(nanottsPlayButton);
-                    nanottsListItem.appendChild(document.createTextNode(' '));
-                    nanottsListItem.appendChild(nanottsVoiceLabel);
-                    const nanottsAudioSrc = getDemoAudioSrc(nanottsVoiceLabel.textContent, 'NanoTTS');
-                    nanottsPlayButton.onclick = audioHandler(nanottsPlayButton, nanottsAudioSrc);
-                    voiceList.appendChild(nanottsListItem);
-
-                    for (const [voiceName, voiceDesc] of Object.entries(data.voices)) {
-                        if (voiceName.includes('EMNet')) {
-                            continue;
-                        }
-                        const listItem = document.createElement('li');
-                        const playButton = document.createElement('button');
-                        playButton.textContent = 'Play Demo';
-                        const voiceLabel = document.createElement('span');
-                        voiceLabel.textContent = voiceDesc;
-                        listItem.appendChild(playButton);
-                        listItem.appendChild(document.createTextNode(' '));
-                        listItem.appendChild(voiceLabel);
-                        const audioSrc = getDemoAudioSrc(voiceDesc);
-                        playButton.onclick = audioHandler(playButton, audioSrc);
-                        voiceList.appendChild(listItem);
-                    }
-                    const emnetListItem = document.createElement('li');
-                    const emnetPlayButton = document.createElement('button');
-                    emnetPlayButton.textContent = 'Play Demo';
-                    const emnetVoiceLabel = document.createElement('span');
-                    emnetVoiceLabel.textContent = '[EMNet] EMNet (uses ZCZC string as input)';
-                    emnetListItem.appendChild(emnetPlayButton);
-                    emnetListItem.appendChild(document.createTextNode(' '));
-                    emnetListItem.appendChild(emnetVoiceLabel);
-                    const emnetAudioSrc = getDemoAudioSrc(emnetVoiceLabel.textContent, 'EMNet');
-                    emnetPlayButton.onclick = audioHandler(emnetPlayButton, emnetAudioSrc);
-                    voiceList.appendChild(emnetListItem);
-                }
-            }
-
-            catch (error) {
-                console.error('Error fetching voice list:', error);
-            }
+        catch (error) {
+            console.error('Error fetching voice list:', error);
         }
+    }
 
-        fetchVoiceList();
-    </script>
+    fetchVoiceList();
+</script>
+
 </html>

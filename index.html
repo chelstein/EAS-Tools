@@ -149,10 +149,38 @@
                         </optgroup>
                         <optgroup label="Administrative Events">
                             <option value="ADR">Administrative Message</option>
-                            <option value="EAN">Emergency Action Notification</option>
                             <option value="DMO">Practice/Demo Warning</option>
                             <option value="RMT">Required Monthly Test</option>
                             <option value="RWT">Required Weekly Test</option>
+                        </optgroup>
+                        <optgroup label="National-Level Events">
+                            <option value="EAN">Emergency Action Notification</option>
+                            <option value="EAT">Emergency Action Termination</option>
+                            <option value="NIC">National Information Center</option>
+                            <option value="NPT">National Periodic Test</option>
+                        </optgroup>
+                        <optgroup label="Unimplemented Codes">
+                            <option value="BHW">Biological Hazard Warning</option>
+                            <option value="BWW">Boil Water Warning</option>
+                            <option value="CHW">Chemical Hazard Warning</option>
+                            <option value="CWW">Contaminated Water Warning</option>
+                            <option value="DBA">Dam Watch</option>
+                            <option value="DBW">Dam Break Warning</option>
+                            <option value="DEW">Contagious Disease Warning</option>
+                            <option value="EVA">Evacuation Watch</option>
+                            <option value="FCW">Food Contamination Warning</option>
+                            <option value="IBW">Iceberg Warning</option>
+                            <option value="IFW">Industrial Fire Warning</option>
+                            <option value="LSW">Landslide Warning</option>
+                            <option value="POS">Power Outage Advisory</option>
+                            <option value="WFA">Wild Fire Watch</option>
+                            <option value="WFW">Wild Fire Warning</option>
+                        </optgroup>
+                        <optgroup label="NWS Unimplemented/Misc. Codes">
+                            <option value="TXB">Transmitter Backup On</option>
+                            <option value="TXF">Transmitter Carrier Off</option>
+                            <option value="TXO">Transmitter Carrier On</option>
+                            <option value="TXP">Transmitter Primary On</option>
                         </optgroup>
                     </select>
                     <br>
@@ -231,8 +259,9 @@
                 <hr>
                 <label for="att">Select Attention Tone:</label>
                 <select id="att">
-                    <option value="1" selected>NWR Attention Tone (1050hz)</option>
-                    <option value="0">EBS/Dual Frequency Attention Tones</option>
+                    <option value="0" selected>EBS/Dual Frequency Attention Tones</option>
+                    <option value="1">NWR Attention Tone (1050hz)</option>
+                    <option value="2">Pelmorex (Alert Canada) Attention Tone (NOTE: WILL NOT INCLUDE SAME HEADERS!)</option>
                 </select>
                 <br>
                 <br>
