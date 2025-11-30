@@ -621,15 +621,17 @@ async function fetchAndStore() {
         var eom = genArray(EOM);
         generate_silence(SAMPLE_RATE);
         for (var i = 0; i < 3; i++) {
+            if (es && esmode === "crs") { extraspace(); }
             generate_afsk(eom);
+            if (es) { extraspace(); }
             generate_silence(SAMPLE_RATE);
         }
     }
 
     function create_header_tones(header) {
         var he = genArray(header);
-        //generate_silence(SAMPLE_RATE);
         for (var i = 0; i < 3; i++) {
+            // if (es && esmode === "crs") { extraspace(); } // not sure if this is implemented in NWR, will need to double-check before uncommenting
             if (em) { extramarks(); }
             generate_afsk(he);
             if (em) { extramarks(); }
@@ -1408,6 +1410,7 @@ async function fetchAndStore() {
     let ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
     let rawInput = (document.getElementById("cheader")?.value || '').trim();
     let clipSignal = document.getElementById("clip").checked;
+    let esmode = document.getElementById("esmode").value;
 
     async function generateEas() {
         encoderMode = document.getElementById("encoderMode").value;
@@ -1427,6 +1430,7 @@ async function fetchAndStore() {
         ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         rawInput = (document.getElementById("cheader")?.value || '').trim();
         clipSignal = document.getElementById("clip").checked;
+        esmode = (document.getElementById("esmode").value || 'BMH').trim();
 
         localStorage.setItem("eas-tools-encoder-settings", JSON.stringify({
             'encoderMode': encoderMode,
@@ -1439,6 +1443,7 @@ async function fetchAndStore() {
             'att': attentionTone,
             'em': extraMarks,
             'spaces': useSpaces,
+            'esmode': esmode,
             'tlen': attentionToneDuration,
             'announcementType': announcementType,
             'useOverrideTZ': overrideTZ,
@@ -1471,6 +1476,7 @@ async function fetchAndStore() {
         tone = parseInt(att.value);
         em = extram.checked;
         es = spaces.checked;
+        esmode = document.getElementById("esmode").value;
         var usesCustomHeader = (window.useCustom && window.mode === "header");
 
         if (!rawinput.value && usesCustomHeader) {
@@ -1910,6 +1916,11 @@ async function fetchAndStore() {
             ttsOuterDiv.style.display = "none";
             customAnnouncementDiv.style.display = "none";
         }
+    });
+
+    spaces.addEventListener("change", function () {
+        es = spaces.checked;
+        if (es) { document.querySelectorAll(".esmode").forEach(e => e.style.display = "inline"); } else { document.querySelectorAll(".esmode").forEach(e => e.style.display = "none"); }
     });
 
     encoderModeSelect.dispatchEvent(new Event('change'));
