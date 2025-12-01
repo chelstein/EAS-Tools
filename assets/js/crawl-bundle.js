@@ -2569,6 +2569,14 @@
                     if (descriptor.source !== 'dasdec') {
                         stopDasdecRotationState();
                     }
+
+                    if (descriptor.source !== 'easyplus' && descriptor.source !== 'easyplus_gray') {
+                        const easyplusSettings = document.getElementById('easyplusSettings');
+                        if (easyplusSettings) {
+                            easyplusSettings.style.display = 'none';
+                        }
+                    }
+
                     if (descriptor && descriptor.type === 'image') {
                         const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
                         if (media) {
@@ -3344,7 +3352,8 @@
 
     function parseEASHeaderAndUpdateEasyPlusSettings(rawHeader) {
         const regex = window.EASREGEX;
-        const match = regex.test(rawHeader.trim());
+        const match = regex.exec(rawHeader.trim());
+
         if (!match) {
             return;
         }
@@ -3409,9 +3418,14 @@
         document.addEventListener('DOMContentLoaded', initializeRawHeaderInput, { once: true });
     }
 
-    if (crawlBackgroundPremadeSelect.value.includes('easyplus')) {
+    document.getElementById('crawlBackgroundPremadeSelect').addEventListener('change', (event) => {
         const easyplusSettings = document.getElementById('easyplusSettings');
-        easyplusSettings.style.display = 'block';
-    }
+        if (event.target.value.includes('easyplus')) {
+            easyplusSettings.style.display = 'block';
+        } else {
+            easyplusSettings.style.display = 'none';
+        }
+    });
 
+    document.getElementById('crawlBackgroundPremadeSelect').dispatchEvent(new Event('change', { bubbles: true }));
 })();
