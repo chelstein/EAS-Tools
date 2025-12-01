@@ -2019,7 +2019,7 @@
     async function header_to_readable(rawHeader, tzLocal, tzName, endecMode) {
         const regex = window.EASREGEX;
 
-        if (!regex.test(rawHeader.trim())) return 'Invalid EAS Header Format';
+        if (!regex.test(rawHeader.trim())) return null;
 
         const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
 
@@ -2909,10 +2909,17 @@
 
         if (rawHeader && crawlMode === 'header') {
             let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
-            if (readable != 'Invalid EAS Header Format' && document.getElementById('endecMode').value === "EASY") {
-                readable = readable.replace(/for All of The United States/gi, 'for the United States').replace(/a national emergency/gi, 'an Emergency').replace(/Washington DC/gi, 'District of Columbia DC');
 
-                generator.setText(readable);
+            if (readable !== null) {
+                if (document.getElementById('endecMode').value === "EASY") {
+                    readable = readable.replace(/for All of The United States/gi, 'for the United States').replace(/a national emergency/gi, 'an Emergency').replace(/Washington DC/gi, 'District of Columbia DC');
+
+                    generator.setText(readable);
+                }
+
+                else {
+                    // pass
+                }
             }
             else {
                 alert('Invalid EAS Header Format. Please check your input.');
