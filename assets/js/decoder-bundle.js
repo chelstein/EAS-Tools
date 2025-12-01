@@ -679,8 +679,8 @@ async function fetchAndStore() {
         const alertName = events[header.event];
         const issueTime = header.issueTime;
         const expirationTime = getExpirationTime(issueTime, header.alertTime);
-        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})(.*)/m;
-        const cleanHeader = header.rawHeader.replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6-');
+        const regex = window.EASREGEX;
+        const cleanHeader = header.rawHeader.trim().replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6-');
 
         let eas = await EAS2Text.fromUSMessage(cleanHeader, { resources, mode: 'NONE', useLocaleTimezone: true }).catch((e) => {
             console.error("Error parsing EAS to text:", e);

@@ -2017,9 +2017,9 @@
     );
 
     async function header_to_readable(rawHeader, tzLocal, tzName, endecMode) {
-        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})-$/m;
+        const regex = window.EASREGEX;
 
-        if (!regex.exec(rawHeader)) return 'Invalid EAS Header Format';
+        if (!regex.test(rawHeader.trim())) return 'Invalid EAS Header Format';
 
         const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
 
@@ -3336,8 +3336,8 @@
     }
 
     function parseEASHeaderAndUpdateEasyPlusSettings(rawHeader) {
-        const regex = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{0,8})-$/m;
-        const match = regex.exec(rawHeader);
+        const regex = window.EASREGEX;
+        const match = regex.test(rawHeader.trim());
         if (!match) {
             return;
         }
