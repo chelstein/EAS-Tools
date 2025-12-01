@@ -1993,6 +1993,7 @@
         }
 
         destroy() {
+            // TODO: When destroying an instance with the "ENDEC Emulation mode" set to anything OTHER THAN "Trilithic EASyPLUS" AS WELL AS "Premade/Common - EASyPLUS", it breaks the text crawl generator for E2T.
             this.isAnimating = false;
             this.lastTimestamp = null;
             this._restartDelayRemaining = 0;
@@ -2926,7 +2927,7 @@
                 }
 
                 else {
-                    // pass
+                    generator.setText(readable);
                 }
             }
             else {
