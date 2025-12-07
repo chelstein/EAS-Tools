@@ -549,9 +549,21 @@
         const startTime = performance.now();
 
         const generator = window.crawlGenerator;
+        let tearDownCaptureCanvas = () => {};
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = canvas.width;
         captureCanvas.height = canvas.height;
+        captureCanvas.style.position = 'fixed';
+        captureCanvas.style.pointerEvents = 'none';
+        captureCanvas.style.opacity = '0';
+        captureCanvas.style.left = '-10000px';
+        captureCanvas.style.top = '-10000px';
+        document.body.appendChild(captureCanvas);
+        tearDownCaptureCanvas = () => {
+            if (captureCanvas && captureCanvas.parentNode) {
+                captureCanvas.parentNode.removeChild(captureCanvas);
+            }
+        };
         const captureCtx = captureCanvas.getContext('2d');
 
         const text = generator.text || '';
@@ -673,7 +685,7 @@
         }
         let delayFramesRemaining = 0;
         const reportProgress = createExportProgressReporter('GIF export');
-        const captureProgressPortion = 0.25;
+        const captureProgressPortion = 0.5;
 
         let showTime = localStorage["showTime"];
 
@@ -813,13 +825,30 @@
             return;
         }
 
+        if (typeof CCapture !== 'function') {
+            addStatus('WebM export unavailable: missing CCapture dependency.', 'ERROR');
+            return;
+        }
+
         addStatus('Exporting crawl as WebM... Please wait.');
         const startTime = performance.now();
 
         const generator = window.crawlGenerator;
+        let tearDownCaptureCanvas = () => {};
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = canvas.width;
         captureCanvas.height = canvas.height;
+        captureCanvas.style.position = 'fixed';
+        captureCanvas.style.pointerEvents = 'none';
+        captureCanvas.style.opacity = '0';
+        captureCanvas.style.left = '-10000px';
+        captureCanvas.style.top = '-10000px';
+        document.body.appendChild(captureCanvas);
+        tearDownCaptureCanvas = () => {
+            if (captureCanvas && captureCanvas.parentNode) {
+                captureCanvas.parentNode.removeChild(captureCanvas);
+            }
+        };
         const captureCtx = captureCanvas.getContext('2d');
 
         const text = generator.text || '';
@@ -870,9 +899,9 @@
         const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
             ? recordedMsPerFrame
             : fallbackMsPerFrame;
-        const MIN_CAPTURE_FPS = 30;
-        const captureFrameDelay = 1000 / MIN_CAPTURE_FPS;
-        const frameDelay = Math.max(1, Math.min(targetMsPerFrame, captureFrameDelay));
+        const MAX_CAPTURE_FPS = 60;
+        const captureFrameDelay = 1000 / MAX_CAPTURE_FPS;
+        const frameDelay = Math.max(1, Math.max(targetMsPerFrame, captureFrameDelay));
         const speedPerSecond = getGeneratorSpeedPerSecond(generator);
         const pxPerSecond = Math.max(0.5, Math.abs(speedPerSecond));
         const pxPerFrameMagnitude = pxPerSecond * (frameDelay / 1000);
@@ -925,7 +954,8 @@
         const shouldClip = inset > 0 && clipWidth > 0;
         let delayFramesRemaining = 0;
         const reportProgress = createExportProgressReporter('WebM export');
-        const captureProgressPortion = 0.25;
+        const encodeProgressPortion = Math.min(0.1, 1 / Math.max(1, totalFrames));
+        const captureProgressPortion = Math.max(0, 1 - encodeProgressPortion);
 
         let showTime = localStorage["showTime"];
 
@@ -996,161 +1026,237 @@
         const captureFps = Math.max(1, Math.min(120, Math.round(1000 / frameDelay)));
         const estimatedBitrate = Math.floor(captureCanvas.width * captureCanvas.height * captureFps * 0.3);
         const videoBitsPerSecond = Math.max(2_000_000, Math.min(25_000_000, estimatedBitrate));
-        const stream = captureCanvas.captureStream(captureFps);
-        const supportedMimeTypes = getSupportedMimeTypes('video', ['webm'], ['vp8', 'vp9', 'opus']);
-        const mimeType = supportedMimeTypes[0] || 'video/webm';
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond });
-        const recordedChunks = [];
-        let recordingFailed = false;
-
-        recorder.ondataavailable = (event) => {
-            if (event.data && event.data.size) {
-                recordedChunks.push(event.data);
+        const normalizedQuality = Math.max(0, Math.min(1, (videoBitsPerSecond - 2_000_000) / 23_000_000));
+        const MIN_CAPTURE_QUALITY = 0.3;
+        const MAX_CAPTURE_QUALITY = 0.6;
+        const captureQuality = Math.max(
+            MIN_CAPTURE_QUALITY,
+            Math.min(MAX_CAPTURE_QUALITY, MIN_CAPTURE_QUALITY + normalizedQuality * (MAX_CAPTURE_QUALITY - MIN_CAPTURE_QUALITY))
+        );
+        const downloadName = (typeof filename === 'string' && filename.toLowerCase().endsWith('.webm'))
+            ? filename.slice(0, -5)
+            : filename || 'crawl';
+        const canvasCaptureLib = (window.CanvasCaptureLib && window.CanvasCaptureLib.CanvasCapture)
+            || window.CanvasCapture;
+        const cleanupAndFail = (message) => {
+            if (typeof tearDownCaptureCanvas === 'function') {
+                tearDownCaptureCanvas();
             }
+            addStatus(message, 'ERROR');
         };
+        if (!canvasCaptureLib || typeof canvasCaptureLib.init !== 'function') {
+            cleanupAndFail('WebM export unavailable: missing CanvasCapture.');
+            return;
+        }
 
-        let recorderStopResolver;
-        const recorderStopped = new Promise((resolve) => {
-            recorderStopResolver = resolve;
-        });
-        const resolveRecorderStopped = () => {
-            if (recorderStopResolver) {
-                recorderStopResolver();
-                recorderStopResolver = null;
+        try {
+            if (typeof canvasCaptureLib.dispose === 'function') {
+                canvasCaptureLib.dispose();
             }
-        };
+        } catch (disposeError) {
+            console.warn('CanvasCapture dispose failed:', disposeError);
+        }
+
+        try {
+            canvasCaptureLib.init(captureCanvas, {
+                showRecDot: false,
+                showAlerts: false,
+                showDialogs: false,
+                verbose: false
+            });
+        } catch (initError) {
+            console.error('Failed to initialize CanvasCapture:', initError);
+            cleanupAndFail('Failed to initialize WebM capture.');
+            return;
+        }
+
+        let captureCancelled = false;
         const webmCancelToken = crawlExportController.createToken(() => {
-            if (recorder.state !== 'inactive') {
-                recorder.stop();
-            } else {
-                crawlExportController.clear(webmCancelToken);
-                addStatus('WebM export canceled.', 'WARN');
-                resolveRecorderStopped();
-            }
+            captureCancelled = true;
         });
 
-        recorder.onstop = () => {
-            const wasCancelled = crawlExportController.isCancelled(webmCancelToken);
-            if (recordingFailed) {
-                recordedChunks.length = 0;
-                crawlExportController.clear(webmCancelToken);
-                resolveRecorderStopped();
+        let exportedBlob = null;
+        let exportedFilename = `${downloadName || 'crawl'}.webm`;
+        let captureError = null;
+        let exportProgress = 0;
+        let exportProgressTimer = null;
+        let totalExportSteps = totalFrames;
+        let currentCaptureProgress = 0;
+        const applyProgress = () => {
+            const capturePortion = (totalFrames > 0 ? currentCaptureProgress / totalFrames : 1) * captureProgressPortion;
+            const exportPortion = exportProgress * (1 - captureProgressPortion);
+            reportProgress(Math.min(0.99, capturePortion + exportPortion));
+        };
+        const applyExportProgress = (value) => {
+            const nextValue = Math.max(exportProgress, Math.min(0.999, value));
+            if (nextValue <= exportProgress) {
                 return;
             }
-            if (wasCancelled) {
-                recordedChunks.length = 0;
-                crawlExportController.clear(webmCancelToken);
-                addStatus('WebM export canceled.', 'WARN');
-                resolveRecorderStopped();
+            exportProgress = nextValue;
+            applyProgress();
+        };
+        const startExportProgressSmoothing = () => {
+            if (exportProgressTimer || captureCancelled) {
                 return;
             }
-            if (!recordedChunks.length) {
-                crawlExportController.clear(webmCancelToken);
-                addStatus('No frames recorded for WebM export.', 'WARN');
-                resolveRecorderStopped();
-                return;
+            exportProgressTimer = setInterval(() => {
+                if (captureCancelled) {
+                    clearInterval(exportProgressTimer);
+                    exportProgressTimer = null;
+                    return;
+                }
+                if (exportProgress >= 0.99) {
+                    return;
+                }
+                applyExportProgress(Math.min(0.99, exportProgress + 0.01));
+            }, 250);
+        };
+        const clearExportProgressSmoothing = () => {
+            if (exportProgressTimer) {
+                clearInterval(exportProgressTimer);
+                exportProgressTimer = null;
             }
-            reportProgress(1);
-            const blob = new Blob(recordedChunks, { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+        };
+
+        let captureHandle;
+        try {
+            captureHandle = canvasCaptureLib.beginVideoRecord({
+                format: canvasCaptureLib.WEBM || 'webm',
+                name: downloadName || 'crawl',
+                fps: captureFps,
+                quality: captureQuality,
+                onExportProgress: (progress) => {
+                    applyExportProgress(progress);
+                },
+                onExport: (blob, filenameHint) => {
+                    if (captureCancelled) {
+                        return;
+                    }
+                    exportedBlob = blob;
+                    exportedFilename = filenameHint || `${downloadName || 'crawl'}.webm`;
+                },
+                onError: (error) => {
+                    captureError = error;
+                    console.error('CanvasCapture export error:', error);
+                }
+            });
+        } catch (beginError) {
+            console.error('Failed to start CanvasCapture recording:', beginError);
             crawlExportController.clear(webmCancelToken);
-            addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
-            resolveRecorderStopped();
-        };
-
-        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-        const now = (typeof performance === 'object' && typeof performance.now === 'function')
-            ? () => performance.now()
-            : () => Date.now();
-        const createFrameScheduler = (delay) => {
-            let nextTarget = now();
-            return async () => {
-                nextTarget += delay;
-                let remaining = nextTarget - now();
-                while (remaining > 1) {
-                    await sleep(Math.min(remaining - 1, 16));
-                    remaining = nextTarget - now();
-                }
-            };
-        };
-        const track = stream.getVideoTracks()[0];
-        if (track && 'contentHint' in track) {
-            track.contentHint = 'text';
+            cleanupAndFail('Failed to start WebM recording.');
+            canvasCaptureLib.dispose();
+            return;
         }
-        if (track && typeof track.applyConstraints === 'function') {
-            track.applyConstraints({ frameRate: captureFps }).catch(() => {});
-        }
-        const requestFrame = track && typeof track.requestFrame === 'function'
-            ? () => track.requestFrame()
-            : () => {};
-        const waitForNextFrame = createFrameScheduler(frameDelay);
 
-        const renderCapture = async () => {
+        if (!captureHandle) {
+            crawlExportController.clear(webmCancelToken);
+            cleanupAndFail('Failed to start WebM recording.');
+            canvasCaptureLib.dispose();
+            return;
+        }
+
+        resetVdsExportState(vdsState);
+        let offsetX = adjustedStartOffset;
+        const FRAMES_PER_YIELD = Math.max(5, Math.round(180 / Math.max(1, captureFps)));
+        const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve, 0));
+        for (let i = 0; i < totalFrames; i++) {
+            if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                captureCancelled = true;
+                break;
+            }
+            drawFrame(offsetX, i);
             try {
-                recorder.start();
-                resetVdsExportState(vdsState);
-                let offsetX = adjustedStartOffset;
-                for (let i = 0; i < totalFrames; i++) {
-                    if (crawlExportController.isCancelled(webmCancelToken)) {
-                        break;
-                    }
-                    drawFrame(offsetX, i);
-                    requestFrame();
-                    reportProgress(((i + 1) / totalFrames) * (captureProgressPortion + 0.75));
-                    if (delayFramesRemaining > 0) {
-                        delayFramesRemaining--;
-                        if (delayFramesRemaining === 0) {
-                            offsetX = adjustedStartOffset;
-                            resetVdsExportState(vdsState);
-                        }
-                    } else {
-                        offsetX -= pxPerFrameSigned;
-                        if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) || (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
-                            if (restartDelayFrames > 0) {
-                                offsetX = adjustedEndOffset;
-                                delayFramesRemaining = restartDelayFrames;
-                            } else {
-                                offsetX = adjustedStartOffset;
-                                resetVdsExportState(vdsState);
-                            }
-                        }
-                    }
-                    if (crawlExportController.isCancelled(webmCancelToken)) {
-                        break;
-                    }
-                    if (i < totalFrames - 1) {
-                        await waitForNextFrame();
-                        if (crawlExportController.isCancelled(webmCancelToken)) {
-                            break;
-                        }
-                    }
+                canvasCaptureLib.recordFrame(captureHandle);
+            } catch (recordError) {
+                console.error('Failed to record frame:', recordError);
+                captureError = recordError;
+                captureCancelled = true;
+                break;
+            }
+            currentCaptureProgress = i + 1;
+            applyProgress();
+
+            if (delayFramesRemaining > 0) {
+                delayFramesRemaining--;
+                if (delayFramesRemaining === 0) {
+                    offsetX = adjustedStartOffset;
+                    resetVdsExportState(vdsState);
                 }
-                if (recorder.state !== 'inactive') {
-                    recorder.stop();
+                continue;
+            }
+
+            offsetX -= pxPerFrameSigned;
+            if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) || (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
+                if (restartDelayFrames > 0) {
+                    offsetX = adjustedEndOffset;
+                    delayFramesRemaining = restartDelayFrames;
                 } else {
-                    resolveRecorderStopped();
-                }
-            } catch (error) {
-                console.error('WebM export failed:', error);
-                recordingFailed = true;
-                addStatus('Failed to export crawl as WebM.', 'ERROR');
-                if (recorder.state !== 'inactive') {
-                    recorder.stop();
-                } else {
-                    crawlExportController.clear(webmCancelToken);
-                    resolveRecorderStopped();
+                    offsetX = adjustedStartOffset;
+                    resetVdsExportState(vdsState);
                 }
             }
-        };
 
-        await Promise.all([renderCapture(), recorderStopped]);
+            if ((i + 1) % FRAMES_PER_YIELD === 0) {
+                await yieldToBrowser();
+                if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                    captureCancelled = true;
+                    break;
+                }
+            }
+        }
+        currentCaptureProgress = totalFrames;
+        applyProgress();
+
+        try {
+            startExportProgressSmoothing();
+            await canvasCaptureLib.stopRecord(captureHandle);
+        } catch (stopError) {
+            if (!captureCancelled) {
+                captureError = captureError || stopError;
+                console.error('CanvasCapture stop error:', stopError);
+            }
+        } finally {
+            clearExportProgressSmoothing();
+            if (!captureError && !captureCancelled) {
+                applyExportProgress(1);
+            }
+            try {
+                canvasCaptureLib.dispose();
+            } catch (cleanupError) {
+                console.warn('CanvasCapture cleanup failed:', cleanupError);
+            }
+            tearDownCaptureCanvas();
+        }
+
+        if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+            crawlExportController.clear(webmCancelToken);
+            addStatus('WebM export canceled.', 'WARN');
+            return;
+        }
+
+        if (captureError) {
+            crawlExportController.clear(webmCancelToken);
+            cleanupAndFail('Failed to export crawl as WebM.');
+            return;
+        }
+
+        if (!exportedBlob) {
+            crawlExportController.clear(webmCancelToken);
+            addStatus('No frames recorded for WebM export.', 'WARN');
+            return;
+        }
+
+        reportProgress(1);
+        const url = URL.createObjectURL(exportedBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || exportedFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        crawlExportController.clear(webmCancelToken);
+        addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
     }
 
     class TextCrawlGenerator {
@@ -1171,7 +1277,7 @@
             this.offsetX = this.canvas.width;
             this.offsetY = this.canvas.height;
             this.startFromRightInitialized = false;
-            this.msPerFrame = 1000 / 60;
+            this.msPerFrame = 1000 / 30;
             this.lastTimestamp = null;
             this.vdsMode = false;
             this.vdsBaseDelayFrames = DEFAULT_VDS_BASE_DELAY;
@@ -1993,7 +2099,6 @@
         }
 
         destroy() {
-            // TODO: When destroying an instance with the "ENDEC Emulation mode" set to anything OTHER THAN "Trilithic EASyPLUS" AS WELL AS "Premade/Common - EASyPLUS", it breaks the text crawl generator for E2T.
             this.isAnimating = false;
             this.lastTimestamp = null;
             this._restartDelayRemaining = 0;

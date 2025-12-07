@@ -145,6 +145,8 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * CodeMirror: **CodeMirror** (bundled in `assets/js/codemirror.js` and related CSS files in `assets/css/`)
 * EAS2Text: **EAS2Text** JS port by wagwan-piffting-blud (originally by Newton Communications)
 * SoX-EMScripten: **sox-emscripten** (bundled in `assets/js/sox.js` and `assets/js/sox.wasm`)
+* coi-serviceworker.js: **coi-serviceworker.js** (bundled in `assets/js/coi-serviceworker.js`)
+* canvas-capture.js: **canvas-capture.js** (bundled in `assets/js/canvas-capture.js`)
 * SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud
 
 * Inspiration / references:
@@ -158,6 +160,8 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [codemirror.js](https://codemirror.net/)
   * [EAS2Text](https://github.com/Newton-Communications/E2T/)
   * [sox-emscripten](https://github.com/rameshvarun/sox-emscripten)
+  * [coi-serviceworker.js](https://github.com/gzuidhof/coi-serviceworker)
+  * [canvas-capture.js](https://github.com/amandaghassaei/canvas-capture)
   * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.
