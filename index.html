@@ -41,6 +41,7 @@
                     <button type="button" data-tool="encoder">Encoder</button>
                     <button type="button" data-tool="crawl">Text Crawl Generator</button>
                     <button type="button" data-tool="splicer">Audio Splicer</button>
+                    <button type="button" data-tool="muxer">Video/Audio Muxer</button>
                 </div>
             </nav>
         </header>
@@ -675,9 +676,16 @@
                     <ul data-splice-segments class="splice-segment-list"></ul>
                 </div>
             </section>
+            <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
+                <h2 class="section-heading">Audio Muxer</h2>
+                <hr>
+                <div id="muxer-container">
+                    <!-- Muxer iframe will be injected here when activated -->
+                </div>
+            </section>
         </main>
         <footer></footer>
-        <script src="assets/js/coi-serviceworker.js"></script>
+        <script src="coi-serviceworker.js"></script>
         <script src="assets/js/wavefile.js"></script>
         <script src="assets/js/wave-resampler.js"></script>
         <script src="assets/js/gif.js"></script>
@@ -766,6 +774,50 @@
                     encoder: document.getElementById('encoder-panel'),
                     crawl: document.getElementById('crawl-panel'),
                     splicer: document.getElementById('splicer-panel'),
+                    muxer: document.getElementById('muxer-panel'),
+                };
+
+                const muxerContainer = document.getElementById('muxer-container');
+                let muxerIframe;
+                let muxerSrcdocPromise;
+
+                const ensureMuxerSrcdoc = () => {
+                    if (!muxerSrcdocPromise) {
+                        const baseHref = new URL('./', window.location.href).href;
+                        const muxerUrl = new URL('muxer.html', window.location.href).href;
+                        const historyShim = `<script>(function(){try{const target=${JSON.stringify(muxerUrl)};if(window.location.href!==target){window.history.replaceState(null,'',target);}}catch(err){console.warn('Muxer iframe history shim failed',err);}})();<\/script>`;
+                        muxerSrcdocPromise = fetch('muxer.html')
+                            .then((response) => response.text())
+                            .then((html) => {
+                                let transformed = html;
+                                if (!/<base\s/i.test(transformed)) {
+                                    transformed = transformed.replace('<head>', `<head><base href="${baseHref}">`);
+                                }
+                                transformed = transformed.replace('<head>', `<head>${historyShim}`);
+                                return transformed;
+                            })
+                            .catch((error) => {
+                                console.error('Failed to load muxer iframe source:', error);
+                                return '<p>Unable to load muxer.</p>';
+                            });
+                    }
+                    return muxerSrcdocPromise;
+                };
+
+                const ensureMuxerIframe = () => {
+                    if (muxerIframe || !muxerContainer) return;
+                    ensureMuxerSrcdoc().then((srcdoc) => {
+                        if (muxerIframe) return;
+                        muxerIframe = document.createElement('iframe');
+                        muxerIframe.title = 'Video/Audio Muxer';
+                        muxerIframe.allow = 'cross-origin-isolated';
+                        muxerIframe.loading = 'lazy';
+                        muxerIframe.style.width = '100%';
+                        muxerIframe.style.minHeight = '1080px';
+                        muxerIframe.style.border = '0';
+                        muxerIframe.srcdoc = srcdoc;
+                        muxerContainer.appendChild(muxerIframe);
+                    });
                 };
 
                 const requestEditorRefresh = (target) => {
@@ -774,6 +826,7 @@
                 };
 
                 const activate = (target) => {
+                    if (target === 'muxer') ensureMuxerIframe();
                     buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tool === target));
                     Object.entries(panels).forEach(([name, panel]) => {
                         panel.classList.toggle('active', name === target);

@@ -50,7 +50,7 @@
                     <ul id="faq-nav-ul">
                         <li><a href="#">What is the EAS?</a></li>
                         <li><a href="#">What is EAS-Tools?</a></li>
-                        <li><a href="#">What is SAME encoding?</a></li>
+                        <li><a href="#">What is SAME?</a></li>
                         <li><a href="#">What is AFSK modulation?</a></li>
                         <li><a href="#">What is the purpose of the EAS-Tools web application?</a></li>
                         <li><a href="#">How does EAS-Tools work?</a></li>
@@ -74,7 +74,7 @@
                     <p>EAS-Tools is a web-based application designed to help users decode and encode EAS SAME headers, generate text crawls, and splice audio files for EAS alerts. It provides a user-friendly interface for working with EAS data and is provided for lab, testing, hobbyist, and educational purposes only. The author is NOT responsible for ANY misuse.</p>
                 </section>
                 <section>
-                    <h3>What is SAME encoding?</h3>
+                    <h3>What is SAME?</h3>
                     <p><a href="https://en.wikipedia.org/wiki/Specific_Area_Message_Encoding" target="_blank">SAME (Specific Area Message Encoding)</a> is a protocol used in the EAS to encode information about emergency alerts, including the type of alert, affected areas, and duration. SAME headers are transmitted as part of the EAS message and are used by receiving devices to determine whether to activate and display the alert. You can most commonly find SAME technology in weather radios and some newer TVs using the ATSC 3 standard. The SAME tones are those 3 repeat distinctive audio signals that accompany the alert messages before and after the alert announcement (if any, usually Required Weekly Tests skip the announcement).</p>
                 </section>
                 <section>
@@ -142,6 +142,7 @@
                         <li><a href="#">Tool: Encoder</a></li>
                         <li><a href="#">Tool: Text Crawl Generator</a></li>
                         <li><a href="#">Tool: Audio Splicer</a></li>
+                        <li><a href="#">Tool: Video/Audio Muxer</a></li>
                         <li><a href="#">Troubleshooting</a></li>
                     </ul>
                 </div>
@@ -226,6 +227,19 @@
                         <li>(optional) Click "Clear Project" to clear the ENTIRE project and start over. YOU WILL LOSE ALL YOUR PREVIOUS PROGRESS!</li>
                     </ol>
                     <p>The spliced audio can then be downloaded as a single WAV file to your local computer for later use. Projects are saved on any edit action, and are stored locally, on your device, so you can resume your previous session with ease.</p>
+                </section>
+                <section>
+                    <h3>Tool: Video/Audio Muxer</h3>
+                    <p>The Video/Audio Muxer tool allows you to combine video and audio files into a single multimedia file. This can be useful for creating custom alerts that include both video and audio components.</p>
+                    <p>To use the Video/Audio Muxer tool, follow these steps:</p>
+                    <ol>
+                        <li>Click "Load FFmpeg" to load in either multi-core or single-core FFmpeg. By default, multi-core is preferred for better performance. The loader will only fall back to single-core if the multi-core environment is not supported (which is unlikely).</li>
+                        <li>Select the video and audio files you want to combine using the file input controls.</li>
+                        <li>Optionally, check "Transcode output to MP4" if you want an .mp4 file, otherwise, it will use the extension/container your video file already has (e.g., .mkv, .avi, .webm).</li>
+                        <li>Click the "Append audio to video" button to start the muxing process. The process may take a long time, depending on a number of factors, such as your machine's processing power, if FFmpeg is in multi-core mode, etc. Progress is displayed and shows where in the process the mux is at. As well, you can cancel an in-progress mux by clicking "Cancel" at any time.</li>
+                        <li>Once the muxing process is complete, a "Download result" button will appear. Click this button to download the combined video/audio file. You may also choose to preview the muxed file by using the video controls on the page below the "Append audio to video" button.</li>
+                    </ol>
+                    <p>The muxed video/audio file can then be used for various purposes, such as broadcasting or sharing alerts with both audio and video combined, without the use of an external tool or full video editor to make it.</p>
                 </section>
                 <section>
                     <h3>Troubleshooting</h3>
