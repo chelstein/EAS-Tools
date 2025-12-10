@@ -11,7 +11,7 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your mic
 
 ## Video Demo
 
-<https://github.com/user-attachments/assets/1c94417f-e8cd-4692-87f8-f86cdd671335>
+TBD
 
 ---
 
@@ -34,6 +34,14 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your mic
   * Combine multiple custom audio samples into one continuous WAV file
   * Useful for creating custom audio without the use of programs like Audacity
   * Supports inserting silence between samples, trimming audio, splits, macros, and much more
+* **Video/Audio Muxer**
+  * Combine video files with custom audio tracks using FFmpeg compiled to WebAssembly
+  * Downloadable video file with new audio track
+
+## Other highlights
+* App is almost fully client‑side; runs entirely in your browser with no server backend (except for web TTS voice model fetches)
+* Works offline after initial load (service workers and all necessary assets included in initial load)
+* Open source and freely available on GitHub (run your own copy if desired)
 
 ---
 
@@ -117,6 +125,14 @@ What you’ll see:
 3. Modify the order of the samples as needed, and optionally customize options to your liking (e.g., add silence between samples, trim audio, apply macros, etc.)
 4. Click **Export WAV** to create a single continuous WAV file for download
 
+### Video/Audio Muxer (combiner)
+
+1. Go to **Video/Audio Muxer** tab
+2. Load FFmpeg.wasm by clicking the **Load FFmpeg** button (only needs to be done once per session)
+3. Upload video and audio files to combine
+4. Click **Append audio to video** to create the combined file
+5. Download your new video with the added audio track
+
 ### Navigation
 
 Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, and **Text Crawl Generator** tools. You can also link to a specific tab using URL parameters:
@@ -124,6 +140,7 @@ Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, 
 * `?tool=encoder` – Opens the **Encoder** tab
 * `?tool=crawl` – Opens the **Text Crawl Generator** tab
 * `?tool=splicer` – Opens the **Audio Splicer** tab
+* `?tool=muxer` – Opens the **Video/Audio Muxer** tab
 
 ### Documentation
 
