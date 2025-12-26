@@ -1592,27 +1592,195 @@
         return zczcPattern.test(header.trim());
     };
 
-    const validateTtsText = (voiceId, ttsText) => {
-        const requiredBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voiceId));
+    async function validateTtsText(voice, text) {
+        const requiredBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voice));
         const normalizedBackend = requiredBackend ? requiredBackend.toLowerCase() : "";
+        let ttsText = text;
         const usesBalPhonemes = /<\s*\/?\s*(silence|pron|phoneme)/i.test(ttsText);
         const usesVtmlTags = /<\s*\/?\s*vtml/i.test(ttsText);
         const usesDtPhonemes = /\[:phoneme/i.test(ttsText);
 
         if (normalizedBackend.includes("bal")) {
-            if (usesVtmlTags || usesDtPhonemes) return false;
-            if (usesBalPhonemes && !/<(silence|pron|phoneme).*/i.test(ttsText)) return false;
-        } else if (normalizedBackend.includes("vt")) {
-            if (usesBalPhonemes || usesDtPhonemes) return false;
-            if (usesVtmlTags && !/<vtml.*/i.test(ttsText)) return false;
-        } else if (normalizedBackend.includes("dt")) {
-            if (usesBalPhonemes || usesVtmlTags) return false;
-            if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) return false;
-        } else if (!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
-            if (usesBalPhonemes || usesVtmlTags || usesDtPhonemes) return false;
+            if (usesVtmlTags || usesDtPhonemes) {
+                alert("BAL backend cannot include VT or DT phoneme markup.");
+                return false;
+            }
+
+            if (usesBalPhonemes && !/<(silence|pron|phoneme).*/i.test(ttsText)) {
+                alert("TTS Text contains invalid BAL phonemes or formatting.");
+                return false;
+            }
+
+            if (ttsText.match(/“|”/)) {
+                // We can try and fix the smart quotes
+                ttsText = ttsText.replace(/“|”/g, '"');
+                window.ttsText = ttsText;
+                return true;
+            }
+        }
+        else if (normalizedBackend.includes("vt")) {
+            if (usesBalPhonemes || usesDtPhonemes) {
+                alert("VT backend cannot include BAL or DT phoneme markup.");
+                return false;
+            }
+
+            if (usesVtmlTags && !/<vtml.*/i.test(ttsText)) {
+                alert("TTS Text contains invalid VT phonemes or formatting.");
+                return false;
+            }
+
+            if (ttsText.match(/“|”/)) {
+                // We can try and fix the smart quotes
+                ttsText = ttsText.replace(/“|”/g, '"');
+                window.ttsText = ttsText;
+                return true;
+            }
+        }
+        else if (normalizedBackend.includes("dt")) {
+            if (usesBalPhonemes || usesVtmlTags) {
+                alert("DT backend cannot include BAL or VT phoneme markup.");
+                return false;
+            }
+
+            if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) {
+                alert("TTS Text contains invalid DT phonemes or formatting.");
+                return false;
+            }
+        }
+        else if (!normalizedBackend.includes("bal") && !normalizedBackend.includes("vt") && !normalizedBackend.includes("dt")) {
+            if (usesBalPhonemes || usesVtmlTags || usesDtPhonemes) {
+                alert("Selected TTS voice backend does not support BAL, VT, or DT phoneme markup.");
+                return false;
+            }
         }
         return true;
-    };
+    }
+
+    function indexToLineCol(s, idx) {
+        let line = 1, col = 1;
+        for (let i = 0; i < idx; i++) {
+            if (s[i] === "\n") { line++; col = 1; }
+            else col++;
+        }
+        return { line, col };
+    }
+
+    function findLikelyXmlMismatch(xml) {
+        const stack = [];
+        const len = xml.length;
+
+        let i = 0;
+        while (i < len) {
+            const lt = xml.indexOf("<", i);
+            if (lt === -1) break;
+
+            i = lt;
+
+            if (i + 1 >= len) break;
+
+            const gt = xml.indexOf(">", i + 1);
+            if (gt === -1) {
+                return { type: "unterminated-tag", index: i, ...indexToLineCol(xml, i) };
+            }
+
+            const raw = xml.slice(i + 1, gt).trim();
+
+            if (raw.startsWith("?") || raw.startsWith("!")) {
+                i = gt + 1;
+                continue;
+            }
+
+            const isClose = raw.startsWith("/");
+            const isSelfClose = raw.endsWith("/");
+
+            if (isClose) {
+                const name = raw.slice(1).trim().split(/\s+/)[0];
+                const top = stack[stack.length - 1];
+
+                if (!top) {
+                    return { type: "unexpected-close", name, index: i, ...indexToLineCol(xml, i) };
+                }
+                if (top.name !== name) {
+                    return {
+                        type: "mismatched-close",
+                        got: name,
+                        expected: top.name,
+                        closeIndex: i,
+                        closeLineCol: indexToLineCol(xml, i),
+                        openIndex: top.index,
+                        ...indexToLineCol(xml, top.index),
+                    };
+                }
+                stack.pop();
+            } else if (!isSelfClose) {
+                const name = raw.split(/\s+/)[0];
+                stack.push({ name, index: i });
+            }
+
+            i = gt + 1;
+        }
+
+        if (stack.length) {
+            const top = stack[stack.length - 1];
+            return {
+                type: "unexpected-eof",
+                expectedClose: top.name,
+                openIndex: top.index,
+                ...indexToLineCol(xml, top.index),
+            };
+        }
+
+        return null;
+    }
+
+    function customAlertDiv(message) {
+        const alertDiv = document.createElement("div");
+        alertDiv.style.position = "fixed";
+        alertDiv.style.top = "50%";
+        alertDiv.style.left = "50%";
+        alertDiv.style.transform = "translate(-50%, -50%)";
+        alertDiv.style.backgroundColor = "#050505";
+        alertDiv.style.border = "2px solid #f5f5f5";
+        alertDiv.style.padding = "20px";
+        alertDiv.style.zIndex = "10000";
+        alertDiv.style.maxWidth = "80%";
+        alertDiv.style.maxHeight = "80%";
+        alertDiv.style.overflowY = "auto";
+        alertDiv.style.fontFamily = "Hack, monospace";
+        alertDiv.style.color = "#f5f5f5";
+        alertDiv.innerText = message;
+
+        const closeButton = document.createElement("button");
+        closeButton.innerText = "Close";
+        closeButton.style.marginTop = "10px";
+        closeButton.onclick = () => {
+            document.body.removeChild(alertDiv);
+        };
+        alertDiv.appendChild(closeButton);
+
+        document.body.appendChild(alertDiv);
+    }
+
+    async function validateMarkupAndText(voice, text) {
+        const isValidTextForBackend = await validateTtsText(voice, text);
+        if (!isValidTextForBackend) {
+            return false;
+        }
+        else {
+            let ttsText = text;
+            const err = findLikelyXmlMismatch(ttsText);
+            const context = 50;
+            if (err) {
+                console.log(err);
+                let substring = "";
+                substring = ttsText.slice(err.col - context, err.col + context).replace(/\n/g, " ");
+                let message = `Announcement text contains malformed XML/markup at line ${err.line}, column ${err.col}.\n\n${substring}\n${"-".repeat(context)}^${"-".repeat(context - 1)}\n\nMake sure all XML tags are properly opened and closed or are self-closing.\n`;
+                customAlertDiv(message);
+                return false;
+            }
+            return true;
+        }
+    }
 
     const getAudioFromPage = async (response) => {
         const decoder = new TextDecoder("utf-8");
@@ -2079,9 +2247,9 @@
             if (ttsStatus) ttsStatus.textContent = 'Generating…';
             try {
                 if (normalizedVoice === 'wasm' || normalizedVoice === 'nanotts') {
-                    const valid = validateTtsText(selectedVoiceValue, text);
+                    const valid = await validateMarkupAndText(selectedVoiceValue, text);
                     if (!valid) {
-                        if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes for this backend.';
+                        if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes or markup for this backend.';
                         return;
                     }
                     const { pcm, sampleRate } = await synthTts(text, normalizedVoice);
@@ -2091,9 +2259,9 @@
                     resetViewWindow();
                     drawWaveform();
                 } else {
-                    const valid = validateTtsText(selectedVoiceValue, text);
+                    const valid = await validateMarkupAndText(selectedVoiceValue, text);
                     if (!valid) {
-                        if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes for this backend.';
+                        if (ttsStatus) ttsStatus.textContent = 'Text contains invalid phonemes or markup for this backend.';
                         return;
                     }
                     const result = await fetchRemoteTtsAudio({ text, voiceId: selectedVoiceValue, overrideTZ: tz });

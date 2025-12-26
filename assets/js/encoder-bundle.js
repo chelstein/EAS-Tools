@@ -948,6 +948,132 @@ async function fetchAndStore() {
         return true;
     }
 
+    function indexToLineCol(s, idx) {
+        let line = 1, col = 1;
+        for (let i = 0; i < idx; i++) {
+            if (s[i] === "\n") { line++; col = 1; }
+            else col++;
+        }
+        return { line, col };
+    }
+
+    function findLikelyXmlMismatch(xml) {
+        const stack = [];
+        const len = xml.length;
+
+        let i = 0;
+        while (i < len) {
+            const lt = xml.indexOf("<", i);
+            if (lt === -1) break;
+
+            i = lt;
+
+            if (i + 1 >= len) break;
+
+            const gt = xml.indexOf(">", i + 1);
+            if (gt === -1) {
+                return { type: "unterminated-tag", index: i, ...indexToLineCol(xml, i) };
+            }
+
+            const raw = xml.slice(i + 1, gt).trim();
+
+            if (raw.startsWith("?") || raw.startsWith("!")) {
+                i = gt + 1;
+                continue;
+            }
+
+            const isClose = raw.startsWith("/");
+            const isSelfClose = raw.endsWith("/");
+
+            if (isClose) {
+                const name = raw.slice(1).trim().split(/\s+/)[0];
+                const top = stack[stack.length - 1];
+
+                if (!top) {
+                    return { type: "unexpected-close", name, index: i, ...indexToLineCol(xml, i) };
+                }
+                if (top.name !== name) {
+                    return {
+                        type: "mismatched-close",
+                        got: name,
+                        expected: top.name,
+                        closeIndex: i,
+                        closeLineCol: indexToLineCol(xml, i),
+                        openIndex: top.index,
+                        ...indexToLineCol(xml, top.index),
+                    };
+                }
+                stack.pop();
+            } else if (!isSelfClose) {
+                const name = raw.split(/\s+/)[0];
+                stack.push({ name, index: i });
+            }
+
+            i = gt + 1;
+        }
+
+        if (stack.length) {
+            const top = stack[stack.length - 1];
+            return {
+                type: "unexpected-eof",
+                expectedClose: top.name,
+                openIndex: top.index,
+                ...indexToLineCol(xml, top.index),
+            };
+        }
+
+        return null;
+    }
+
+    function customAlertDiv(message) {
+        const alertDiv = document.createElement("div");
+        alertDiv.style.position = "fixed";
+        alertDiv.style.top = "50%";
+        alertDiv.style.left = "50%";
+        alertDiv.style.transform = "translate(-50%, -50%)";
+        alertDiv.style.backgroundColor = "#050505";
+        alertDiv.style.border = "2px solid #f5f5f5";
+        alertDiv.style.padding = "20px";
+        alertDiv.style.zIndex = "10000";
+        alertDiv.style.maxWidth = "80%";
+        alertDiv.style.maxHeight = "80%";
+        alertDiv.style.overflowY = "auto";
+        alertDiv.style.fontFamily = "Hack, monospace";
+        alertDiv.style.color = "#f5f5f5";
+        alertDiv.innerText = message;
+
+        const closeButton = document.createElement("button");
+        closeButton.innerText = "Close";
+        closeButton.style.marginTop = "10px";
+        closeButton.onclick = () => {
+            document.body.removeChild(alertDiv);
+        };
+        alertDiv.appendChild(closeButton);
+
+        document.body.appendChild(alertDiv);
+    }
+
+    async function validateMarkupAndText() {
+        const isValidTextForBackend = await validateTtsText();
+        if (!isValidTextForBackend) {
+            return false;
+        }
+        else {
+            let ttsText = window.ttsText || "";
+            const err = findLikelyXmlMismatch(ttsText);
+            const context = 50;
+            if (err) {
+                console.log(err);
+                let substring = "";
+                substring = ttsText.slice(err.col - context, err.col + context).replace(/\n/g, " ");
+                let message = `Announcement text contains malformed XML/markup at line ${err.line}, column ${err.col}.\n\n${substring}\n${"-".repeat(context)}^${"-".repeat(context - 1)}\n\nMake sure all XML tags are properly opened and closed or are self-closing.\n`;
+                customAlertDiv(message);
+                return false;
+            }
+            return true;
+        }
+    }
+
     const resamplePcm = (pcm, sourceRate, targetRate) => {
         if (sourceRate === targetRate) {
             return pcm;
@@ -1183,8 +1309,8 @@ async function fetchAndStore() {
 
         if (window.announcementType === "tts") {
             if (normalizedVoice === "wasm") {
-                if (!await validateTtsText()) {
-                    addStatus("Your text contains invalid phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups if using the WebAssembly voices.", "ERROR");
+                if (await validateMarkupAndText() !== true) {
+                    addStatus("Your text contains invalid or incomplete phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups, if you're trying to use the WebAssembly voices.", "ERROR");
                     document.getElementById("generate").disabled = false;
                     document.getElementById("save").disabled = false;
                     generate_silence(SAMPLE_RATE);
@@ -1205,8 +1331,8 @@ async function fetchAndStore() {
                     generate_silence(SAMPLE_RATE);
                 } else {
                     try {
-                        if (!await validateTtsText()) {
-                            addStatus("Your text contains invalid phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups if using the WebAssembly voices.", "ERROR");
+                        if (await validateMarkupAndText() !== true) {
+                            addStatus("Your text contains invalid or incomplete phoneme codes for the selected backend. This text will not be processed by the voice correctly. There will instead be silence. Try getting rid of ANY phoneme markups, if you're trying to use the WebAssembly voices.", "ERROR");
                             document.getElementById("generate").disabled = false;
                             document.getElementById("save").disabled = false;
                             generate_silence(SAMPLE_RATE);
@@ -1229,8 +1355,8 @@ async function fetchAndStore() {
             }
 
             else if (selectedVoiceRaw) {
-                if (!await validateTtsText()) {
-                    addStatus("Your text contains invalid phoneme codes for the selected backend. This will not be processed by the voice correctly. There will instead be silence.", "ERROR");
+                if (await validateMarkupAndText() !== true) {
+                    addStatus("Your text contains invalid or incomplete phoneme codes for the selected backend. This will not be processed by the voice correctly. There will instead be silence.", "ERROR");
                     document.getElementById("generate").disabled = false;
                     document.getElementById("save").disabled = false;
                     generate_silence(SAMPLE_RATE);
