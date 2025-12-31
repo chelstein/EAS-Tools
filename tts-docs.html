@@ -62,7 +62,7 @@
                 <p>When using the TTS feature, users should be aware of the following:</p>
                 <ul>
                     <li>The quality of the generated speech may vary depending on the selected voice. See below for pronunciation notes and examples.</li>
-                    <li>There is a limit of 20 successful requests per day for the server-side voices to prevent abuse. This limit resets daily at midnight Central Time. All processed audio is also cleared at this time, so make sure you download your audio before then.</li>
+                    <li>There is a per-user limit of <span id="tts-requests-per-user-limit"></span> successful requests per day for the server-side voices to prevent abuse. This limit resets daily at midnight Central Time. All processed audio is also cleared at this time, so make sure you download your audio before then.</li>
                     <li>Each TTS request is allowed up to 90 seconds to complete itself. If a request takes longer than this, it will be terminated and abandoned by the server. Most requests should complete LONG before this timer is up, but know that <b>you may need to adjust your text input or try a different voice if you encounter timeouts.</b> Timeouts usually result in an "x-empty" response by the TTS server.</li>
                 </ul>
                 <h3>Pronunciation Notes and Examples</h3>

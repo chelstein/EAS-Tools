@@ -6,7 +6,7 @@ footer.innerHTML = `
     <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
     <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
     <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
-    <li><p><span id="tts-requests-counter">0/20</span> TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
+    <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
     <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
 </ul>
@@ -15,6 +15,7 @@ footer.innerHTML = `
 const lastUpdated = document.getElementById('last-updated');
 const lastCommitHash = document.getElementById('last-commit-hash');
 const ttsRequestsCounter = document.getElementById('tts-requests-counter');
+const ttsRequestsPerUserLimit = document.getElementById('tts-requests-per-user-limit');
 const ttsRequestsResetTime = document.getElementById('tts-requests-reset-time');
 const TIME_ZONE = 'America/Chicago';
 const timeFormatOptions = {
@@ -104,6 +105,7 @@ window.updateTTSRequestsCounter = function () {
         .then(response => response.json())
         .then(data => {
             ttsRequestsCounter.textContent = data.current_request_count;
+            ttsRequestsPerUserLimit.textContent = data.per_user_request_limit;
         })
         .catch(error => {
             console.error('Error fetching TTS requests count:', error);
