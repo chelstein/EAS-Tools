@@ -61,7 +61,7 @@
                         <li><a href="#">Where can I report bugs or request features without knowing how to code?</a></li>
                         <li><a href="#">You mentioned a web TTS service? What's that, and how does it work?</a></li>
                         <li><a href="#">How can I support the development of EAS-Tools?</a></li>
-                        <li><a href="#">Are there currently any known issues or limitations with EAS-Tools? (updated as of 2025-12-06)</a></li>
+                        <li><a href="#">Are there currently any known issues or limitations with EAS-Tools? (updated as of 2026-01-01)</a></li>
                         <li><a href="#">How can I get more involved in the overall EAS community?</a></li>
                     </ul>
                 </div>
@@ -122,8 +122,8 @@
                     <p>Every effort is made to make sure EAS-Tools works at its best. Some features may not work as expected on all browsers or devices, and there may be occasional bugs or glitches with the code. Changes are made regularly to improve the application and address any issues that possibly arise. A best effort is made to keep the application as stable and functional as possible, but please understand that this is a hobby project developed in my free time with no monetary support. If you encounter any issues, please report them on the project's <a href="https://github.com/wagwan-piffting-blud/EAS-Tools/issues" target="_blank">GitHub Issues page</a> as soon as you notice them, and they will get addressed ASAP.</p>
                     <p>Current issues:</p>
                     <ul>
-                        <li>The crawl export feature works, so long as your machine is sufficiently powerful to handle the processing load of exporting the crawl. <span class="strikethrough">If there is a noticeable stuttering in the output, this is sadly nothing I can fix myself (trust me, I've tried!). The only true solution is to use another, more powerful device for exporting, if at all possible.</span> This should HOPEFULLY be fixed for good now (implemented a couple extra libraries to help with canvas-based recording/rendering), I will update this section if it's not.</li>
                         <li>Some of the state machines in the tools to update things like available options or retrieve/save options may not work 100% as expected (a popular example is options not appearing on initial page load). These require targeted updates to the JS code, but everything is being actively worked on and maintained for the most optimal experience possible. If you find options missing when they shouldn't be, or vice versa, let me know and I will fix it!</li>
+                        <li>The phoneme generator/converter is very much "in beta", meaning it will have bugs with some phonemes being generated incorrectly, or re-converted from phoneme to text incorrectly, that kind of thing. If you have a specific word you find is incorrect, please submit an issue or pull request on the GitHub repository. I welcome any specific phonemes you may wish to contribute to the overrides section so that they are always correct for the next user.</li>
                     </ul>
                 </section>
                 <section>
@@ -142,6 +142,7 @@
                         <li><a href="#">Tool: Encoder</a></li>
                         <li><a href="#">Tool: Text Crawl Generator</a></li>
                         <li><a href="#">Tool: Audio Splicer</a></li>
+                        <li><a href="#">Tool: Phoneme Converter/Generator</a></li>
                         <li><a href="#">Tool: Video/Audio Muxer</a></li>
                         <li><a href="#">Troubleshooting</a></li>
                     </ul>
@@ -229,6 +230,18 @@
                     <p>The spliced audio can then be downloaded as a single WAV file to your local computer for later use. Projects are saved on any edit action, and are stored locally, on your device, so you can resume your previous session with ease.</p>
                 </section>
                 <section>
+                    <h3>Tool: Phoneme Converter/Generator</h3>
+                    <p>The Phoneme Converter/Generator tool allows you to convert text into phonemes, and phonemes back into their respective word(s). This can be useful for generating custom pronunciations for the web TTS voices that support phoneme inputs. If you have a phoneme that is not generated correctly, or would like to see changed to something more "official", please submit an issue or pull request on the GitHub repository. There is a list of overrides that are populated with some, but not all, phoneme mappings used by organizations like the National Weather Service. You can view the current list of overrides <a href="https://github.com/wagwan-piffting-blud/EAS-Tools/blob/main/assets/js/phoneme-bundle.js#L43">at this link</a>. The "national dictionary" overrides come from the <a href="https://discord.gg/YNuDM8kjR9" target="_blank">NWR Reference Discord server</a>.</p>
+                    <p>To use the Phoneme Converter/Generator tool, follow these steps:</p>
+                    <ol>
+                        <li>Enter the text you wish to convert into phonemes in the provided text area.</li>
+                        <li>Click the "Convert to Phonemes" button to generate the phoneme representation of the text.</li>
+                        <li>The generated phonemes will be displayed in the output section below the button.</li>
+                        <li>You can then copy the generated phonemes to your clipboard for use with the Web TTS service or your own local copy of whatever TTS voice(s) you have available.</li>
+                    </ol>
+                    <p>The generated phonemes can then be used for the express purpose of customizing TTS word pronunciations to your liking.</p>
+                </section>
+                <section>
                     <h3>Tool: Video/Audio Muxer</h3>
                     <p>The Video/Audio Muxer tool allows you to combine video and audio files into a single multimedia file. This can be useful for creating custom alerts that include both video and audio components.</p>
                     <p>To use the Video/Audio Muxer tool, follow these steps:</p>
@@ -239,7 +252,7 @@
                         <li>Click the "Append audio to video" button to start the muxing process. The process may take a long time, depending on a number of factors, such as your machine's processing power, if FFmpeg is in multi-core mode, etc. Progress is displayed and shows where in the process the mux is at. As well, you can cancel an in-progress mux by clicking "Cancel" at any time.</li>
                         <li>Once the muxing process is complete, a "Download result" button will appear. Click this button to download the combined video/audio file. You may also choose to preview the muxed file by using the video controls on the page below the "Append audio to video" button.</li>
                     </ol>
-                    <p>The muxed video/audio file can then be used for various purposes, such as broadcasting or sharing alerts with both audio and video combined, without the use of an external tool or full video editor to make it.</p>
+                    <p>The muxed video/audio file can then be used for various purposes, such as sharing your custom alerts with both audio and video combined, without the use of an external tool or full video editor to make it happen.</p>
                 </section>
                 <section>
                     <h3>Troubleshooting</h3>

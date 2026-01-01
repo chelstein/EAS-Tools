@@ -1642,7 +1642,7 @@
                 return false;
             }
 
-            if (usesDtPhonemes && !/\[phoneme :on].*/i.test(ttsText)) {
+            if (usesDtPhonemes && !/\[:phoneme on].*/i.test(ttsText)) {
                 alert("TTS Text contains invalid DT phonemes or formatting.");
                 return false;
             }

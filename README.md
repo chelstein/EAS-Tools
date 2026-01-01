@@ -2,7 +2,7 @@
 
 [![EAS Logo](./assets/eas-logo-banner.png)](./assets/eas-logo-banner.png)
 
-Web‑based **EAS / SAME Tools** that run entirely in your browser. Use your microphone to decode Specific Area Message Encoding (SAME) headers from live audio, or upload a file to decode it, and generate valid EAS audio as a downloadable WAV file. Also includes a Text Crawl Generator for creating EAS‑style scrolling text graphics and an audio splicer for combining multiple, unique audio samples into one continuous WAV file.
+Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to the brim with features, such as a full **decoder**, **encoder**, **text crawl generator**, **audio splicer**, **phoneme converter/generator**, and **video/audio muxer**. All tools are client‑side and work offline after the initial load. All open source and freely available on GitHub. Run your own copy if you'd like!
 
 > ⚠️ **Legal & ethics notice**
 > This project is for **lab, testing, hobbyist, and educational use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
@@ -34,12 +34,16 @@ TBD
   * Combine multiple custom audio samples into one continuous WAV file
   * Useful for creating custom audio without the use of programs like Audacity
   * Supports inserting silence between samples, trimming audio, splits, macros, and much more
+* **Phoneme Converter/Generator**
+  * Convert regular text into phoneme representations for use with TTS voices
+  * Helps customize TTS pronunciations by providing phoneme output for specific words/phrases
+  * Copy generated phonemes to clipboard for easy reuse
 * **Video/Audio Muxer**
   * Combine video files with custom audio tracks using FFmpeg compiled to WebAssembly
   * Downloadable video file with new audio track
 
 ## Other highlights
-* App is almost fully client‑side; runs entirely in your browser with no server backend (except for web TTS voice model fetches)
+* App is almost fully client‑side; runs entirely in your browser with no server backend (except for web TTS requests, if used)
 * Works offline after initial load (service workers and all necessary assets included in initial load)
 * Open source and freely available on GitHub (run your own copy if desired)
 
@@ -125,6 +129,13 @@ What you’ll see:
 3. Modify the order of the samples as needed, and optionally customize options to your liking (e.g., add silence between samples, trim audio, apply macros, etc.)
 4. Click **Export WAV** to create a single continuous WAV file for download
 
+### Phoneme Converter/Generator
+1. Go to **Phoneme Converter/Generator** tab
+2. Enter the text you wish to convert into phonemes in the provided text area
+3. Click the **Convert** button to generate the phoneme representation of the text
+4. The generated phonemes will be displayed in the output section below the button
+5. You can then copy the generated phonemes to your clipboard for use with the Web TTS service or your own local copy of whatever TTS voice(s) you have available
+
 ### Video/Audio Muxer (combiner)
 
 1. Go to **Video/Audio Muxer** tab
@@ -140,13 +151,14 @@ Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, 
 * `?tool=encoder` – Opens the **Encoder** tab
 * `?tool=crawl` – Opens the **Text Crawl Generator** tab
 * `?tool=splicer` – Opens the **Audio Splicer** tab
+* `?tool=phoneme` – Opens the **Phoneme Converter/Generator** tab
 * `?tool=muxer` – Opens the **Video/Audio Muxer** tab
 
 ### Documentation
 
 For more detailed documentation on the TTS feature, see the [TTS docs page](https://wagwan-piffting-blud.github.io/EAS-Tools/tts-docs.html).
 
-If you need help coming up with phonemes/pronunciations for the TTS voice of your choosing, check out the [TTS Phoneme Helper GPT](https://chatgpt.com/g/g-6919e0f83e4c8191b57400362668981c-tts-phoneme-helper) **(NOTE: Requires a free ChatGPT account)**.
+If you need help coming up with phonemes/pronunciations for the TTS voice of your choosing, and the built-in phoneme generator is inaccurate, check out the [TTS Phoneme Helper GPT](https://chatgpt.com/g/g-6919e0f83e4c8191b57400362668981c-tts-phoneme-helper) powered by ChatGPT **(NOTE: Requires a free OpenAI account to use)**.
 
 For a demonstration of each individual TTS voice, see the [voice demo page](https://wagwan-piffting-blud.github.io/EAS-Tools/demos.html).
 
@@ -165,6 +177,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * coi-serviceworker.js: **coi-serviceworker.js** (bundled in `coi-serviceworker.js`, MUST be hosted at root of site to work!)
 * canvas-capture.js: **canvas-capture.js** (bundled in `assets/js/canvas-capture.js`)
 * ffmpeg.wasm: **ffmpeg.wasm** (bundled in `assets/muxer`, built with WebPack)
+* phonemeize: **phoneme-bundle.js** and assorted files in `assets/js/` that are prefixed with `phoneme-` (WebPack bundled from [phonemeize](https://github.com/hans00/phonemize) NPM package with some custom modifications/additions for Web TTS use)
 * SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud
 
 * Inspiration / references:
@@ -181,6 +194,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [coi-serviceworker.js](https://github.com/gzuidhof/coi-serviceworker)
   * [canvas-capture.js](https://github.com/amandaghassaei/canvas-capture)
   * [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm)
+  * [phonemeize](https://github.com/hans00/phonemize)
   * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.

@@ -41,6 +41,7 @@
                     <button type="button" data-tool="encoder">Encoder</button>
                     <button type="button" data-tool="crawl">Text Crawl Generator</button>
                     <button type="button" data-tool="splicer">Audio Splicer</button>
+                    <button type="button" data-tool="phoneme">Phoneme Converter/Generator</button>
                     <button type="button" data-tool="muxer">Video/Audio Muxer</button>
                 </div>
             </nav>
@@ -297,7 +298,7 @@
                 <div id="tts" style="display: none;">
                     <div id="ttsDiv">
                         <br>
-                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak…" style="display:none;"></textarea>
+                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak..." style="display:none;"></textarea>
                         <br class="ttsText">
                         <br class="ttsText">
                         <label for="ttsVoice">Select Voice:</label>
@@ -359,7 +360,7 @@
                 <br>
                 <label for="crawlText" class="crawl-text">Enter text to generate crawl:</label>
                 <br class="crawl-text">
-                <textarea id="crawlText" name="crawlText" placeholder="Type the text for the crawl…"></textarea>
+                <textarea id="crawlText" name="crawlText" placeholder="Type the text for the crawl..."></textarea>
                 <label for="crawlRawHeader" style="display: none;" class="crawl-raw-header">Input a raw EAS header:</label>
                 <input id="crawlRawHeader" style="display: none; width: 50vw;" class="crawl-raw-header" placeholder="ZCZC-WXR-TOR..."></input>
                 <hr>
@@ -588,7 +589,7 @@
                             <br>
                             <label for="ttsText2" class="ttsText">Or, enter text below to generate speech:</label>
                             <br class="ttsText">
-                            <textarea id="ttsText2" class="ttsText" placeholder="Type the message to speak…"></textarea>
+                            <textarea id="ttsText2" class="ttsText" placeholder="Type the message to speak..."></textarea>
                             <br class="ttsText">
                             <br class="ttsText">
                             <label for="ttsVoice2">Select Voice:</label>
@@ -666,7 +667,7 @@
                         <button type="button" disabled data-splice-clear>Clear Project</button>
                         </div>
                         <div class="splice-storage">
-                            Status: <span data-splice-persist>Waiting…</span>
+                            Status: <span data-splice-persist>Waiting...</span>
                         </div>
                     </div>
                 </div>
@@ -676,8 +677,40 @@
                     <ul data-splice-segments class="splice-segment-list"></ul>
                 </div>
             </section>
+            <section id="phoneme-panel" class="tool-panel" aria-labelledby="tab-phoneme">
+                <h2 class="section-heading">Phoneme Converter/Generator</h2>
+                <hr>
+                <label for="phonemeText">Enter text to convert to phonemes (or vice-versa):</label>
+                <br>
+                <br>
+                <textarea id="phonemeText" class="ttsText phonemeCM" rows="12" cols="100" placeholder="Type the word/phoneme to convert..." style="display:none;"></textarea>
+                <br>
+                <br>
+                <label for="phonemeMode">Mode:</label>
+                <select id="phonemeMode">
+                    <option value="word">Word to Phoneme</option>
+                    <option value="phoneme">Phoneme to Word</option>
+                </select>
+                <br class="phonemeOutBackend">
+                <label class="phonemeOutBackend" for="phonemeOutBackend">Output backend:</label>
+                <select id="phonemeOutBackend" class="phonemeOutBackend">
+                    <option value="vtml">VTML</option>
+                    <option value="bal">Balabolka</option>
+                    <option value="dt">DECtalk</option>
+                </select>
+                <br>
+                <br>
+                <button id="phonemeConvert">Convert</button>
+                <button id="phonemeConvertAll">Output All</button>
+                <button id="phonemeCopyToClipboard">Copy Output to Clipboard</button>
+                <button id="phonemeClear">Clear</button>
+                <hr>
+                <label for="phonemeOutput">Output:</label>
+                <br>
+                <pre id="phonemeOutput"></pre>
+            </section>
             <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
-                <h2 class="section-heading">Audio Muxer</h2>
+                <h2 class="section-heading">Video/Audio Muxer</h2>
                 <hr>
                 <div id="muxer-container">
                     <!-- Muxer iframe will be injected here when activated -->
@@ -686,6 +719,7 @@
         </main>
         <footer></footer>
         <script src="coi-serviceworker.js"></script>
+        <script src="assets/js/phoneme-webpack.js"></script>
         <script src="assets/js/wavefile.js"></script>
         <script src="assets/js/wave-resampler.js"></script>
         <script src="assets/js/gif.js"></script>
@@ -701,6 +735,7 @@
                     encoder: 'encoder-panel',
                     crawl: 'crawl-panel',
                     splicer: 'splicer-panel',
+                    phoneme: 'phoneme-panel',
                 };
 
                 const syncEditorValue = (editor) => {
@@ -764,6 +799,7 @@
         <script type="module" src="assets/js/encoder-bundle.js"></script>
         <script type="module" src="assets/js/crawl-bundle.js"></script>
         <script type="module" src="assets/js/splicer-bundle.js"></script>
+        <script type="module" src="assets/js/phoneme-bundle.js"></script>
         <script>
             (function () {
                 const buttons = document.querySelectorAll('button[data-tool]');
@@ -774,6 +810,7 @@
                     encoder: document.getElementById('encoder-panel'),
                     crawl: document.getElementById('crawl-panel'),
                     splicer: document.getElementById('splicer-panel'),
+                    phoneme: document.getElementById('phoneme-panel'),
                     muxer: document.getElementById('muxer-panel'),
                 };
 
