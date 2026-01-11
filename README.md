@@ -156,11 +156,11 @@ Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, 
 
 ### Documentation
 
-For more detailed documentation on the TTS feature, see the [TTS docs page](https://wagwan-piffting-blud.github.io/EAS-Tools/tts-docs.html).
+For more detailed documentation on the TTS feature, see the [TTS docs page](https://eas.tools/tts-docs.html).
 
 If you need help coming up with phonemes/pronunciations for the TTS voice of your choosing, and the built-in phoneme generator is inaccurate, check out the [TTS Phoneme Helper GPT](https://chatgpt.com/g/g-6919e0f83e4c8191b57400362668981c-tts-phoneme-helper) powered by ChatGPT **(NOTE: Requires a free OpenAI account to use)**.
 
-For a demonstration of each individual TTS voice, see the [voice demo page](https://wagwan-piffting-blud.github.io/EAS-Tools/demos.html).
+For a demonstration of each individual TTS voice, see the [voice demo page](https://eas.tools/demos.html).
 
 ---
 

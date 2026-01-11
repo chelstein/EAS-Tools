@@ -2,7 +2,7 @@
  * EAS2Text — convert SAME/EAS headers into human-friendly text. Originally in Python at https://github.com/Newton-Communications/E2T/.
  *
  */
-const DEFAULT_FALLBACK_BASE = 'https://wagwan-piffting-blud.github.io/EAS-Tools/assets/E2T/';
+const DEFAULT_FALLBACK_BASE = 'https://eas.tools/assets/E2T/';
 
 const RESOURCE_MAP = {
   sameUS: {
