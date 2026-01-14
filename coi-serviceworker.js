@@ -23,6 +23,9 @@ if (typeof window === 'undefined') {
 
     self.addEventListener("fetch", function (event) {
         const r = event.request;
+        if (r && (r.destination === "audio" || r.destination === "video")) {
+            return;
+        }
         if (r.cache === "only-if-cached" && r.mode !== "same-origin") {
             return;
         }
@@ -35,6 +38,9 @@ if (typeof window === 'undefined') {
         event.respondWith(
             fetch(request)
                 .then((response) => {
+                    if (response.type === "opaque") {
+                        return response;
+                    }
                     if (response.status === 0) {
                         return response;
                     }
@@ -54,7 +60,15 @@ if (typeof window === 'undefined') {
                         headers: newHeaders,
                     });
                 })
-                .catch((e) => console.error(e))
+                .catch((e) => {
+                    console.error("COI service worker fetch error", {
+                        error: e && e.message ? e.message : e,
+                        requestUrl: r && r.url ? r.url : "(unknown)",
+                        requestMode: r && r.mode ? r.mode : "(unknown)",
+                        requestDestination: r && r.destination ? r.destination : "(unknown)"
+                    });
+                    throw e;
+                })
         );
     });
 

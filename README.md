@@ -80,10 +80,11 @@ TBD
 ### Decoder
 
 1. Go to **Decoder** tab
-2. Choose your **microphone** (device selector)
-3. Grant permission and select your microphone when prompted
-4. Play an EAS/SAME tone; watch the meter & parsed headers
-5. (Optional) Upload a prerecorded EAS audio file using the **Upload Audio File** button
+2. Choose your **microphone** (device selector) if multiple mics are available
+3. Grant permission and select your microphone when prompted, or choose a direct audio stream or upload an audio file
+4. (Optional) Enable **Play back this audio source?** checkbox to hear the audio through your speakers/headphones
+5. Play an EAS/SAME tone; watch the meter & parsed headers
+6. (Optional) Upload a prerecorded EAS audio file using the **Upload Audio File** button
 
 What you’ll see:
 
@@ -146,7 +147,7 @@ What you’ll see:
 
 ### Navigation
 
-Use the tabs at the top of the page to switch between **Decoder**, **Encoder**, and **Text Crawl Generator** tools. You can also link to a specific tab using URL parameters:
+Use the tabs at the top of the page to switch between the various available tools. You can also link to a specific tab using URL parameters:
 * `?tool=decoder` – Opens the **Decoder** tab
 * `?tool=encoder` – Opens the **Encoder** tab
 * `?tool=crawl` – Opens the **Text Crawl Generator** tab

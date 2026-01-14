@@ -169,16 +169,18 @@
                 </section>
                 <section>
                     <h3>Tool: Decoder</h3>
-                    <p>The Decoder tool allows you to decode EAS SAME headers, either from real-time audio via your computer's microphone inputs, or via a pre-recorded audio file.</p>
+                    <p>The Decoder tool allows you to decode EAS SAME headers, either from real-time audio via your computer's microphone inputs, via a direct audio stream from something like IceCast or AzuraCast, or via a pre-recorded audio file.</p>
                     <p>To use the Decoder tool, follow these steps:</p>
                     <ol>
-                        <li>Select the "Start Decoder" button to decode live audio from your microphone. Otherwise, select "Upload Audio File" to upload a pre-recorded audio file.</li>
-                        <li>Wait for an alert to come in on whatever microphone input you chose, or wait for your file to be processed by the JavaScript decoder.</li>
+                        <li>Select the "Start Microphone Decoder" button to decode live audio from your microphone. Otherwise, select "Start Stream Decoder" for a direct audio stream or "Upload Audio File" to upload a pre-recorded audio file.</li>
+                        <li>Wait for an alert to come in on whichever microphone/stream input you chose, or wait for your file to be processed by the JavaScript decoder.</li>
                         <li>Once a SAME header is detected, it will be displayed in the output section alongside a "View Alert" button.</li>
                         <li>Click the "View Alert" button to see detailed information about the decoded SAME header.</li>
+                        <li>(optional) Click "Start/Stop Recording" to begin or end recording the audio input (mic or stream, audio files are not recorded because, well, you already have the audio in the file you just uploaded). Recordings automatically occur for any alerts detected while either mic/stream input is active.</li>
+                        <li>(optional) Enable the "Play back this audio source?" checkbox to hear the audio through your speakers/headphones. Not recommended when using microphone input on mobile devices because of potential audio feedback and echo issues.</li>
                         <li>(optional) Click "Clear Logs" to clear the output section.</li>
                     </ol>
-                    <p>The output section will display the decoded SAME header information, including all relevant fields and their values. This can be useful for verifying the accuracy of the decoding process and your own personal knowledge of the SAME protocol.</p>
+                    <p>The output section will display the decoded SAME header information, including all relevant fields and their values. This can be useful for verifying the accuracy of the decoding process and your own personal knowledge of the SAME protocol. As well, all alerts processed via microphone or stream are recorded by the decoder for you, and a download initiates automatically when the alert ends. This can be super helpful when wanting to have an archive of a live alert. You can also use the recording function like any other audio recording tool, to get non-alert audio if needed.</p>
                 </section>
                 <section>
                     <h3>Tool: Encoder</h3>

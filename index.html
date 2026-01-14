@@ -52,10 +52,17 @@
                 <hr>
                 <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
                 <span>
-                    <button type="button" data-decoder-toggle>Start Decoder</button>
+                    <button type="button" data-decoder-toggle>Start Microphone Decoder</button>
+                    <button type="button" data-decoder-stream-toggle>Start Stream Decoder</button>
                     <input type="file" style="display: none;" id="audiofile" accept="audio/*">
                     <button type="button" data-decoder-load>Upload Audio File</button>
+                    <button type="button" data-decoder-record-toggle disabled>Start Recording (alerts toggle this automatically)</button>
                     <button type="button" data-decoder-clear disabled>Clear Logs</button>
+                </span>
+                <span class="right-align">
+                    <button type="button" data-decoder-clear-stream-url style="display: none;">Clear Stream URL</button>
+                    <label for="decoder-loopback">Play back audio source?</label>
+                    <input type="checkbox" id="decoder-loopback" name="decoder-loopback">
                 </span>
                 <br>
                 <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
@@ -263,7 +270,7 @@
                 <select id="att">
                     <option value="0" selected>EBS/Dual Frequency Attention Tones</option>
                     <option value="1">NWR Attention Tone (1050hz)</option>
-                    <option value="2">Pelmorex (Alert Canada) Attention Tone (NOTE: WILL NOT INCLUDE SAME HEADERS!)</option>
+                    <option value="2">Pelmorex (Alert Ready - Canada) Attention Tone (NOTE: WILL NOT INCLUDE SAME HEADERS!)</option>
                 </select>
                 <br>
                 <br>

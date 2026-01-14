@@ -403,6 +403,10 @@ button[disabled] {
     text-decoration: line-through;
 }
 
+.right-align {
+    float: right;
+}
+
 .funny-haha {
     color: #f5f5f5 !important;
     text-decoration: none;
@@ -750,6 +754,13 @@ button[disabled] {
         bottom: 0;
         overflow-y: scroll;
         z-index: 10000;
+    }
+
+    .right-align {
+        float: none;
+        display: block;
+        text-align: right;
+        margin-top: 10px;
     }
 
     .footer-links {
