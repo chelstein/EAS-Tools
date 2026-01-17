@@ -2277,7 +2277,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                if (ttsStatus) ttsStatus.textContent = 'TTS failed. See console for details.';
+                if (ttsStatus) ttsStatus.textContent = 'TTS failed. Reason: "' + err.message + '"';
             } finally {
                 ttsButton.disabled = false;
             }
