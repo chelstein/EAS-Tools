@@ -113,6 +113,10 @@ a {
 }
 
 /* Pseudo-class and attribute CSS */
+section.ffm-app {
+    font-family: "Hack", monospace !important;
+}
+
 a:visited {
     color: #7a4723;
 }
