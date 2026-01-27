@@ -104,7 +104,13 @@ window.updateTTSRequestsCounter = function () {
     fetch('https://wagspuzzle.space/tools/eas-tts/index.php?get_current_request_count=true')
         .then(response => response.json())
         .then(data => {
+            if (!ttsRequestsCounter) {
+                return;
+            }
             ttsRequestsCounter.textContent = data.current_request_count;
+            if (!ttsRequestsPerUserLimit) {
+                return;
+            }
             ttsRequestsPerUserLimit.textContent = data.per_user_request_limit;
         })
         .catch(error => {

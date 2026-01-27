@@ -358,6 +358,15 @@
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
                 <h2 class="section-heading">Text Crawl Generator</h2>
                 <hr>
+                <label for="crawlUserPreset">Save/Load User Preset...</label>
+                <select id="crawlUserPreset">
+                    <option value="1">Preset #1</option>
+                    <option value="2">Preset #2</option>
+                    <option value="3">Preset #3</option>
+                    <option value="4">Preset #4</option>
+                    <option value="5">Preset #5</option>
+                </select>
+                <hr class="shorter-hr">
                 <label for="crawlMode">Select Crawl Text Source:</label>
                 <select id="crawlMode">
                     <option value="custom" selected>Custom Text</option>
@@ -529,6 +538,8 @@
                     <button type="button" id="exportCrawlVideo" disabled>Export as video (.webm)</button>
                     <button type="button" id="copyCrawlText" disabled>Copy Crawl Text to Clipboard</button>
                     <button type="button" id="destroyCrawl" disabled>Destroy Crawl Instance</button>
+                    <button type="button" id="saveUserPreset">Save Currently Selected Preset</button>
+                    <button type="button" id="loadUserPreset">Load Currently Selected Preset</button>
                     <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
                     <div id="crawlExportProgressDiv" class="crawl-export-progress" style="display: none; background-color: rgba(0, 0, 0, 0.75);">
                         <label for="crawlExportProgress">Export Progress: <span id="crawlExportProgressLabel">0%</span></label>

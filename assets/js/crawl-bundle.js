@@ -2322,6 +2322,7 @@
             });
             return;
         }
+
         updateCrawlControlsFromAsset({ topLeft: initialTopLeft });
         const media = await loadMediaElementFromSource(descriptor.type, descriptor.source);
         if (!media || requestId !== premadeSizingRequestToken) {
@@ -2502,6 +2503,8 @@
         });
 
         const img = new Image();
+        img.width = canvas.width;
+        img.height = canvas.height;
         img.src = canvas.toDataURL('image/png');
         if (config.markTwoPlusLines) {
             img.isTwoPlusLines = eventCodeLines.length > 1;
@@ -2707,10 +2710,12 @@
                         if (media) {
                             const layoutKey = usesTwoPlusLayout ? `${descriptor.source}_2plus` : descriptor.source;
                             const topLeft = getPremadeTopLeft(layoutKey);
+                            const width = media.naturalWidth || media.width || 1920;
+                            const height = media.naturalHeight || media.height || 1080;
                             return {
                                 image: media,
-                                width: media ? media.naturalWidth : null,
-                                height: media ? media.naturalHeight : null,
+                                width,
+                                height,
                                 topLeft,
                                 source: descriptor.source
                             };
@@ -2725,10 +2730,12 @@
                         const media = await generateEasyPlusBackgroundImage('mode1', originator, eventCode);
                         if (media) {
                             const topLeft = getPremadeTopLeft(descriptor.source);
+                            const width = media.naturalWidth || media.width || 1920;
+                            const height = media.naturalHeight || media.height || 1080;
                             return {
                                 image: media,
-                                width: media ? media.naturalWidth : null,
-                                height: media ? media.naturalHeight : null,
+                                width,
+                                height,
                                 topLeft,
                                 source: descriptor.source
                             };
@@ -3350,73 +3357,169 @@
         input.addEventListener('change', handler);
     });
 
+    const CRAWL_SETTING_PREFIXES = ['crawl', 'easyplus', 'vds'];
+    const CRAWL_SETTING_EXPLICIT_IDS = new Set(['endecMode']);
+    const CRAWL_SETTING_EXCLUDED_IDS = new Set(['crawlUserPreset']);
+    const LEGACY_CRAWL_SETTING_ID_MAP = {
+        crawlText: 'text',
+        crawlSpeed: 'speed',
+        crawlFontSize: 'fontSize',
+        crawlTextColor: 'textColor',
+        crawlBgColor: 'bgColor',
+        crawlMode: 'crawlMode',
+        crawlRawHeader: 'rawHeader',
+        crawlUseLocalTZ: 'useLocalTZ',
+        crawlUseOverrideTZ: 'useOverrideTZ',
+        endecMode: 'endecMode',
+        crawlUseVDSMode: 'useVDSMode',
+        vdsFrameDelay: 'vdsFrameDelay',
+        crawlFontFamily: 'fontFamily',
+        crawlFontStyle: 'fontStyle',
+        crawlOutlineColor: 'outlineColor',
+        crawlOutlineWidth: 'outlineWidth',
+        crawlOutlineJoin: 'outlineJoin',
+        crawlWidth: 'crawlWidth',
+        crawlHeight: 'crawlHeight',
+        crawlInset: 'crawlInset',
+        crawlRestartDelay: 'crawlRestartDelay',
+        crawlBackgroundMode: 'crawlBackgroundMode',
+        crawlBackgroundPremadeSelect: 'crawlBackgroundPremade',
+        easyplusOriginator: 'easyplusOriginator',
+        easyplusEventCode: 'easyplusEventCode',
+        crawlTopLeftPixelX: 'crawlTopLeftOffsetX',
+        crawlTopLeftPixelY: 'crawlTopLeftOffsetY',
+        crawlRepetitions: 'repetitions'
+    };
+    const pendingSelectValueObservers = new WeakMap();
+
+    function shouldPersistCrawlSetting(element) {
+        if (!element || !element.id) {
+            return false;
+        }
+        if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(element.tagName)) {
+            return false;
+        }
+        if (element.type === 'file' || CRAWL_SETTING_EXCLUDED_IDS.has(element.id)) {
+            return false;
+        }
+        if (CRAWL_SETTING_EXPLICIT_IDS.has(element.id)) {
+            return true;
+        }
+        return CRAWL_SETTING_PREFIXES.some((prefix) => element.id.startsWith(prefix));
+    }
+
+    function getPersistedCrawlSettingElements() {
+        const panel = document.getElementById('crawl-panel');
+        if (!panel) {
+            return [];
+        }
+        const nodes = panel.querySelectorAll('input[id], select[id], textarea[id]');
+        return Array.from(nodes).filter(shouldPersistCrawlSetting);
+    }
+
+    function clearPendingSelectObserver(element) {
+        if (!element) {
+            return;
+        }
+        delete element.dataset.pendingValue;
+        const observer = pendingSelectValueObservers.get(element);
+        if (observer) {
+            observer.disconnect();
+            pendingSelectValueObservers.delete(element);
+        }
+    }
+
+    function stashPendingSelectValue(element, value) {
+        if (!element) {
+            return;
+        }
+        element.dataset.pendingValue = value;
+        if (pendingSelectValueObservers.has(element)) {
+            return;
+        }
+        const observer = new MutationObserver(() => {
+            const pendingValue = element.dataset.pendingValue;
+            if (!pendingValue) {
+                observer.disconnect();
+                pendingSelectValueObservers.delete(element);
+                return;
+            }
+            const optionExists = Array.from(element.options || []).some((option) => option.value === pendingValue);
+            if (optionExists) {
+                element.value = pendingValue;
+                delete element.dataset.pendingValue;
+                observer.disconnect();
+                pendingSelectValueObservers.delete(element);
+            }
+        });
+        observer.observe(element, { childList: true });
+        pendingSelectValueObservers.set(element, observer);
+    }
+
+    function applyValueToCrawlElement(element, value) {
+        if (!element) {
+            return;
+        }
+        if (element.type === 'checkbox') {
+            element.checked = Boolean(value);
+            return;
+        }
+        if (value === undefined || value === null) {
+            return;
+        }
+        if (element.tagName === 'SELECT') {
+            const normalizedValue = String(value);
+            const options = Array.from(element.options || []);
+            if (!options.length || !options.some((option) => option.value === normalizedValue)) {
+                stashPendingSelectValue(element, normalizedValue);
+                return;
+            }
+            element.value = normalizedValue;
+            clearPendingSelectObserver(element);
+            return;
+        }
+        element.value = value;
+    }
+
+    function migrateLegacyCrawlSettings(settings) {
+        if (!settings || typeof settings !== 'object') {
+            return {};
+        }
+        const normalized = { ...settings };
+        Object.entries(LEGACY_CRAWL_SETTING_ID_MAP).forEach(([domId, legacyKey]) => {
+            if (Object.prototype.hasOwnProperty.call(normalized, domId)) {
+                return;
+            }
+            if (Object.prototype.hasOwnProperty.call(normalized, legacyKey)) {
+                normalized[domId] = normalized[legacyKey];
+            }
+        });
+        return normalized;
+    }
+
     const savedSettings = localStorage.getItem(localStorageKey);
 
-    if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        document.getElementById('crawlText').value = settings.text;
-        document.getElementById('crawlSpeed').value = settings.speed;
-        document.getElementById('crawlFontSize').value = settings.fontSize;
-        document.getElementById('crawlTextColor').value = settings.textColor;
-        document.getElementById('crawlBgColor').value = settings.bgColor;
-        document.getElementById('crawlMode').value = settings.crawlMode;
-        document.getElementById('crawlRawHeader').value = settings.rawHeader;
-        document.getElementById('crawlUseLocalTZ').checked = settings.useLocalTZ;
-        document.getElementById('crawlUseOverrideTZ').value = settings.useOverrideTZ;
-        document.getElementById('endecMode').value = settings.endecMode;
-        document.getElementById('crawlUseVDSMode').checked = settings.useVDSMode;
-        document.getElementById('vdsFrameDelay').value = settings.vdsFrameDelay || DEFAULT_VDS_BASE_DELAY;
-        const crawlFontFamilySelect = document.getElementById('crawlFontFamily');
-        const savedFontFamily = settings.fontFamily || 'Arial';
-        if (crawlFontFamilySelect) {
-            crawlFontFamilySelect.value = savedFontFamily;
+    const applySettingsToControls = (settings, { showStatus = true } = {}) => {
+        const migrated = migrateLegacyCrawlSettings(settings);
+        const elements = getPersistedCrawlSettingElements();
+        elements.forEach((element) => {
+            const id = element.id;
+            if (!(id in migrated)) {
+                return;
+            }
+            applyValueToCrawlElement(element, migrated[id]);
+        });
+        const backgroundModeInput = document.getElementById('crawlBackgroundMode');
+        if (backgroundModeInput && migrated.crawlBackgroundMode !== undefined) {
+            backgroundModeInput.value = normalizeCrawlBackgroundMode(migrated.crawlBackgroundMode);
+        }
+
+        const fontFamilyInput = document.getElementById('crawlFontFamily');
+        if (fontFamilyInput && migrated.crawlFontFamily) {
             ensureFontsReady().then(() => {
-                const hasOption = Array.from(crawlFontFamilySelect.options || []).some((option) => option.value === savedFontFamily);
-                if (hasOption) {
-                    crawlFontFamilySelect.value = savedFontFamily;
-                }
+                applyValueToCrawlElement(fontFamilyInput, migrated.crawlFontFamily);
             });
         }
-        document.getElementById('crawlFontStyle').value = settings.fontStyle || 'normal';
-        document.getElementById('crawlOutlineColor').value = settings.outlineColor || '#000000';
-        document.getElementById('crawlOutlineWidth').value = settings.outlineWidth || 0;
-        document.getElementById('crawlOutlineJoin').value = settings.outlineJoin || 'round';
-        document.getElementById('crawlRepetitions').value = settings.repetitions || 1;
-        document.getElementById('easyplusOriginator').value = settings.easyplusOriginator || '';
-        document.getElementById('easyplusEventCode').value = settings.easyplusEventCode || '';
-
-        const premadeSelect = document.getElementById('crawlBackgroundPremadeSelect');
-        if (premadeSelect && typeof settings.crawlBackgroundPremade === 'string' && settings.crawlBackgroundPremade) {
-            const hasValue = Array.from(premadeSelect.options || []).some((option) => option.value === settings.crawlBackgroundPremade);
-            if (hasValue) {
-                premadeSelect.value = settings.crawlBackgroundPremade;
-            }
-        }
-
-        const storedBackgroundMode = normalizeCrawlBackgroundMode(settings.crawlBackgroundMode);
-        document.getElementById('crawlBackgroundMode').value = storedBackgroundMode;
-
-        if (settings.crawlWidth !== undefined && settings.crawlWidth !== null) {
-            document.getElementById('crawlWidth').value = settings.crawlWidth;
-        }
-
-        if (settings.crawlHeight !== undefined && settings.crawlHeight !== null) {
-            document.getElementById('crawlHeight').value = settings.crawlHeight;
-        }
-
-        if (settings.crawlInset !== undefined && settings.crawlInset !== null) {
-            document.getElementById('crawlInset').value = settings.crawlInset;
-        }
-
-        if (settings.crawlRestartDelay !== undefined && settings.crawlRestartDelay !== null) {
-            document.getElementById('crawlRestartDelay').value = settings.crawlRestartDelay;
-        }
-
-        if (settings.crawlBackgroundMode !== undefined && settings.crawlBackgroundMode !== null) {
-            document.getElementById('crawlBackgroundMode').value = storedBackgroundMode;
-        }
-
-        addStatus('Loaded saved crawl settings!');
 
         const refreshSavedCrawlControls = () => {
             const crawlUseLocalTZ = document.getElementById('crawlUseLocalTZ');
@@ -3427,14 +3530,11 @@
                 return;
             }
 
-            const dispatchChange = (element) => {
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-            };
-
-            dispatchChange(crawlUseLocalTZ);
-            dispatchChange(crawlUseOverrideTZ);
-            dispatchChange(crawlBackgroundMode);
-            dispatchChange(crawlTextSource);
+            ['change'].forEach((eventName) => {
+                [crawlUseLocalTZ, crawlUseOverrideTZ, crawlBackgroundMode, crawlTextSource].forEach((element) => {
+                    element.dispatchEvent(new Event(eventName, { bubbles: true }));
+                });
+            });
         };
 
         const ensurePremadeSizing = () => {
@@ -3454,6 +3554,14 @@
         } else {
             runSavedControlRefresh();
         }
+
+        if (showStatus) {
+            addStatus('Loaded saved crawl settings!');
+        }
+    };
+
+    if (savedSettings) {
+        applySettingsToControls(JSON.parse(savedSettings));
     }
 
     function parseEASHeaderAndUpdateEasyPlusSettings(rawHeader) {
@@ -3520,6 +3628,21 @@
         return true;
     };
 
+    function getCurrentSettings() {
+        const collected = {};
+        getPersistedCrawlSettingElements().forEach((element) => {
+            if (!element.id) {
+                return;
+            }
+            if (element.type === 'checkbox') {
+                collected[element.id] = element.checked;
+            } else {
+                collected[element.id] = element.value;
+            }
+        });
+        return collected;
+    }
+
     if (!initializeRawHeaderInput() && document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeRawHeaderInput, { once: true });
     }
@@ -3534,4 +3657,25 @@
     });
 
     document.getElementById('crawlBackgroundPremadeSelect').dispatchEvent(new Event('change', { bubbles: true }));
+
+    document.getElementById('saveUserPreset').addEventListener('click', () => {
+        const presetData = getCurrentSettings();
+        const presetNumber = document.getElementById('crawlUserPreset').value;
+        if (presetNumber !== null) {
+            localStorage.setItem(`crawlPreset_${presetNumber}`, JSON.stringify(presetData));
+            alert(`Preset #${presetNumber} saved!`);
+        }
+    });
+
+    document.getElementById('loadUserPreset').addEventListener('click', () => {
+        const presetNumber = document.getElementById('crawlUserPreset').value;
+        const presetData = localStorage.getItem(`crawlPreset_${presetNumber}`);
+        if (presetData) {
+            const settings = JSON.parse(presetData);
+            applySettingsToControls(settings, { showStatus: false });
+            alert(`Preset #${presetNumber} loaded! Please click "Start Crawl" to apply the preset.`);
+        } else {
+            alert(`No preset found for #${presetNumber}.`);
+        }
+    });
 })();
