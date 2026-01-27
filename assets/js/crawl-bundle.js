@@ -2556,7 +2556,7 @@
             const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
             const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value, useLocaleTimezone: document.getElementById('crawlUseLocalTZ').checked });
 
-            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system').replace(/Civil Authority/, 'civil authority');
+            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system').replace(/Civil Authority/, 'civil authority').replace(/A Primary Entry Point System/gi, 'THE PRIMARY ENTRY POINT EAS SYSTEM');
             const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
 
             const fipsParts = [...eas.FIPSText];

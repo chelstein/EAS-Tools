@@ -4,6 +4,27 @@
  */
 const DEFAULT_FALLBACK_BASE = 'https://eas.tools/assets/E2T/';
 
+const MERGE_TARGET_SECTIONS = ['SAME', 'SUBDIV', 'ORGS', 'EVENTS'];
+
+function mergeResourceLocales(resourceEntries) {
+  const merged = {};
+  for (const [, data] of resourceEntries) {
+    if (!data) {
+      continue;
+    }
+    for (const section of MERGE_TARGET_SECTIONS) {
+      const fragment = data[section];
+      if (fragment && typeof fragment === 'object' && !Array.isArray(fragment)) {
+        if (!merged[section]) {
+          merged[section] = {};
+        }
+        Object.assign(merged[section], fragment);
+      }
+    }
+  }
+  return merged;
+}
+
 const RESOURCE_MAP = {
   sameUS: {
     remote: 'https://github.com/Newton-Communications/E2T/blob/main/EAS2Text/same-us.json?raw=true',
@@ -137,10 +158,12 @@ async function loadJSONResource(key, { preferLocal = true, timeoutMs = 5000, fal
 async function loadAllResources(options) {
   const keys = Object.keys(RESOURCE_MAP);
   const results = await Promise.all(keys.map((key) => loadJSONResource(key, options)));
-  return keys.reduce((acc, key, index) => {
+  const resources = keys.reduce((acc, key, index) => {
     acc[key] = results[index];
     return acc;
   }, {});
+  resources.localeIndex = mergeResourceLocales(Object.entries(resources));
+  return resources;
 }
 
 function clearResourceCache() {
@@ -154,6 +177,19 @@ function setFallbackBaseURL(url) {
 function pad(value, length = 2) {
   const str = Math.abs(value).toString().padStart(length, '0');
   return value < 0 ? `-${str}` : str;
+}
+
+function joinWithOxford(list, conjunction = 'and') {
+  if (!Array.isArray(list) || !list.length) {
+    return '';
+  }
+  if (list.length === 1) {
+    return list[0];
+  }
+  if (list.length === 2) {
+    return `${list[0]} ${conjunction} ${list[1]}`;
+  }
+  return `${list.slice(0, -1).join(', ')}, ${conjunction} ${list[list.length - 1]}`;
 }
 
 function isLeapYear(year) {
@@ -329,6 +365,40 @@ class MissingSAME extends Error {
 
 class EAS2Text {
   #cclIndex;
+  #unknownWfoCodes = new Set();
+
+  #getLocaleValue(section, key) {
+    const sectionData = this.stats?.[section];
+    if (sectionData && sectionData[key] !== undefined) {
+      return sectionData[key];
+    }
+    const mergedSection = this.localeIndex?.[section];
+    if (mergedSection && mergedSection[key] !== undefined) {
+      this.#markCanadianLocale(section, key);
+      return mergedSection[key];
+    }
+    return undefined;
+  }
+
+  #markCanadianLocale(section, key) {
+    if (this.canada || this.inferredCanada) {
+      return;
+    }
+    const canadianSection = this.resources?.sameCA?.[section];
+    if (canadianSection && canadianSection[key] !== undefined) {
+      this.inferredCanada = true;
+    }
+  }
+
+  #getUnknownWfoClause() {
+    if (!this.#unknownWfoCodes.size) {
+      return '';
+    }
+    const codes = Array.from(this.#unknownWfoCodes);
+    const label = codes.length === 1 ? 'Code' : 'Codes';
+    const formattedCodes = joinWithOxford(codes);
+    return `(unknown WFO for FIPS ${label} ${formattedCodes})`;
+  }
 
   static async fromUSMessage(sameData, options = {}) {
     const resources = options.resources || (await loadAllResources(options.loaderOptions));
@@ -413,6 +483,8 @@ class EAS2Text {
     this.newWFO = Boolean(newWFO);
     this.resources = resources;
     this.canada = Boolean(canada);
+    this.localeIndex = resources.localeIndex || null;
+    this.inferredCanada = Boolean(canada);
     const statsKey = this.canada ? 'sameCA' : 'sameUS';
     this.stats = resources[statsKey];
     if (!this.stats) {
@@ -543,11 +615,11 @@ class EAS2Text {
 
     this.FIPS.sort();
     for (const code of this.FIPS) {
-      try {
-        const subdiv = this.stats.SUBDIV[code[0]];
-        const same = this.stats.SAME[code.slice(1)];
+      const subdiv = this.#getLocaleValue('SUBDIV', code[0]) || '';
+      const same = this.#getLocaleValue('SAME', code.slice(1));
+      if (same) {
         this.FIPSText.push(`${subdiv ? `${subdiv} ` : ''}${same}`);
-      } catch (err) {
+      } else {
         this.FIPSText.push(`FIPS Code ${code}`);
       }
     }
@@ -568,8 +640,10 @@ class EAS2Text {
     if (!this.evnt || this.evnt.length !== 3) {
       throw new InvalidSAME('Event Code is an invalid length');
     }
-    this.orgText = this.stats.ORGS[this.org] || `An Unknown Originator (${this.org});`;
-    this.evntText = this.stats.EVENTS[this.evnt] || `an Unknown Event (${this.evnt})`;
+    const orgLocale = this.#getLocaleValue('ORGS', this.org);
+    const eventLocale = this.#getLocaleValue('EVENTS', this.evnt);
+    this.orgText = orgLocale || `An Unknown Originator (${this.org});`;
+    this.evntText = eventLocale || `an Unknown Event (${this.evnt})`;
   }
 
   #processUnitedStatesOld() {
@@ -581,8 +655,8 @@ class EAS2Text {
 
     for (const code of this.FIPS) {
       try {
-        const same = this.stats.SAME[code.slice(1)];
-        if (originator === 'WXR' && !same.includes('State')) {
+        const same = this.#getLocaleValue('SAME', code.slice(1));
+        if (originator === 'WXR' && same && !same.includes('State')) {
           const entry = wfoData.SAME[code.slice(1)]?.[0];
           const wfo = entry?.wfo;
           if (wfo) {
@@ -591,7 +665,7 @@ class EAS2Text {
           } else {
             this.#pushUnknownWfo(code);
           }
-        } else if (same.includes('State')) {
+        } else if (same && same.includes('State')) {
           this.StateInSAME = true;
         }
       } catch (err) {
@@ -627,8 +701,8 @@ class EAS2Text {
 
     for (const code of this.FIPS) {
       try {
-        const same = this.stats.SAME[code.slice(1)];
-        if (originator === 'WXR' && !same.includes('State')) {
+        const same = this.#getLocaleValue('SAME', code.slice(1));
+        if (originator === 'WXR' && same && !same.includes('State')) {
           const info = parsedCCL.data[code.slice(1)];
           if (info) {
             for (const wfo of info.WFOs) {
@@ -755,6 +829,7 @@ class EAS2Text {
     const label = `Unknown WFO for FIPS Code ${code}`;
     this.WFO.push(label);
     this.WFOText.push(label);
+    this.#unknownWfoCodes.add(code);
   }
 
   #pushFallbackWfo(code) {
@@ -829,17 +904,21 @@ class EAS2Text {
 
   #formatDefault() {
     let orgText = this.orgText;
-    if (this.canada && this.org === 'CIV') {
+    const isCanadianContext = this.canada || this.inferredCanada;
+    const unknownWfoClause = this.#getUnknownWfoClause();
+    if (isCanadianContext && this.org === 'CIV') {
       orgText = 'The Civil Authorities';
     }
-    if (!this.canada && this.org === 'WXR') {
-      if (typeof this.WFOText === 'string' && this.WFOText !== 'Unknown WFO;' && !this.StateInSAME) {
+    if (this.org === 'WXR') {
+      if (isCanadianContext) {
+        orgText = unknownWfoClause ? `Environment Canada in ${unknownWfoClause}` : 'Environment Canada';
+      } else if (unknownWfoClause) {
+        orgText = `The National Weather Service in ${unknownWfoClause}`;
+      } else if (typeof this.WFOText === 'string' && this.WFOText !== 'Unknown WFO;' && !this.StateInSAME) {
         orgText = `The National Weather Service in ${this.WFOText.replace(/;$/, '')}`;
       } else {
         orgText = 'The National Weather Service';
       }
-    } else if (this.canada && this.org === 'WXR') {
-      orgText = 'Environment Canada';
     }
     this.EASText = `${orgText} has issued ${this.evntText} for ${this.strFIPS} beginning at ${this.startTimeText} and ending at ${this.endTimeText}. Message from ${this.callsign}.`;
   }

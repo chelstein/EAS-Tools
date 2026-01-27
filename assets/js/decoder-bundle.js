@@ -3,10 +3,11 @@ window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((reso
 });
 
 async function fetchAndStore() {
-    function processSameCodes(sameCodes) {
+    function processSameCodes(usCodes, caCodes) {
         window.rgn = {};
         window.state = {};
         window.county = {};
+        window.canadaCounty = {};
         window.abbrvs = {
             "United States": "US",
             "Alabama": "AL",
@@ -73,47 +74,95 @@ async function fetchAndStore() {
             "EAS": "Emergency Alert System",
             "CIV": "Civil Authority"
         };
+        window.events = {};
 
-        for (const code in sameCodes['SUBDIV']) {
-            const name = sameCodes['SUBDIV'][code];
-            window.rgn[code] = name;
+        const eventSelect = document.getElementById("easyplusEventCode");
+
+        function appendEventOption(code, label) {
+            if (!eventSelect) {
+                return;
+            }
+            const option = document.createElement("option");
+            option.value = code;
+            option.textContent = label;
+            eventSelect.appendChild(option);
         }
 
-        for (const code in sameCodes['ORGS']) {
-            const name = sameCodes['ORGS'][code];
-            window.entryPoints = window.entryPoints || {};
-            window.entryPoints[code] = name;
-        }
+        const datasets = [
+            { data: usCodes, isCanada: false },
+            { data: caCodes, isCanada: true }
+        ];
 
-        for (const code in sameCodes['EVENTS']) {
-            const name = sameCodes['EVENTS'][code];
-            window.events = window.events || {};
-            window.events[code] = name.replace(/^(a|an|the) /, '').trim();
-            document.getElementById("easyplusEventCode").innerHTML += `<option value="${code}">${window.events[code]}</option>`;
-        }
+        for (const { data, isCanada } of datasets) {
+            if (!data) {
+                continue;
+            }
 
-        for (const code in sameCodes['SAME']) {
-            let stcode = code.slice(0, 2);
-            let countycode = code.slice(2);
-            const name = sameCodes['SAME'][code];
-            window.county[stcode] = window.county[stcode] || {};
-            window.county[stcode][countycode] = name;
-            if (countycode === '000') {
-                let statename = name.replace(/^State of /, '').trim();
-                const abbrv = window.abbrvs[statename] || statename;
-                window.state[stcode] = abbrv;
+            if (data['SUBDIV']) {
+                for (const code in data['SUBDIV']) {
+                    window.rgn[code] = data['SUBDIV'][code];
+                }
+            }
+
+            if (data['ORGS']) {
+                for (const code in data['ORGS']) {
+                    if (!window.entryPoints[code]) {
+                        window.entryPoints[code] = data['ORGS'][code];
+                    }
+                }
+            }
+
+            if (data['EVENTS']) {
+                for (const code in data['EVENTS']) {
+                    if (!window.events[code]) {
+                        const label = data['EVENTS'][code].replace(/^(a|an|the) /, '').trim();
+                        window.events[code] = label;
+                        appendEventOption(code, label);
+                    }
+                }
+            }
+
+            if (data['SAME']) {
+                if (isCanada) {
+                    for (const code in data['SAME']) {
+                        window.canadaCounty[code.padStart(5, "0")] = data['SAME'][code];
+                    }
+                } else {
+                    for (const code in data['SAME']) {
+                        const stcode = code.slice(0, 2);
+                        const countycode = code.slice(2);
+                        const name = data['SAME'][code];
+                        window.county[stcode] = window.county[stcode] || {};
+                        if (!window.county[stcode][countycode]) {
+                            window.county[stcode][countycode] = name;
+                        }
+                        if (countycode === '000' && !window.state[stcode]) {
+                            let statename = name.replace(/^State of /, '').trim();
+                            const abbrv = window.abbrvs[statename] || statename;
+                            window.state[stcode] = abbrv;
+                        }
+                    }
+                }
             }
         }
 
-        for (const code in window.entryNames) {
-            const name = window.entryNames[code];
-            document.getElementById("easyplusOriginator").innerHTML += `<option value="${code}">${name}</option>`;
+        const originatorSelect = document.getElementById("easyplusOriginator");
+        if (originatorSelect) {
+            for (const code in window.entryNames) {
+                const name = window.entryNames[code];
+                const option = document.createElement("option");
+                option.value = code;
+                option.textContent = name;
+                originatorSelect.appendChild(option);
+            }
         }
     }
 
     const response = await fetch('assets/E2T/same-us.json');
-    const data = await response.json();
-    processSameCodes(data);
+    const response2 = await fetch('assets/E2T/same-ca.json');
+    const dataUS = await response.json();
+    const dataCA = await response2.json();
+    processSameCodes(dataUS, dataCA);
 }
 
 (async function () {
@@ -129,6 +178,7 @@ async function fetchAndStore() {
     const entryPoints = window.entryPoints || {};
     const entryNames = window.entryNames || {};
     const events = window.events || {};
+    const canadaCounty = window.canadaCounty || {};
 
     function addStatus(stat, color = null) {
         const statuselem = document.getElementById("sync");
@@ -1082,7 +1132,7 @@ async function fetchAndStore() {
             try {
                 processHeader(currentMsg, container);
             } catch (e) {
-                console.log("Error:", e);
+                console.error("Error finalizing alert:", e);
             }
         }
         container = null;
@@ -1137,7 +1187,6 @@ async function fetchAndStore() {
                 if (currentByte == 0xAB) {
                     headerTimes++;
                     if (headerTimes > 4) {
-                        console.log("Starting");
                         decoding = true;
                         updateSync(true);
                     }
@@ -1157,8 +1206,15 @@ async function fetchAndStore() {
                             document.querySelector("#output").appendChild(container);
                         }
                         const currentChar = String.fromCharCode(currentByte);
-                        container.innerText += currentChar;
-                        currentMsg += currentChar;
+                        // If the character is not valid, just skip printing it and continue to the next valid character
+                        if (currentByte >= 32 && currentByte <= 126 && /^[A-Za-z0-9\-\+\/\(\)\\ ]$/.test(currentChar) === false) {
+                            // Skip invalid character
+                        }
+
+                        else {
+                            container.innerText += currentChar;
+                            currentMsg += currentChar;
+                        }
                         handleAutoRecordingTriggers();
                     }
                 }
@@ -1236,10 +1292,23 @@ async function fetchAndStore() {
         if (loc.length !== 6) {
             return "UNKNOWN";
         }
-        ret.region = rgn[loc[0]];
+        ret.region = rgn[loc[0]] || "None";
         const st = loc.slice(1, 3);
-        ret.state = state[st];
-        ret.county = county[st][loc.slice(3, 6)];
+        const countyCode = loc.slice(3, 6);
+        const countyMap = county[st];
+        if (countyMap && countyMap[countyCode]) {
+            ret.state = state[st] || "US";
+            ret.county = countyMap[countyCode];
+        } else {
+            const caName = canadaCounty[loc.slice(1)];
+            if (caName) {
+                ret.state = "Canada";
+                ret.county = caName;
+            } else {
+                ret.state = state[st] || "Unknown";
+                ret.county = `FIPS Code ${loc}`;
+            }
+        }
         return ret;
     }
 
@@ -1529,6 +1598,7 @@ async function fetchAndStore() {
                 resetDecoderState();
                 const arrayBuffer = await file.arrayBuffer();
                 const audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
+                updateSampleRate(audioBuffer.sampleRate);
                 const channelData = audioBuffer.getChannelData(0);
                 const chunkSize = 128;
                 for (let i = 0; i < channelData.length; i += chunkSize) {

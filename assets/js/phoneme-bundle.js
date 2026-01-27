@@ -121,6 +121,7 @@ const overrides = {
     "tornadic": "T AO R N AE1 D IH K",
     "frequent": "F R IY2 K W EH1 N T",
     "saline": "S AH L IY N",
+    "pottawattamie": "P AA1 T AX W AA T UW M IY",
 };
 
 mode.addEventListener("change", () => {
