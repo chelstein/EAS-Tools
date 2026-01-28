@@ -1,3 +1,5 @@
+import { saveFile } from './common-functions.js';
+
 window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
     window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
 });
@@ -311,7 +313,7 @@ async function fetchAndStore() {
         workletModulePromise.catch(() => { });
     }
 
-    const MOBILE_MIC_GAIN = 30;
+    const MOBILE_MIC_GAIN = 15; // works well on android, unsure about iOS
     const shouldApplyMobileInputGain = typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || "");
 
     function createMicInputNode(sourceNode) {
@@ -750,16 +752,18 @@ async function fetchAndStore() {
         }
     }
 
-    function triggerRecordingDownload(buffer) {
-        const blob = new Blob([buffer], { type: "audio/wav" });
+    async function triggerRecordingDownload(buffer) {
+        /*const blob = new Blob([buffer], { type: "audio/wav" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
         link.download = `eas-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
         document.body.appendChild(link);
-        link.click();
+        link.cklick();
         document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 100);
+        setTimeout(() => URL.revokeObjectURL(url), 100);*/
+        const filename = `eas-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
+        await saveFile(filename, buffer, "audio/wav");
     }
 
     function updateRecordButtonLabel(isRecordingState) {

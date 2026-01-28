@@ -1,3 +1,5 @@
+import { saveFile } from './common-functions.js';
+
 (async function () {
     let splicerTextEditor = null;
 
@@ -1370,11 +1372,13 @@
     const exportWav = async () => {
         if (!state.pcm.length) return;
         const blob = pcmToWav(state.pcm, state.sampleRate);
-        const a = document.createElement('a');
+        /*const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'splice.wav';
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        a.cklick();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);*/
+        persistStatus('Exporting WAV...');
+        await saveFile('splice.wav', blob, 'audio/wav');
         const intervalId2 = setInterval(() => persistStatus('WAV exported!', true), 5);
         await new Promise((resolve) => setTimeout(resolve, 1000));
         clearInterval(intervalId2);
@@ -2751,7 +2755,13 @@
                 macroId
             );
 
-            const a = document.createElement('a');
+            let label = macroId;
+            if (macroSelect && macroSelect.selectedIndex >= 0) {
+                label = macroSelect.options[macroSelect.selectedIndex].text || macroId;
+            }
+            const safeLabel = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+            /*const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
 
             let label = macroId;
@@ -2761,8 +2771,10 @@
             const safeLabel = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
             a.download = `splice-${safeLabel}.wav`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            a.cklick();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);*/
+            persistStatus('Preparing Macro WAV for download...', true);
+            await saveFile(`splice-${safeLabel}.wav`, blob, 'audio/wav');
             const intervalId5 = setInterval(() => persistStatus('Macro WAV exported!', true), 5);
             await new Promise((resolve) => setTimeout(resolve, 1000));
             clearInterval(intervalId5);

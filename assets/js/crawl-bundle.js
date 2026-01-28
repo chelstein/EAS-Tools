@@ -1,3 +1,5 @@
+import { saveFile } from './common-functions.js';
+
 (async function () {
     let crawlTextEditor = null;
 
@@ -62,7 +64,7 @@
             { family: 'Impact', file: 'impact.ttf', description: 'a default Windows font' },
             { family: 'Comic Sans MS', file: 'comic.ttf', description: 'a default Windows font' },
             { family: 'STV5730A', file: 'stv5730a.ttf', description: 'mod of "VCR EAS"/EASyPLUS font' },
-        //  { family: 'VCREAS', file: 'VCREAS.ttf' },                   // Disabled due to being a duplicate of VCREAS_4.5
+            //  { family: 'VCREAS', file: 'VCREAS.ttf' },                   // Disabled due to being a duplicate of VCREAS_4.5
             { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf', description: 'small caps font used on VDS crawls' },
             { family: 'Akzidenz', file: 'Akzidenz.ttf', description: 'sans-serif font used on Verizon crawls' },
             { family: 'Helvetica Narrow', file: 'helvn.ttf', description: 'narrower version of Helvetica' },
@@ -306,11 +308,11 @@
                 `${mimeType};codecs=${codec}`,
                 `${mimeType};codecs=${codec.toUpperCase()}`,
             ].forEach(variation => {
-                if(isSupported(variation))
+                if (isSupported(variation))
                     supported.push(variation);
             }));
             if (isSupported(mimeType))
-            supported.push(mimeType);
+                supported.push(mimeType);
         });
         return supported;
     };
@@ -549,7 +551,7 @@
         const startTime = performance.now();
 
         const generator = window.crawlGenerator;
-        let tearDownCaptureCanvas = () => {};
+        let tearDownCaptureCanvas = () => { };
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = canvas.width;
         captureCanvas.height = canvas.height;
@@ -781,13 +783,13 @@
             }
         }
 
-        gif.on('progress', function(progress) {
+        gif.on('progress', function (progress) {
             const clampedProgress = Math.max(0, Math.min(0.999, progress));
             const remainingPortion = 1 - captureProgressPortion;
             reportProgress(captureProgressPortion + clampedProgress * remainingPortion);
         });
 
-        gif.on('abort', function() {
+        gif.on('abort', function () {
             const wasUserCancelled = userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken);
             crawlExportController.clear(gifCancelToken);
             addStatus(
@@ -796,22 +798,25 @@
             );
         });
 
-        gif.on('finished', function(blob) {
+        gif.on('finished', async function (blob) {
             const wasCancelled = crawlExportController.isCancelled(gifCancelToken);
             if (wasCancelled) {
                 crawlExportController.clear(gifCancelToken);
                 return;
             }
             reportProgress(1);
+
+            /*
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
             document.body.appendChild(a);
-            a.click();
+            a.cklick();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
+            */
+            await saveFile(filename, blob, 'image/gif');
             crawlExportController.clear(gifCancelToken);
             addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
         });
@@ -834,7 +839,7 @@
         const startTime = performance.now();
 
         const generator = window.crawlGenerator;
-        let tearDownCaptureCanvas = () => {};
+        let tearDownCaptureCanvas = () => { };
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = canvas.width;
         captureCanvas.height = canvas.height;
@@ -1247,14 +1252,17 @@
         }
 
         reportProgress(1);
+        /*
         const url = URL.createObjectURL(exportedBlob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename || exportedFilename;
         document.body.appendChild(a);
-        a.click();
+        a.cklick();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        */
+        await saveFile(filename || exportedFilename, exportedBlob, 'video/webm');
         crawlExportController.clear(webmCancelToken);
         addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
     }
@@ -1449,11 +1457,11 @@
             const width = this.canvas.width;
             const height = this.canvas.height;
             if (!ctx || typeof ctx.save !== 'function' || inset <= 0) {
-                return () => {};
+                return () => { };
             }
             const clipWidth = width - inset * 2;
             if (clipWidth <= 0) {
-                return () => {};
+                return () => { };
             }
             ctx.save();
             ctx.beginPath();
@@ -2555,7 +2563,7 @@
     async function formatDasdec(rawHeader, e2tMode) {
         let fullText = '';
 
-        if(e2tMode === true) {
+        if (e2tMode === true) {
             const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
             const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value, useLocaleTimezone: document.getElementById('crawlUseLocalTZ').checked });
 

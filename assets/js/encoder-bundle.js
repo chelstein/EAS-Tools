@@ -1,3 +1,5 @@
+import { saveFile } from './common-functions.js';
+
 if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
         console.error('Uncaught error:', event.message, event.filename, event.lineno, event.error);
@@ -601,17 +603,20 @@ async function fetchAndStore() {
         m.forEach(e => { var o = document.createElement("option"); o.innerHTML = e.toString().padStart(2, "0"); o.value = e; nodes.push(o); }); return nodes;
     }
 
-    function saveToWav() {
+    async function saveToWav() {
         addStatus("Generating wav file...");
         wav.fromScratch(1, SAMPLE_RATE, '32', samples.map(e => {
             return e * (2147483647 / 2);
         }));
         const wavBuffer = wav.toBuffer().buffer;
+        /*
         const wavBlob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(wavBlob);
         downloadLink.download = 'eas.wav';
-        downloadLink.click();
+        downloadLink.cklick();
+        */
+        await saveFile('eas.wav', wavBuffer, 'audio/wav');
         addStatus("Download started...");
     }
 
