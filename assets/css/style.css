@@ -885,6 +885,10 @@ button[disabled] {
         width: 70vw;
     }
 
+    #att {
+        width: 95vw;
+    }
+
     .generatedHeader {
         width: 100%;
         text-wrap: wrap;
@@ -916,6 +920,11 @@ button[disabled] {
     #static-noise-fade-depth,
     #static-noise-fade-rate {
         width: 20vw;
+    }
+
+    #crawlDisplay>canvas {
+        width: 90vw !important;
+        height: 30vh !important;
     }
 }
 

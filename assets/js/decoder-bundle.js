@@ -313,7 +313,7 @@ async function fetchAndStore() {
         workletModulePromise.catch(() => { });
     }
 
-    const MOBILE_MIC_GAIN = 15; // works well on android, unsure about iOS
+    const MOBILE_MIC_GAIN = 7; // works well on native webview on android, unsure about iOS
     const shouldApplyMobileInputGain = typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || "");
 
     function createMicInputNode(sourceNode) {

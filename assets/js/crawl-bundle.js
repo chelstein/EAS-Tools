@@ -804,21 +804,35 @@ import { saveFile } from './common-functions.js';
                 crawlExportController.clear(gifCancelToken);
                 return;
             }
-            reportProgress(1);
 
-            /*
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.cklick();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            */
-            await saveFile(filename, blob, 'image/gif');
-            crawlExportController.clear(gifCancelToken);
-            addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
+            reportProgress(0);
+
+            try {
+                await saveFile(filename, blob, 'image/gif', {
+                    onProgress: (ratio) => reportProgress(ratio),
+                    isCancelled: () => crawlExportController.isCancelled(gifCancelToken),
+                });
+
+                crawlExportController.clear(gifCancelToken);
+                reportProgress(1);
+                addStatus(
+                    'Crawl exported successfully!' +
+                    (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
+                    'SUCCESS'
+                );
+            } catch (e) {
+                const cancelled = String(e?.message || e).includes('CANCELLED') ||
+                    crawlExportController.isCancelled(gifCancelToken);
+
+                crawlExportController.clear(gifCancelToken);
+
+                if (cancelled) {
+                    addStatus('GIF export canceled during save.', 'WARN');
+                } else {
+                    console.error('GIF save failed:', e);
+                    addStatus(`GIF save failed: ${e?.message || e}`, 'ERROR');
+                }
+            }
         });
 
         gif.render();
@@ -1251,20 +1265,34 @@ import { saveFile } from './common-functions.js';
             return;
         }
 
-        reportProgress(1);
-        /*
-        const url = URL.createObjectURL(exportedBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || exportedFilename;
-        document.body.appendChild(a);
-        a.cklick();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        */
-        await saveFile(filename || exportedFilename, exportedBlob, 'video/webm');
-        crawlExportController.clear(webmCancelToken);
-        addStatus('Crawl exported successfully!' + (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''), 'SUCCESS');
+        reportProgress(0);
+
+        try {
+            await saveFile(filename || exportedFilename, exportedBlob, 'video/webm', {
+                onProgress: (ratio) => reportProgress(ratio),
+                isCancelled: () => crawlExportController.isCancelled(webmCancelToken),
+            });
+
+            crawlExportController.clear(webmCancelToken);
+            reportProgress(1);
+            addStatus(
+                'Crawl exported successfully!' +
+                (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
+                'SUCCESS'
+            );
+        } catch (e) {
+            const cancelled = String(e?.message || e).includes('CANCELLED') ||
+                crawlExportController.isCancelled(webmCancelToken);
+
+            crawlExportController.clear(webmCancelToken);
+
+            if (cancelled) {
+                addStatus('WebM export canceled during save.', 'WARN');
+            } else {
+                console.error('WebM save failed:', e);
+                addStatus(`WebM save failed: ${e?.message || e}`, 'ERROR');
+            }
+        }
     }
 
     class TextCrawlGenerator {

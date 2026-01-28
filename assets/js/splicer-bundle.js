@@ -2726,10 +2726,18 @@ import { saveFile } from './common-functions.js';
             playStartedAt = ctxAudio ? ctxAudio.currentTime : 0;
             syncPlayButtons();
 
-            audio.play().catch((err) => {
-                finalizePlayback();
-                reportErrorStatus(`previewCurrentMacro playback failed: ${err}`, err);
-            });
+            const playPromise = audio.play();
+            if (playPromise?.catch) {
+                playPromise.catch((err) => {
+                    const interruptedByPause =
+                        err?.name === 'AbortError' ||
+                        (typeof err?.message === 'string' &&
+                            err.message.includes('The play() request was interrupted by a call to pause'));
+                    if (interruptedByPause) return;
+                    finalizePlayback();
+                    reportErrorStatus(`previewCurrentMacro playback failed: ${err}`, err);
+                });
+            }
         } catch (err) {
             clearMacroPreviewInterval();
             macroPreviewPlayback = null;
