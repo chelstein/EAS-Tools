@@ -22,6 +22,11 @@
     box-sizing: border-box;
 }
 
+:root{
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
 html {
     height: 100%;
     width: 100%;
@@ -45,6 +50,7 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding-bottom: var(--sab);
 }
 
 header {
@@ -55,6 +61,10 @@ header {
     padding: 14px 20px;
     background: linear-gradient(140deg, #121212, #1f1f1f 65%, #0b0b0b);
     border-bottom: 1px solid #242424;
+}
+
+body > header {
+  padding-top: var(--sat);
 }
 
 h1 {
