@@ -122,6 +122,7 @@ const overrides = {
     "frequent": "F R IY2 K W EH1 N T",
     "saline": "S AH L IY N",
     "pottawattamie": "P AA1 T AX W AA T UW M IY",
+    "wichita": "W IH0 CH AX0 T AA",
 };
 
 mode.addEventListener("change", () => {

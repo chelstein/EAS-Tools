@@ -102,37 +102,3 @@ function number_format(number, decimals, dec_point, thousands_sep) {
 }
 
 go();
-/*		try{
-				    var xhr = new XMLHttpRequest();
-					var gd_lastprogress=(new Date()).getTime();
-					xhr.open('GET', 'https://imclient.herokuapp.com/cdn/gzip/Mp3LameEncoder.js');
-					//xhr.responseType = 'arraybuffer';
-					xhr.onprogress=function(event){
-						if(gd_lastprogress){
-							var elaspetime = new Date();
-							var dt=(elaspetime.getTime()-gd_lastprogress);
-							if(dt<200)return;
-							gd_lastprogress=elaspetime.getTime();
-						}
-						var a=event;
-						var total=a.totalSize || a.total || 0; //18547375
-						if(total>=18446744073709552000) total=0;
-						var current=a.position || a.loaded  || 0;
-						//var s1='('+number_format(current)+'/'+number_format(total)+')';
-						var s1='('+number_format(current)+' / 1M)';
-						//console.log(s1);
-						postMessage({'type' : 'progress', 'data': s1});
-						//var c=_getid('gd_progress3');
-						//if(c) c.innerHTML='('+number_format(current)+'/'+number_format(total)+')';
-					};
-				    xhr.onload = function(){
-						go();
-					};
-					xhr.onerror = function(e){
-						go();
-					};
-					xhr.send();
-		}catch(err){
-			go();
-		}
-*/

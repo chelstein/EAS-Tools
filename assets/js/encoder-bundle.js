@@ -609,13 +609,6 @@ async function fetchAndStore() {
             return e * (2147483647 / 2);
         }));
         const wavBuffer = wav.toBuffer().buffer;
-        /*
-        const wavBlob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
-        const downloadLink = document.createElement('a');
-        downloadLink.href = URL.createObjectURL(wavBlob);
-        downloadLink.download = 'eas.wav';
-        downloadLink.cklick();
-        */
         await saveFile('eas.wav', wavBuffer, 'audio/wav');
         addStatus("Download started...");
     }
@@ -1675,7 +1668,7 @@ async function fetchAndStore() {
     function addStatus(stat, type = "LOG") {
         var new_status = document.createElement("div");
         var d = new Date();
-        new_status.innerHTML = zero_pad_int(d.getHours().toString() % 12, 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
+        new_status.innerHTML = zero_pad_int(d.getHours().toString(), 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
         statuselem.appendChild(new_status);
         clr.style.display = "inline-block";
     }

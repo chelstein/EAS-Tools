@@ -753,15 +753,6 @@ async function fetchAndStore() {
     }
 
     async function triggerRecordingDownload(buffer) {
-        /*const blob = new Blob([buffer], { type: "audio/wav" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `eas-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
-        document.body.appendChild(link);
-        link.cklick();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 100);*/
         const filename = `eas-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
         await saveFile(filename, buffer, "audio/wav");
     }

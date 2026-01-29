@@ -138,7 +138,7 @@ import { saveFile } from './common-functions.js';
     function addStatus(stat, type = "LOG") {
         var new_status = document.createElement("div");
         var d = new Date();
-        new_status.innerHTML = zero_pad_int(d.getHours().toString() % 12, 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
+        new_status.innerHTML = zero_pad_int(d.getHours().toString(), 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
         statuselem.appendChild(new_status);
         clearButton.style.display = "inline-block";
     }
