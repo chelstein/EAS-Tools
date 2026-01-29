@@ -735,7 +735,7 @@ button[disabled] {
 @media screen and (max-width: 1079px) {
     #eas-tools-logo {
         width: 12vw;
-        height: 6vh;
+        height: 5.5vh;
         margin: 12px 12px 0 0;
     }
 

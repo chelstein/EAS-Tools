@@ -3,6 +3,7 @@ const footer = document.querySelector('footer');
 footer.innerHTML = `
 <ul class="footer-links">
     <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
+    <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
     <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
     <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
     <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
@@ -10,6 +11,7 @@ footer.innerHTML = `
     <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
 </ul>
+<br class="mobileBreak">
 <div id="footer-mobile-arrow" style="display: none;"></div>
 <p id="footer-mobile-tip" style="display: none;">Swipe for more</p>
 `;
