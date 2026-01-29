@@ -915,6 +915,22 @@
                 } else {
                     activate('decoder');
                 }
+
+                window.addEventListener('deepLinkOpen', (event) => {
+                    const payload = event?.detail ?? event?.data;
+
+                    let deepLinkTool = null;
+
+                    if (typeof payload === 'string') {
+                        try { deepLinkTool = JSON.parse(payload)?.tool; } catch {}
+                    } else if (payload && typeof payload === 'object') {
+                        deepLinkTool = payload.tool;
+                    }
+
+                    if (deepLinkTool && panels?.[deepLinkTool]) {
+                        activate(deepLinkTool);
+                    }
+                });
             })();
         </script>
     </body>

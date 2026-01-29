@@ -763,11 +763,15 @@ button[disabled] {
     }
 
     footer {
-        font-size: 0.8rem;
+        font-size: 0.7rem;
         position: sticky;
         bottom: 0;
         overflow-y: scroll;
         z-index: 10000;
+    }
+
+    #tts-requests-reset-time {
+        font-size: 0.6rem;
     }
 
     .right-align {

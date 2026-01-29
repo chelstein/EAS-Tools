@@ -445,30 +445,43 @@ import { saveFile } from './common-functions.js';
     function createExportProgressReporter(label, increment = 0.001) {
         const step = resolveProgressStepRatio(increment);
         const fractionDigits = resolveProgressFractionDigits(step);
+
         const progressBar = document.getElementById('crawlExportProgress');
         const progressDiv = document.getElementById('crawlExportProgressDiv');
         const progressLabel = document.getElementById('crawlExportProgressLabel');
+        const labelDiv = document.querySelector('label[for="crawlExportProgress"]');
 
-        if (progressBar && progressDiv && progressLabel) {
-            setProgressBarValue(progressBar, 0);
-            progressDiv.style.display = 'block';
-            progressLabel.textContent = '0%';
-
-            let nextThreshold = step;
-            return (value) => {
-                const raw = Number(value);
-                if (!Number.isFinite(raw)) {
-                    return;
-                }
-                const ratio = raw <= 1 ? raw : raw / 100;
-                const clampedRatio = Math.max(0, Math.min(1, ratio));
-                setProgressBarValue(progressBar, clampedRatio);
-                if (clampedRatio + PROGRESS_RATIO_EPSILON >= nextThreshold || clampedRatio >= 1 - PROGRESS_RATIO_EPSILON) {
-                    progressLabel.textContent = formatProgressPercent(clampedRatio, fractionDigits);
-                    nextThreshold = Math.min(1, clampedRatio + step);
-                }
-            };
+        if (!(progressBar && progressDiv && progressLabel)) {
+            return () => { };
         }
+
+        if (labelDiv && typeof label === 'string') {
+            const span = labelDiv.querySelector('#crawlExportProgressLabel');
+            if (span) {
+                labelDiv.firstChild && (labelDiv.firstChild.textContent = `${label}: `);
+            } else {
+                labelDiv.textContent = label;
+            }
+        }
+
+        setProgressBarValue(progressBar, 0);
+        progressDiv.style.display = 'block';
+        progressLabel.textContent = '0%';
+
+        let nextThreshold = step;
+        return (value) => {
+            const raw = Number(value);
+            if (!Number.isFinite(raw)) return;
+
+            const ratio = raw <= 1 ? raw : raw / 100;
+            const clampedRatio = Math.max(0, Math.min(1, ratio));
+
+            setProgressBarValue(progressBar, clampedRatio);
+            if (clampedRatio + PROGRESS_RATIO_EPSILON >= nextThreshold || clampedRatio >= 1 - PROGRESS_RATIO_EPSILON) {
+                progressLabel.textContent = formatProgressPercent(clampedRatio, fractionDigits);
+                nextThreshold = Math.min(1, clampedRatio + step);
+            }
+        };
     }
 
     const crawlExportController = (() => {
@@ -549,24 +562,66 @@ import { saveFile } from './common-functions.js';
 
         addStatus('Exporting crawl as GIF... Please wait.');
         const startTime = performance.now();
-
         const generator = window.crawlGenerator;
+
+        const isNative = Boolean(window.Capacitor?.isNativePlatform?.());
+
+        const NATIVE_MAX_W = 1280;
+        const NATIVE_MAX_H = 720;
+
+        function chooseGifDimensions(srcW, srcH) {
+            if (!isNative) return { w: srcW, h: srcH };
+
+            const scale = Math.min(1, NATIVE_MAX_W / srcW, NATIVE_MAX_H / srcH);
+            return { w: Math.max(1, Math.round(srcW * scale)), h: Math.max(1, Math.round(srcH * scale)) };
+        }
+
+        function createNoopProgress() { return () => { }; }
+
+        function safeCreateProgress(label, increment = 0.001) {
+            const reporter = createExportProgressReporter(label, increment);
+            return (typeof reporter === 'function') ? reporter : createNoopProgress();
+        }
+
+        function setProgressLabelPrefix(label) {
+            const labelEl = document.querySelector('label[for="crawlExportProgress"]');
+            const pctSpan = document.getElementById('crawlExportProgressLabel');
+            if (!labelEl || !pctSpan || typeof label !== 'string') return;
+
+            const nodes = Array.from(labelEl.childNodes);
+            const firstTextNode = nodes.find(n => n.nodeType === Node.TEXT_NODE);
+            if (firstTextNode) {
+                firstTextNode.textContent = `${label}: `;
+            } else {
+                labelEl.insertBefore(document.createTextNode(`${label}: `), pctSpan);
+            }
+        }
+
+        async function yieldToUI() {
+            await new Promise(requestAnimationFrame);
+        }
+
         let tearDownCaptureCanvas = () => { };
         const captureCanvas = document.createElement('canvas');
-        captureCanvas.width = canvas.width;
-        captureCanvas.height = canvas.height;
+
+        const dims = chooseGifDimensions(canvas.width, canvas.height);
+        captureCanvas.width = dims.w;
+        captureCanvas.height = dims.h;
+
         captureCanvas.style.position = 'fixed';
         captureCanvas.style.pointerEvents = 'none';
         captureCanvas.style.opacity = '0';
         captureCanvas.style.left = '-10000px';
         captureCanvas.style.top = '-10000px';
         document.body.appendChild(captureCanvas);
+
         tearDownCaptureCanvas = () => {
             if (captureCanvas && captureCanvas.parentNode) {
                 captureCanvas.parentNode.removeChild(captureCanvas);
             }
         };
-        const captureCtx = captureCanvas.getContext('2d');
+
+        const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
 
         const text = generator.text || '';
         const fontSize = Number(generator.fontSize) || 24;
@@ -578,68 +633,93 @@ import { saveFile } from './common-functions.js';
         const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
             ? `"${fontFamily.replace(/(["\\])/g, '\\$1')}"`
             : fontFamily;
-        const font = `${fontStyle} ${fontSize}px ${sanitizedFontFamily}`;
-        const lineHeight = fontSize + 10;
+
+        const scaleX = captureCanvas.width / canvas.width;
+        const scaleY = captureCanvas.height / canvas.height;
+        const scale = Math.min(scaleX, scaleY);
+        const scaledFontSize = Math.max(8, Math.round(fontSize * scale));
+        const font = `${fontStyle} ${scaledFontSize}px ${sanitizedFontFamily}`;
+        const lineHeight = scaledFontSize + Math.round(10 * scale);
 
         captureCtx.font = font;
         captureCtx.textAlign = useVdsMode ? 'left' : 'center';
         captureCtx.textBaseline = 'middle';
         captureCtx.lineJoin = generator.outlineJoin || 'round';
-        const renderText = createTextRenderer(captureCtx, generator.outlineColor, generator.outlineWidth);
+
+        const outlineWidth = Number(generator.outlineWidth);
+        const scaledOutlineWidth = Number.isFinite(outlineWidth) ? Math.max(1, Math.round(outlineWidth * scale)) : undefined;
+        const renderText = createTextRenderer(captureCtx, generator.outlineColor, scaledOutlineWidth);
+
         const vdsState = useVdsMode ? createVdsExportState(captureCtx, lines) : null;
 
         const maxLineWidth = lines.reduce((maxWidth, line) => {
             const width = captureCtx.measureText(line).width;
             return width > maxWidth ? width : maxWidth;
         }, 0);
+
         const translation = (typeof generator._computeTopLeftTranslation === 'function')
             ? generator._computeTopLeftTranslation(maxLineWidth, lines.length)
             : { x: 0, y: 0 };
-        const translationX = Number.isFinite(translation.x) ? translation.x : 0;
-        const translationY = Number.isFinite(translation.y) ? translation.y : 0;
 
-        const bounds = typeof generator._computeCrawlBounds === 'function'
+        const translationX = Number.isFinite(translation.x) ? translation.x * scaleX : 0;
+        const translationY = Number.isFinite(translation.y) ? translation.y * scaleY : 0;
+
+        const bounds = (typeof generator._computeCrawlBounds === 'function')
             ? generator._computeCrawlBounds(maxLineWidth)
             : null;
-        const inset = bounds ? bounds.inset : 0;
+
+        const insetRaw = bounds ? bounds.inset : 0;
+        const inset = Math.max(0, Math.round(insetRaw * scaleX));
+
         const halfLineWidth = maxLineWidth / 2;
         const startOffsetFallback = canvas.width + halfLineWidth;
         const endOffsetFallback = -halfLineWidth;
         const startOffset = bounds && Number.isFinite(bounds.start) ? bounds.start : startOffsetFallback;
         const endOffset = bounds && Number.isFinite(bounds.end) ? bounds.end : endOffsetFallback;
-        const adjustedStartOffset = startOffset - translationX;
-        const adjustedEndOffset = endOffset - translationX;
-        const travelDistance = adjustedStartOffset - adjustedEndOffset || canvas.width;
+
+        const adjustedStartOffset = (startOffset - (Number.isFinite(translation.x) ? translation.x : 0)) * scaleX;
+        const adjustedEndOffset = (endOffset - (Number.isFinite(translation.x) ? translation.x : 0)) * scaleX;
+        const travelDistance = adjustedStartOffset - adjustedEndOffset || captureCanvas.width;
 
         const recordedMsPerFrame = Number(generator.msPerFrame);
         const fallbackMsPerFrame = TARGET_FRAME_MS;
         const targetMsPerFrame = (Number.isFinite(recordedMsPerFrame) && recordedMsPerFrame > 0)
             ? recordedMsPerFrame
             : fallbackMsPerFrame;
+
         const MIN_GIF_DELAY = 20;
         const frameDelay = Math.max(MIN_GIF_DELAY, Math.round(targetMsPerFrame));
+
         const speedPerSecond = getGeneratorSpeedPerSecond(generator);
         const pxPerSecond = Math.max(0.5, Math.abs(speedPerSecond));
-        const pxPerFrameMagnitude = pxPerSecond * (frameDelay / 1000);
+        const pxPerFrameMagnitude = (pxPerSecond * (frameDelay / 1000)) * scaleX;
         const pxPerFrameSigned = speedPerSecond >= 0 ? pxPerFrameMagnitude : -pxPerFrameMagnitude;
+
         const defaultVdsDelay = (Number.isFinite(generator.vdsBaseDelayFrames) && generator.vdsBaseDelayFrames > 0)
             ? generator.vdsBaseDelayFrames
             : DEFAULT_VDS_BASE_DELAY;
+
         const vdsDelay = useVdsMode && typeof generator.getEffectiveVdsDelay === 'function'
             ? generator.getEffectiveVdsDelay(pxPerFrameMagnitude)
             : defaultVdsDelay;
+
         let framesNeeded = Math.max(1, Math.ceil(travelDistance / Math.max(pxPerFrameMagnitude, 0.01)));
+
         const rawRepetitionInput = (typeof generator.crawlRepetitions !== 'undefined')
             ? Number(generator.crawlRepetitions)
             : Number(generator.repetitions);
+
         const repetitions = Math.max(1, Math.min(10, Math.round(rawRepetitionInput || 0)));
         const gifRepeat = repetitions <= 1 ? -1 : repetitions - 1;
 
+        const gifWorkers = isNative ? 1 : 5;
+
         const gif = new GIF({
-            workers: 5,
+            workers: gifWorkers,
             quality: 4,
             repeat: gifRepeat
         });
+
         let userCancelledGifExport = false;
         const gifCancelToken = crawlExportController.createToken(() => {
             userCancelledGifExport = true;
@@ -653,27 +733,34 @@ import { saveFile } from './common-functions.js';
 
         const clipWidth = captureCanvas.width - inset * 2;
         const shouldClip = inset > 0 && clipWidth > 0;
+
         const restartDelayMs = Number(generator.crawlRestartDelay);
         const restartDelayFrames = (Number.isFinite(restartDelayMs) && restartDelayMs > 0)
             ? Math.max(1, Math.round(restartDelayMs / frameDelay))
             : 0;
+
         const framesPerCycle = framesNeeded + restartDelayFrames;
         let totalFrames = framesPerCycle * repetitions;
+
         const dasdecBackground = window.__dasdecBackground;
         const dasdecPages = dasdecBackground && Array.isArray(dasdecBackground.pages) ? dasdecBackground.pages : null;
         const dasdecRotationDelay = dasdecBackground && Number.isFinite(dasdecBackground.rotationDelayMs)
             ? dasdecBackground.rotationDelayMs
             : null;
+
         const dasdecRepetitionOverride = dasdecBackground && Number.isFinite(dasdecBackground.repetitions)
             ? Math.max(1, Math.min(10, Math.round(dasdecBackground.repetitions)))
             : repetitions;
-        const dasdecTotalDisplays = dasdecPages && dasdecPages.length && dasdecRotationDelay
+
+        const dasdecTotalDisplays = (dasdecPages && dasdecPages.length && dasdecRotationDelay)
             ? Math.max(1, Number(dasdecBackground.totalDisplays) || (dasdecRepetitionOverride * dasdecPages.length))
             : 0;
+
         const dasdecFramesPerPage = dasdecRotationDelay
             ? Math.max(1, Math.round(dasdecRotationDelay / frameDelay))
             : null;
-        const getDasdecPageForFrame = dasdecPages && dasdecFramesPerPage
+
+        const getDasdecPageForFrame = (dasdecPages && dasdecFramesPerPage)
             ? (frameIndex) => {
                 const displayIndex = Math.min(
                     dasdecTotalDisplays - 1,
@@ -682,12 +769,14 @@ import { saveFile } from './common-functions.js';
                 return dasdecPages[displayIndex % dasdecPages.length];
             }
             : null;
+
         if (getDasdecPageForFrame) {
             totalFrames = dasdecTotalDisplays * dasdecFramesPerPage;
         }
-        let delayFramesRemaining = 0;
-        const reportProgress = createExportProgressReporter('GIF export');
+
         const captureProgressPortion = 0.5;
+        const reportCaptureProgress = safeCreateProgress('GIF export');
+        const reportSaveProgress = safeCreateProgress('GIF save');
 
         let showTime = localStorage["showTime"];
 
@@ -696,6 +785,7 @@ import { saveFile } from './common-functions.js';
             captureCtx.setTransform(1, 0, 0, 1, 0, 0);
             captureCtx.globalAlpha = 1;
             captureCtx.globalCompositeOperation = 'copy';
+
             let drewCustomBackground = false;
             if (getDasdecPageForFrame) {
                 const dasdecPage = getDasdecPageForFrame(frameIndex);
@@ -707,6 +797,7 @@ import { saveFile } from './common-functions.js';
             if (!drewCustomBackground) {
                 drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
             }
+
             captureCtx.restore();
             captureCtx.globalCompositeOperation = 'source-over';
         };
@@ -739,7 +830,7 @@ import { saveFile } from './common-functions.js';
                     vdsState,
                     translatedOffsetX,
                     centerY,
-                    fontSize,
+                    scaledFontSize,
                     renderText
                 );
             } else {
@@ -757,86 +848,127 @@ import { saveFile } from './common-functions.js';
 
         resetVdsExportState(vdsState);
         let offsetX = adjustedStartOffset;
-        for (let i = 0; i < totalFrames; i++) {
-            drawFrame(offsetX, i);
-            gif.addFrame(captureCanvas, { delay: frameDelay, copy: true });
-            reportProgress(((i + 1) / totalFrames) * captureProgressPortion);
+        let delayFramesRemaining = 0;
 
-            if (delayFramesRemaining > 0) {
-                delayFramesRemaining--;
-                if (delayFramesRemaining === 0) {
-                    offsetX = adjustedStartOffset;
-                    resetVdsExportState(vdsState);
-                }
-                continue;
-            }
+        setProgressLabelPrefix('GIF export');
+        reportCaptureProgress(0);
 
-            offsetX -= pxPerFrameSigned;
-            if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) || (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
-                if (restartDelayFrames > 0) {
-                    offsetX = adjustedEndOffset;
-                    delayFramesRemaining = restartDelayFrames;
-                } else {
-                    offsetX = adjustedStartOffset;
-                    resetVdsExportState(vdsState);
-                }
-            }
-        }
-
-        gif.on('progress', function (progress) {
-            const clampedProgress = Math.max(0, Math.min(0.999, progress));
-            const remainingPortion = 1 - captureProgressPortion;
-            reportProgress(captureProgressPortion + clampedProgress * remainingPortion);
-        });
-
-        gif.on('abort', function () {
-            const wasUserCancelled = userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken);
-            crawlExportController.clear(gifCancelToken);
-            addStatus(
-                wasUserCancelled ? 'GIF export canceled.' : 'GIF export aborted unexpectedly.',
-                wasUserCancelled ? 'WARN' : 'ERROR'
-            );
-        });
-
-        gif.on('finished', async function (blob) {
-            const wasCancelled = crawlExportController.isCancelled(gifCancelToken);
-            if (wasCancelled) {
-                crawlExportController.clear(gifCancelToken);
-                return;
-            }
-
-            reportProgress(0);
-
+        (async () => {
             try {
-                await saveFile(filename, blob, 'image/gif', {
-                    onProgress: (ratio) => reportProgress(ratio),
-                    isCancelled: () => crawlExportController.isCancelled(gifCancelToken),
+                for (let i = 0; i < totalFrames; i++) {
+                    if (userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken)) {
+                        throw new Error('CANCELLED');
+                    }
+
+                    drawFrame(offsetX, i);
+
+                    gif.addFrame(captureCanvas, { delay: frameDelay, copy: true });
+
+                    reportCaptureProgress(((i + 1) / totalFrames) * captureProgressPortion);
+
+                    if (isNative && (i % 10 === 0)) {
+                        await yieldToUI();
+                    }
+
+                    if (delayFramesRemaining > 0) {
+                        delayFramesRemaining--;
+                        if (delayFramesRemaining === 0) {
+                            offsetX = adjustedStartOffset;
+                            resetVdsExportState(vdsState);
+                        }
+                        continue;
+                    }
+
+                    offsetX -= pxPerFrameSigned;
+
+                    if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) ||
+                        (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
+                        if (restartDelayFrames > 0) {
+                            offsetX = adjustedEndOffset;
+                            delayFramesRemaining = restartDelayFrames;
+                        } else {
+                            offsetX = adjustedStartOffset;
+                            resetVdsExportState(vdsState);
+                        }
+                    }
+                }
+
+                gif.on('progress', function (progress) {
+                    const clampedProgress = Math.max(0, Math.min(0.999, progress));
+                    const remainingPortion = 1 - captureProgressPortion;
+                    reportCaptureProgress(captureProgressPortion + clampedProgress * remainingPortion);
                 });
 
-                crawlExportController.clear(gifCancelToken);
-                reportProgress(1);
-                addStatus(
-                    'Crawl exported successfully!' +
-                    (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
-                    'SUCCESS'
-                );
+                gif.on('abort', function () {
+                    const wasUserCancelled = userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken);
+                    crawlExportController.clear(gifCancelToken);
+                    tearDownCaptureCanvas();
+                    addStatus(
+                        wasUserCancelled ? 'GIF export canceled.' : 'GIF export aborted unexpectedly.',
+                        wasUserCancelled ? 'WARN' : 'ERROR'
+                    );
+                });
+
+                gif.on('finished', async function (blob) {
+                    try {
+                        const wasCancelled = crawlExportController.isCancelled(gifCancelToken);
+                        if (wasCancelled) {
+                            crawlExportController.clear(gifCancelToken);
+                            tearDownCaptureCanvas();
+                            return;
+                        }
+
+                        setProgressLabelPrefix('GIF save');
+                        reportSaveProgress(0);
+
+                        await saveFile(filename, blob, 'image/gif', {
+                            onProgress: (ratio) => reportSaveProgress(ratio),
+                            isCancelled: () => crawlExportController.isCancelled(gifCancelToken),
+                        });
+
+                        crawlExportController.clear(gifCancelToken);
+                        reportSaveProgress(1);
+
+                        addStatus(
+                            'Crawl exported successfully!' +
+                            (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
+                            'SUCCESS'
+                        );
+                    } catch (e) {
+                        const cancelled = String(e?.message || e).includes('CANCELLED') ||
+                            crawlExportController.isCancelled(gifCancelToken);
+
+                        crawlExportController.clear(gifCancelToken);
+
+                        if (cancelled) {
+                            addStatus('GIF export canceled during save.', 'WARN');
+                        } else {
+                            console.error('GIF save failed:', e);
+                            addStatus(`GIF save failed: ${e?.message || e}`, 'ERROR');
+                        }
+                    } finally {
+                        tearDownCaptureCanvas();
+                    }
+                });
+
+                gif.render();
             } catch (e) {
                 const cancelled = String(e?.message || e).includes('CANCELLED') ||
+                    userCancelledGifExport ||
                     crawlExportController.isCancelled(gifCancelToken);
 
                 crawlExportController.clear(gifCancelToken);
+                tearDownCaptureCanvas();
 
                 if (cancelled) {
-                    addStatus('GIF export canceled during save.', 'WARN');
+                    addStatus('GIF export canceled.', 'WARN');
                 } else {
-                    console.error('GIF save failed:', e);
-                    addStatus(`GIF save failed: ${e?.message || e}`, 'ERROR');
+                    console.error('GIF export failed:', e);
+                    addStatus(`GIF export failed: ${e?.message || e}`, 'ERROR');
                 }
             }
-        });
-
-        gif.render();
-    };
+        })();
+    }
 
     async function exportAsWebM(canvas, filename) {
         if (!window.crawlGenerator) {
@@ -972,7 +1104,7 @@ import { saveFile } from './common-functions.js';
         const clipWidth = captureCanvas.width - inset * 2;
         const shouldClip = inset > 0 && clipWidth > 0;
         let delayFramesRemaining = 0;
-        const reportProgress = createExportProgressReporter('WebM export');
+        let reportProgress = createExportProgressReporter('WebM export');
         const encodeProgressPortion = Math.min(0.1, 1 / Math.max(1, totalFrames));
         const captureProgressPortion = Math.max(0, 1 - encodeProgressPortion);
 
@@ -1264,6 +1396,8 @@ import { saveFile } from './common-functions.js';
             addStatus('No frames recorded for WebM export.', 'WARN');
             return;
         }
+
+        reportProgress = createExportProgressReporter('WebM save');
 
         reportProgress(0);
 
@@ -2579,7 +2713,7 @@ import { saveFile } from './common-functions.js';
         for (let i = 0; i < formattedLines.length; i += (maxLinesPerPage - 1)) {
             const pageContent = formattedLines.slice(i, i + (maxLinesPerPage - 1));
             while (pageContent.length < (maxLinesPerPage - 1)) {
-                pageContent.push(''); // Fill empty lines if necessary
+                pageContent.push('');
             }
             pageContent.push(`${pages.length + 1}/${totalPages}`);
             pages.push(pageContent);

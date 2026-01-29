@@ -1,0 +1,9 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.wagspuzzle.eastools",
+    "sha256_cert_fingerprints":
+    ["ED:5A:5E:EE:71:1A:91:7F:55:D5:E6:B9:FE:70:B8:49:7E:81:15:E6:94:C4:9E:5E:66:10:4A:5D:F0:E5:C6:3F"]
+  }
+}]
