@@ -23,8 +23,8 @@
 }
 
 :root{
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 10px);
+  --sab: env(safe-area-inset-bottom, 10px);
 }
 
 html {
@@ -61,10 +61,6 @@ header {
     padding: 14px 20px;
     background: linear-gradient(140deg, #121212, #1f1f1f 65%, #0b0b0b);
     border-bottom: 1px solid #242424;
-}
-
-body > header {
-  padding-top: var(--sat);
 }
 
 h1 {
@@ -412,6 +408,16 @@ button[disabled] {
     width: 15vw;
 }
 
+#eas-tools-logo {
+    background: url('../eas-tools-logo.png') no-repeat center;
+    background-size: 115%;
+    width: 3vw;
+    height: 6vh;
+    border-radius: 50%;
+    object-fit: contain;
+    display: inline-block;
+}
+
 /* Class-level CSS */
 .strikethrough {
     text-decoration: line-through;
@@ -727,6 +733,12 @@ button[disabled] {
 /* Media Queries */
 /* Mobile devices */
 @media screen and (max-width: 1079px) {
+    #eas-tools-logo {
+        width: 12vw;
+        height: 6vh;
+        margin: 12px 12px 0 0;
+    }
+
     .inner-copy-paste-paragraph {
         margin: 0;
         margin-bottom: -12px;
@@ -768,6 +780,34 @@ button[disabled] {
         bottom: 0;
         overflow-y: scroll;
         z-index: 10000;
+    }
+
+    #footer-mobile-arrow {
+        display: block !important;
+        width: 10vw;
+        height: 5px;
+        background-color: #555;
+        border-radius: 3px;
+        margin: 0 auto 6px auto;
+    }
+
+    #footer-mobile-arrow::after {
+        display: block !important;
+        content: "▶";
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #555;
+        position: relative;
+        top: -1.7vh;
+        left: 4.2vw;
+    }
+
+    #footer-mobile-tip {
+        display: block !important;
+        text-align: center;
+        font-size: 0.6rem;
+        color: #777;
+        margin: 0 0 6px 0;
     }
 
     #tts-requests-reset-time {
@@ -860,21 +900,23 @@ button[disabled] {
     }
 
     #nav-buttons {
-        margin-left: 0;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        display: flex;
-        gap: 10px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        flex-wrap: nowrap;
+        display: none;
     }
 
-    #nav-buttons button {
-        flex: 0 0 auto;
-        white-space: nowrap;
+    #nav-selector {
+        display: block !important;
+    }
+
+    #nav-select {
+        width: 125%;
+        padding: 8px;
+        margin-top: 8px;
+        margin-left: -4.2vw;
+        font-size: 1rem;
+        border-radius: 6px;
+        background-color: #161616;
+        color: #f5f5f5;
+        border: 1px solid #303030;
     }
 
     #mobile-controls {
@@ -929,6 +971,10 @@ button[disabled] {
     #crawlDisplay>canvas {
         width: 90vw !important;
         height: 30vh !important;
+    }
+
+    body > header {
+        padding-top: var(--sat);
     }
 }
 

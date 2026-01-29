@@ -1,6 +1,6 @@
 # Emergency Alert System (EAS)/Specific Area Message Encoding (SAME) Tools
 
-[![EAS Logo](./assets/eas-logo-banner.png)](./assets/eas-logo-banner.png)
+[![EAS Logo](./assets/eas-tools-logo.png)](./assets/eas-tools-logo.png)
 
 Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to the brim with features, such as a full **decoder**, **encoder**, **text crawl generator**, **audio splicer**, **phoneme converter/generator**, and **video/audio muxer**. All tools are client‑side and work offline after the initial load. All open source and freely available on GitHub. Run your own copy if you'd like!
 

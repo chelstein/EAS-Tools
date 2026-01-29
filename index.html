@@ -34,7 +34,7 @@
     </head>
     <body>
         <header>
-            <h1><a href=".">EAS Tools</a></h1>
+            <h1><a href="." id="eas-tools-logo"></a></h1>
             <nav id="tab-set">
                 <div id="nav-buttons">
                     <button type="button" class="active" data-tool="decoder">Decoder</button>
@@ -43,6 +43,11 @@
                     <button type="button" data-tool="splicer">Audio Splicer</button>
                     <button type="button" data-tool="phoneme">Phoneme Converter/Generator</button>
                     <button type="button" data-tool="muxer">Video/Audio Muxer</button>
+                </div>
+                <div id="nav-selector" style="display: none;">
+                    <select id="nav-select">
+                        <!-- will get filled in by js below -->
+                    </select>
                 </div>
             </nav>
         </header>
@@ -895,7 +900,21 @@
 
                 buttons.forEach((btn) => {
                     btn.addEventListener('click', () => activate(btn.dataset.tool));
+                    const panelList = document.getElementById('nav-select');
+                    if (panelList) {
+                        const option = document.createElement('option');
+                        option.value = btn.dataset.tool;
+                        option.textContent = btn.textContent;
+                        panelList.appendChild(option);
+                    }
                 });
+
+                const panelList = document.getElementById('nav-select');
+                if (panelList) {
+                    panelList.addEventListener('change', () => {
+                        activate(panelList.value);
+                    });
+                }
 
                 document.querySelectorAll('[data-switch-to]').forEach((link) => {
                     link.addEventListener('click', (event) => {

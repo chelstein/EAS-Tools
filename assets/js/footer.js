@@ -10,6 +10,8 @@ footer.innerHTML = `
     <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
 </ul>
+<div id="footer-mobile-arrow" style="display: none;"></div>
+<p id="footer-mobile-tip" style="display: none;">Swipe for more</p>
 `;
 
 const lastUpdated = document.getElementById('last-updated');
