@@ -100,7 +100,7 @@
                 </div>
                 <h3>Conclusion</h3>
                 <p>By keeping these notes in mind, users can make the most of the TTS feature in EAS Tools and ensure a smoother experience when working with different voices.</p>
-                <button>Back to EAS Tools</button>
+                <button onclick="location.href='index.html'">Back to EAS Tools</button>
             </article>
         </main>
         <footer></footer>
@@ -224,11 +224,6 @@ The current time is, ${currentTime}.
                             });
                         }
                     });
-                });
-
-                const backButton = document.querySelector('button');
-                backButton.addEventListener('click', () => {
-                    window.location.href = './index.html';
                 });
 
                 async function fetchVoiceList() {
