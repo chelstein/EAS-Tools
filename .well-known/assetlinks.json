@@ -1,9 +1,16 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.wagspuzzle.eastools",
-    "sha256_cert_fingerprints":
-    ["ED:5A:5E:EE:71:1A:91:7F:55:D5:E6:B9:FE:70:B8:49:7E:81:15:E6:94:C4:9E:5E:66:10:4A:5D:F0:E5:C6:3F"]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.wagspuzzle.eastools",
+      "sha256_cert_fingerprints": [
+        "ED:5A:5E:EE:71:1A:91:7F:55:D5:E6:B9:FE:70:B8:49:7E:81:15:E6:94:C4:9E:5E:66:10:4A:5D:F0:E5:C6:3F",
+        "F2:79:EF:44:9C:A1:E4:0A:57:90:40:BF:6C:B5:1E:18:E7:D9:36:84:E4:33:93:54:8C:8F:F5:D8:D5:C8:F0:72"
+      ]
+    }
   }
-}]
+]
