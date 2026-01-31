@@ -35,6 +35,72 @@ import { saveFile } from './common-functions.js';
 })();
 
 (function () {
+    const MOBILE_CANVAS_MEDIA_QUERY = '(max-width: 1079px)';
+    const MOBILE_CANVAS_WIDTH_RATIO = 0.9;
+    const MOBILE_CANVAS_HEIGHT_RATIO = 0.3;
+    const mobileCanvasMediaQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia(MOBILE_CANVAS_MEDIA_QUERY)
+        : null;
+
+    function isMobileCanvasViewport() {
+        return Boolean(mobileCanvasMediaQuery && mobileCanvasMediaQuery.matches);
+    }
+
+    function getMobileCanvasLimits() {
+        const docElement = typeof document !== 'undefined' ? document.documentElement : null;
+        const viewportWidth = Math.max(0, window.innerWidth || 0, docElement ? docElement.clientWidth : 0);
+        const viewportHeight = Math.max(0, window.innerHeight || 0, docElement ? docElement.clientHeight : 0);
+
+        return {
+            width: Math.max(1, Math.round(viewportWidth * MOBILE_CANVAS_WIDTH_RATIO)),
+            height: Math.max(1, Math.round(viewportHeight * MOBILE_CANVAS_HEIGHT_RATIO))
+        };
+    }
+
+    function calculateResponsiveCanvasSize(width, height) {
+        if (!isMobileCanvasViewport()) {
+            return null;
+        }
+        const safeWidth = Number.isFinite(width) && width > 0 ? width : 0;
+        const safeHeight = Number.isFinite(height) && height > 0 ? height : 0;
+        if (!safeWidth || !safeHeight) {
+            return null;
+        }
+
+        const { width: maxWidth, height: maxHeight } = getMobileCanvasLimits();
+        if (!maxWidth || !maxHeight) {
+            return null;
+        }
+
+        const widthScale = maxWidth / safeWidth;
+        const heightScale = maxHeight / safeHeight;
+        const scale = Math.min(1, widthScale, heightScale);
+        if (!Number.isFinite(scale) || scale <= 0) {
+            return null;
+        }
+
+        return {
+            width: Math.max(1, Math.round(safeWidth * scale)),
+            height: Math.max(1, Math.round(safeHeight * scale))
+        };
+    }
+
+    function applyCanvasDisplaySize(canvas, width, height) {
+        if (!canvas || !Number.isFinite(width) || !Number.isFinite(height)) {
+            return;
+        }
+        const responsiveSize = calculateResponsiveCanvasSize(width, height);
+        if (responsiveSize) {
+            canvas.style.width = `${responsiveSize.width}px`;
+            canvas.style.height = `${responsiveSize.height}px`;
+            canvas.classList.add('crawl-canvas--responsive');
+            return;
+        }
+        canvas.style.removeProperty('width');
+        canvas.style.removeProperty('height');
+        canvas.classList.remove('crawl-canvas--responsive');
+    }
+
     const TARGET_FRAME_MS = 1000 / 60;
     const TARGET_FRAMES_PER_SECOND = 1000 / TARGET_FRAME_MS;
     const PREMADE_BACKGROUND_LAYOUTS = Object.freeze({
@@ -138,7 +204,7 @@ import { saveFile } from './common-functions.js';
     function addStatus(stat, type = "LOG") {
         var new_status = document.createElement("div");
         var d = new Date();
-        new_status.innerHTML = zero_pad_int(d.getHours().toString(), 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
+        new_status.innerHTML = zero_pad_int(d.getHours().toString() % 12 || 12, 2) + ":" + zero_pad_int(d.getMinutes().toString(), 2) + ":" + zero_pad_int(d.getSeconds().toString(), 2) + " " + (d.getHours() >= 12 ? "PM" : "AM") + " [" + type + "]: " + stat;
         statuselem.appendChild(new_status);
         clearButton.style.display = "inline-block";
     }
@@ -317,14 +383,51 @@ import { saveFile } from './common-functions.js';
         return supported;
     };
 
+    function clearContextFully(ctx, width, height) {
+        if (!ctx) {
+            return;
+        }
+        const canvas = ctx.canvas;
+        const fallbackWidth = canvas && Number.isFinite(canvas.width) && canvas.width > 0 ? canvas.width : 0;
+        const fallbackHeight = canvas && Number.isFinite(canvas.height) && canvas.height > 0 ? canvas.height : 0;
+        const targetWidth = Number.isFinite(width) && width > 0 ? width : fallbackWidth;
+        const targetHeight = Number.isFinite(height) && height > 0 ? height : fallbackHeight;
+        if (!targetWidth || !targetHeight) {
+            return;
+        }
+        ctx.save();
+        if (typeof ctx.resetTransform === 'function') {
+            ctx.resetTransform();
+        } else {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        const previousComposite = ctx.globalCompositeOperation;
+        const previousFill = ctx.fillStyle;
+        ctx.globalCompositeOperation = 'copy';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.globalCompositeOperation = previousComposite;
+        ctx.fillStyle = previousFill;
+        ctx.restore();
+    }
+
     function drawGeneratorBackground(ctx, generator, width, height) {
         if (!ctx || !generator) {
             return;
         }
-        const safeWidth = Number.isFinite(width) && width > 0 ? width : 0;
-        const safeHeight = Number.isFinite(height) && height > 0 ? height : 0;
+        const fallbackWidth = ctx.canvas && Number.isFinite(ctx.canvas.width) && ctx.canvas.width > 0
+            ? ctx.canvas.width
+            : 0;
+        const fallbackHeight = ctx.canvas && Number.isFinite(ctx.canvas.height) && ctx.canvas.height > 0
+            ? ctx.canvas.height
+            : 0;
+        const safeWidth = Number.isFinite(width) && width > 0 ? width : fallbackWidth;
+        const safeHeight = Number.isFinite(height) && height > 0 ? height : fallbackHeight;
+        const clearWidth = safeWidth || fallbackWidth;
+        const clearHeight = safeHeight || fallbackHeight;
+        const clearCanvas = () => clearContextFully(ctx, clearWidth, clearHeight);
         if (!safeWidth || !safeHeight) {
-            ctx.clearRect(0, 0, safeWidth, safeHeight);
+            clearCanvas();
             return;
         }
         const video = generator.bgVideo;
@@ -343,7 +446,7 @@ import { saveFile } from './common-functions.js';
             return;
         }
         if (generator._transparentBg) {
-            ctx.clearRect(0, 0, safeWidth, safeHeight);
+            clearCanvas();
             return;
         }
         const fill = generator.bgColor || '#000000';
@@ -976,11 +1079,6 @@ import { saveFile } from './common-functions.js';
             return;
         }
 
-        if (typeof CCapture !== 'function') {
-            addStatus('WebM export unavailable: missing CCapture dependency.', 'ERROR');
-            return;
-        }
-
         addStatus('Exporting crawl as WebM... Please wait.');
         const startTime = performance.now();
 
@@ -1109,12 +1207,21 @@ import { saveFile } from './common-functions.js';
         const captureProgressPortion = Math.max(0, 1 - encodeProgressPortion);
 
         let showTime = localStorage["showTime"];
+        const isTransparentBackground = Boolean(
+            generator._transparentBg ||
+            (typeof generator._isTransparentColor === 'function' && generator._isTransparentColor(generator.bgColor))
+        );
+        const hasGeneratorMedia = Boolean(generator.bgVideo || generator.bgImage);
+        const shouldDrawGeneratorBackground = !isTransparentBackground || hasGeneratorMedia;
+        const wantsTransparentOutput = isTransparentBackground && !hasGeneratorMedia && !getDasdecPageForFrame;
 
-        const clearFrame = (frameIndex = 0) => {
+        const clearFrameOpaque = (frameIndex = 0) => {
             captureCtx.save();
             captureCtx.setTransform(1, 0, 0, 1, 0, 0);
             captureCtx.globalAlpha = 1;
-            captureCtx.globalCompositeOperation = 'copy';
+            captureCtx.globalCompositeOperation = 'source-over';
+            captureCtx.fillStyle = '#000000';
+            captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
             let drewCustomBackground = false;
             if (getDasdecPageForFrame) {
                 const dasdecPage = getDasdecPageForFrame(frameIndex);
@@ -1123,15 +1230,37 @@ import { saveFile } from './common-functions.js';
                     drewCustomBackground = true;
                 }
             }
-            if (!drewCustomBackground) {
+            if (!drewCustomBackground && shouldDrawGeneratorBackground) {
                 drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
             }
             captureCtx.restore();
             captureCtx.globalCompositeOperation = 'source-over';
         };
 
-        const drawFrame = (offsetX, frameIndex) => {
-            clearFrame(frameIndex);
+        const clearFrameTransparent = (frameIndex = 0) => {
+            captureCtx.save();
+            captureCtx.setTransform(1, 0, 0, 1, 0, 0);
+            captureCtx.globalAlpha = 1;
+            captureCtx.globalCompositeOperation = 'copy';
+            captureCtx.fillStyle = 'rgba(0, 0, 0, 0)';
+            captureCtx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
+            let drewCustomBackground = false;
+            if (getDasdecPageForFrame) {
+                const dasdecPage = getDasdecPageForFrame(frameIndex);
+                if (dasdecPage) {
+                    captureCtx.drawImage(dasdecPage, 0, 0, captureCanvas.width, captureCanvas.height);
+                    drewCustomBackground = true;
+                }
+            }
+            if (!drewCustomBackground && shouldDrawGeneratorBackground) {
+                drawGeneratorBackground(captureCtx, generator, captureCanvas.width, captureCanvas.height);
+            }
+            captureCtx.restore();
+            captureCtx.globalCompositeOperation = 'source-over';
+        };
+
+        const drawFrameWithClear = (offsetX, frameIndex, clearFn) => {
+            clearFn(frameIndex);
             captureCtx.fillStyle = textColor;
             captureCtx.font = font;
 
@@ -1174,6 +1303,9 @@ import { saveFile } from './common-functions.js';
             }
         };
 
+        const drawFrame = (offsetX, frameIndex) => drawFrameWithClear(offsetX, frameIndex, clearFrameOpaque);
+        const drawFrameTransparent = (offsetX, frameIndex) => drawFrameWithClear(offsetX, frameIndex, clearFrameTransparent);
+
         const captureFps = Math.max(1, Math.min(120, Math.round(1000 / frameDelay)));
         const estimatedBitrate = Math.floor(captureCanvas.width * captureCanvas.height * captureFps * 0.3);
         const videoBitsPerSecond = Math.max(2_000_000, Math.min(25_000_000, estimatedBitrate));
@@ -1187,6 +1319,523 @@ import { saveFile } from './common-functions.js';
         const downloadName = (typeof filename === 'string' && filename.toLowerCase().endsWith('.webm'))
             ? filename.slice(0, -5)
             : filename || 'crawl';
+        const canUseWebCodecs = wantsTransparentOutput
+            && typeof VideoEncoder === 'function'
+            && typeof VideoFrame === 'function';
+        const canUseMediaRecorder = wantsTransparentOutput &&
+            typeof MediaRecorder === 'function' &&
+            typeof captureCanvas.captureStream === 'function';
+
+        const getWebCodecsConfig = async () => {
+            if (!canUseWebCodecs || typeof VideoEncoder.isConfigSupported !== 'function') {
+                return null;
+            }
+            const baseConfig = {
+                codec: 'vp09.00.10.08',
+                width: captureCanvas.width,
+                height: captureCanvas.height,
+                bitrate: videoBitsPerSecond,
+                framerate: captureFps,
+                alpha: 'keep',
+                hardwareAcceleration: 'prefer-hardware'
+            };
+            try {
+                const support = await VideoEncoder.isConfigSupported(baseConfig);
+                if (support && support.supported) {
+                    const resolved = support.config || baseConfig;
+                    if (resolved.alpha && resolved.alpha !== 'keep') {
+                        return null;
+                    }
+                    resolved.alpha = 'keep';
+                    return resolved;
+                }
+            } catch (error) {
+                // fall through to return null
+            }
+            return null;
+        };
+
+        const createWebMMuxer = (options) => {
+            const codec = options && options.codec ? options.codec : 'vp09.00.10.08';
+            const codecId = codec.startsWith('vp08') ? 'V_VP8' : 'V_VP9';
+            const codecName = codecId === 'V_VP8' ? 'VP8' : 'VP9';
+            const trackNumberByte = 0x81;
+            const maxClusterDurationMs = 5000;
+            const chunks = [];
+            const encodeString = (value) => {
+                const str = String(value || '');
+                const bytes = new Uint8Array(str.length);
+                for (let i = 0; i < str.length; i++) {
+                    bytes[i] = str.charCodeAt(i) & 0xff;
+                }
+                return bytes;
+            };
+            const encodeUint = (value) => {
+                let val = Math.max(0, Math.floor(Number(value) || 0));
+                const bytes = [];
+                do {
+                    bytes.unshift(val & 0xff);
+                    val = Math.floor(val / 256);
+                } while (val > 0);
+                return new Uint8Array(bytes);
+            };
+            const encodeId = (id) => {
+                let val = Number(id);
+                const bytes = [];
+                while (val > 0) {
+                    bytes.unshift(val & 0xff);
+                    val = Math.floor(val / 256);
+                }
+                return new Uint8Array(bytes.length ? bytes : [0]);
+            };
+            const encodeVint = (value) => {
+                const val = Math.max(0, Math.floor(Number(value) || 0));
+                if (val < 0x7f) {
+                    return new Uint8Array([0x80 | val]);
+                }
+                if (val < 0x3fff) {
+                    return new Uint8Array([0x40 | (val >> 8), val & 0xff]);
+                }
+                if (val < 0x1fffff) {
+                    return new Uint8Array([0x20 | (val >> 16), (val >> 8) & 0xff, val & 0xff]);
+                }
+                if (val < 0x0fffffff) {
+                    return new Uint8Array([0x10 | (val >> 24), (val >> 16) & 0xff, (val >> 8) & 0xff, val & 0xff]);
+                }
+                return new Uint8Array([
+                    0x08 | ((val / 4294967296) & 0x07),
+                    (val >> 24) & 0xff,
+                    (val >> 16) & 0xff,
+                    (val >> 8) & 0xff,
+                    val & 0xff
+                ]);
+            };
+            const concatBuffers = (buffers) => {
+                const total = buffers.reduce((sum, buf) => sum + buf.length, 0);
+                const out = new Uint8Array(total);
+                let offset = 0;
+                buffers.forEach((buf) => {
+                    out.set(buf, offset);
+                    offset += buf.length;
+                });
+                return out;
+            };
+            const makeElement = (id, data) => {
+                let payload;
+                if (Array.isArray(data)) {
+                    payload = concatBuffers(data);
+                } else if (data instanceof Uint8Array) {
+                    payload = data;
+                } else if (typeof data === 'string') {
+                    payload = encodeString(data);
+                } else if (typeof data === 'number') {
+                    payload = encodeUint(data);
+                } else {
+                    payload = new Uint8Array();
+                }
+                return concatBuffers([encodeId(id), encodeVint(payload.length), payload]);
+            };
+            const makeSimpleBlock = (timecode, isKeyframe, frameData) => {
+                const payload = new Uint8Array(4 + frameData.length);
+                payload[0] = trackNumberByte;
+                payload[1] = (timecode >> 8) & 0xff;
+                payload[2] = timecode & 0xff;
+                payload[3] = isKeyframe ? 0x80 : 0x00;
+                payload.set(frameData, 4);
+                return makeElement(0xa3, payload);
+            };
+
+            const ebmlHeader = makeElement(0x1a45dfa3, [
+                makeElement(0x4286, 1),
+                makeElement(0x42f7, 1),
+                makeElement(0x42f2, 4),
+                makeElement(0x42f3, 8),
+                makeElement(0x4282, 'webm'),
+                makeElement(0x4287, 2),
+                makeElement(0x4285, 2)
+            ]);
+
+            const segmentHeader = concatBuffers([encodeId(0x18538067), new Uint8Array([0xff])]);
+            const info = makeElement(0x1549a966, [
+                makeElement(0x2ad7b1, 1000000),
+                makeElement(0x4d80, 'eas-tools'),
+                makeElement(0x5741, 'eas-tools')
+            ]);
+            const videoElements = [
+                makeElement(0xb0, captureCanvas.width),
+                makeElement(0xba, captureCanvas.height),
+                makeElement(0x53c0, 1)
+            ];
+            const trackEntry = makeElement(0xae, [
+                makeElement(0xd7, 1),
+                makeElement(0x73c5, 1),
+                makeElement(0x9c, 0),
+                makeElement(0x22b59c, 'und'),
+                makeElement(0x86, codecId),
+                makeElement(0x258688, codecName),
+                makeElement(0x83, 1),
+                makeElement(0xe0, videoElements)
+            ]);
+            const tracks = makeElement(0x1654ae6b, [trackEntry]);
+
+            chunks.push(ebmlHeader, segmentHeader, info, tracks);
+
+            let clusterStartMs = null;
+            let clusterBlocks = [];
+
+            const flushCluster = () => {
+                if (!clusterBlocks.length || clusterStartMs === null) {
+                    return;
+                }
+                const clusterTimecode = makeElement(0xe7, clusterStartMs);
+                const clusterData = concatBuffers([clusterTimecode, ...clusterBlocks]);
+                const cluster = makeElement(0x1f43b675, clusterData);
+                chunks.push(cluster);
+                clusterBlocks = [];
+                clusterStartMs = null;
+            };
+
+            return {
+                addChunk(chunk, fallbackDurationMs) {
+                    const timestampMs = Math.round((chunk.timestamp || 0) / 1000);
+                    const durationMs = chunk.duration
+                        ? Math.round(chunk.duration / 1000)
+                        : Math.max(1, Math.round(Number(fallbackDurationMs) || 1));
+                    if (clusterStartMs === null) {
+                        clusterStartMs = timestampMs;
+                    }
+                    let timecode = timestampMs - clusterStartMs;
+                    if (timecode < 0 || timecode > 32767 || timecode >= maxClusterDurationMs) {
+                        flushCluster();
+                        clusterStartMs = timestampMs;
+                        timecode = 0;
+                    }
+                    const frameData = new Uint8Array(chunk.byteLength);
+                    chunk.copyTo(frameData);
+                    clusterBlocks.push(makeSimpleBlock(timecode, chunk.type === 'key', frameData));
+                    if (timecode + durationMs >= maxClusterDurationMs) {
+                        flushCluster();
+                    }
+                },
+                finalize() {
+                    flushCluster();
+                    return new Blob(chunks, { type: 'video/webm' });
+                }
+            };
+        };
+
+        const exportWithWebCodecs = async (forcedConfig) => {
+            if (!canUseWebCodecs) {
+                return false;
+            }
+            const config = forcedConfig || await getWebCodecsConfig();
+            if (!config) {
+                return false;
+            }
+            let captureCancelled = false;
+            const webmCancelToken = crawlExportController.createToken(() => {
+                captureCancelled = true;
+            });
+            let encoder;
+            let encodeError = null;
+            try {
+                const muxer = createWebMMuxer({ codec: config.codec });
+                encoder = new VideoEncoder({
+                    output: (chunk) => {
+                        muxer.addChunk(chunk, frameDelay);
+                    },
+                    error: (error) => {
+                        encodeError = error;
+                    }
+                });
+                encoder.configure(config);
+
+                resetVdsExportState(vdsState);
+                let offsetX = adjustedStartOffset;
+                let delayFramesRemaining = 0;
+                const keyframeInterval = Math.max(1, Math.round(captureFps));
+                const FRAMES_PER_YIELD = Math.max(10, Math.round(240 / Math.max(1, captureFps)));
+                const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+                reportProgress(0);
+
+                for (let i = 0; i < totalFrames; i++) {
+                    if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                        captureCancelled = true;
+                        break;
+                    }
+                    drawFrameTransparent(offsetX, i);
+                    const timestampUs = Math.round(i * frameDelay * 1000);
+                    const frame = new VideoFrame(captureCanvas, { timestamp: timestampUs, alpha: 'keep' });
+                    encoder.encode(frame, { keyFrame: i % keyframeInterval === 0 });
+                    frame.close();
+                    reportProgress((i + 1) / totalFrames);
+                    if (encodeError) {
+                        throw encodeError;
+                    }
+
+                    if (delayFramesRemaining > 0) {
+                        delayFramesRemaining--;
+                        if (delayFramesRemaining === 0) {
+                            offsetX = adjustedStartOffset;
+                            resetVdsExportState(vdsState);
+                        }
+                    } else {
+                        offsetX -= pxPerFrameSigned;
+                        if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) ||
+                            (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
+                            if (restartDelayFrames > 0) {
+                                offsetX = adjustedEndOffset;
+                                delayFramesRemaining = restartDelayFrames;
+                            } else {
+                                offsetX = adjustedStartOffset;
+                                resetVdsExportState(vdsState);
+                            }
+                        }
+                    }
+
+                    if ((i + 1) % FRAMES_PER_YIELD === 0) {
+                        await yieldToBrowser();
+                        if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                            captureCancelled = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                    crawlExportController.clear(webmCancelToken);
+                    addStatus('WebM export canceled.', 'WARN');
+                    return true;
+                }
+
+                await encoder.flush();
+                if (encodeError) {
+                    throw encodeError;
+                }
+
+                const exportedBlob = muxer.finalize();
+                if (!exportedBlob) {
+                    crawlExportController.clear(webmCancelToken);
+                    addStatus('No frames recorded for WebM export.', 'WARN');
+                    return true;
+                }
+
+                reportProgress = createExportProgressReporter('WebM save');
+                reportProgress(0);
+
+                await saveFile(filename || `${downloadName}.webm`, exportedBlob, 'video/webm', {
+                    onProgress: (ratio) => reportProgress(ratio),
+                    isCancelled: () => crawlExportController.isCancelled(webmCancelToken),
+                });
+
+                crawlExportController.clear(webmCancelToken);
+                reportProgress(1);
+                addStatus(
+                    'Crawl exported successfully!' +
+                    (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
+                    'SUCCESS'
+                );
+                return true;
+            } catch (error) {
+                const cancelled = captureCancelled || crawlExportController.isCancelled(webmCancelToken);
+                crawlExportController.clear(webmCancelToken);
+                if (cancelled) {
+                    addStatus('WebM export canceled.', 'WARN');
+                } else {
+                    console.error('WebCodecs WebM export failed:', error);
+                    addStatus(`WebM export failed: ${error?.message || error}`, 'ERROR');
+                }
+                return true;
+            } finally {
+                try {
+                    if (encoder && encoder.state !== 'closed') {
+                        encoder.close();
+                    }
+                } catch (cleanupError) {
+                    // ignore
+                }
+                tearDownCaptureCanvas();
+            }
+        };
+
+        const exportWithMediaRecorder = async () => {
+            let recorder;
+            let stream;
+            const chunks = [];
+            let captureCancelled = false;
+            let stopped = false;
+            const webmCancelToken = crawlExportController.createToken(() => {
+                captureCancelled = true;
+                if (recorder && recorder.state === 'recording') {
+                    try {
+                        recorder.stop();
+                    } catch (stopError) {
+                        // ignore stop errors
+                    }
+                }
+            });
+
+            try {
+                const supportedTypes = (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function')
+                    ? getSupportedMimeTypes('video', ['webm'], ['vp9', 'vp8'])
+                    : [];
+                const recorderOptions = {};
+                if (supportedTypes.length) {
+                    recorderOptions.mimeType = supportedTypes[0];
+                }
+                if (Number.isFinite(videoBitsPerSecond)) {
+                    recorderOptions.videoBitsPerSecond = videoBitsPerSecond;
+                }
+
+                stream = captureCanvas.captureStream(captureFps);
+                recorder = new MediaRecorder(stream, recorderOptions);
+
+                recorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size) {
+                        chunks.push(event.data);
+                    }
+                };
+
+                const recorderStopped = new Promise((resolve) => {
+                    recorder.onstop = () => {
+                        stopped = true;
+                        resolve();
+                    };
+                    recorder.onerror = () => {
+                        stopped = true;
+                        resolve();
+                    };
+                });
+
+                recorder.start();
+
+                resetVdsExportState(vdsState);
+                let offsetX = adjustedStartOffset;
+                let delayFramesRemaining = 0;
+                const captureStartTime = performance.now();
+                reportProgress(0);
+
+                for (let i = 0; i < totalFrames; i++) {
+                    if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                        captureCancelled = true;
+                        break;
+                    }
+
+                    drawFrameTransparent(offsetX, i);
+                    reportProgress((i + 1) / totalFrames);
+
+                    if (delayFramesRemaining > 0) {
+                        delayFramesRemaining--;
+                        if (delayFramesRemaining === 0) {
+                            offsetX = adjustedStartOffset;
+                            resetVdsExportState(vdsState);
+                        }
+                    } else {
+                        offsetX -= pxPerFrameSigned;
+                        if ((pxPerFrameSigned >= 0 && offsetX < adjustedEndOffset) ||
+                            (pxPerFrameSigned < 0 && offsetX > adjustedEndOffset)) {
+                            if (restartDelayFrames > 0) {
+                                offsetX = adjustedEndOffset;
+                                delayFramesRemaining = restartDelayFrames;
+                            } else {
+                                offsetX = adjustedStartOffset;
+                                resetVdsExportState(vdsState);
+                            }
+                        }
+                    }
+
+                    const targetTime = captureStartTime + (i + 1) * frameDelay;
+                    const waitTime = Math.max(0, targetTime - performance.now());
+                    if (waitTime > 0) {
+                        await new Promise((resolve) => setTimeout(resolve, waitTime));
+                    }
+                }
+
+                if (recorder.state === 'recording') {
+                    recorder.stop();
+                }
+
+                await recorderStopped;
+
+                if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                    crawlExportController.clear(webmCancelToken);
+                    addStatus('WebM export canceled.', 'WARN');
+                    return true;
+                }
+
+                const mimeType = recorder.mimeType || (supportedTypes[0] || 'video/webm');
+                const exportedBlob = chunks.length ? new Blob(chunks, { type: mimeType }) : null;
+
+                if (!exportedBlob) {
+                    crawlExportController.clear(webmCancelToken);
+                    addStatus('No frames recorded for WebM export.', 'WARN');
+                    return true;
+                }
+
+                reportProgress = createExportProgressReporter('WebM save');
+                reportProgress(0);
+
+                await saveFile(filename || `${downloadName}.webm`, exportedBlob, mimeType, {
+                    onProgress: (ratio) => reportProgress(ratio),
+                    isCancelled: () => crawlExportController.isCancelled(webmCancelToken),
+                });
+
+                crawlExportController.clear(webmCancelToken);
+                reportProgress(1);
+                addStatus(
+                    'Crawl exported successfully!' +
+                    (showTime ? ` (Took: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds)` : ''),
+                    'SUCCESS'
+                );
+                return true;
+            } catch (error) {
+                if (captureCancelled || crawlExportController.isCancelled(webmCancelToken)) {
+                    crawlExportController.clear(webmCancelToken);
+                    addStatus('WebM export canceled.', 'WARN');
+                    return true;
+                }
+                console.error('MediaRecorder WebM export failed:', error);
+                crawlExportController.clear(webmCancelToken);
+                addStatus(`WebM export failed: ${error?.message || error}`, 'ERROR');
+                return true;
+            } finally {
+                if (!stopped && recorder && recorder.state === 'recording') {
+                    try {
+                        recorder.stop();
+                    } catch (stopError) {
+                        // ignore
+                    }
+                }
+                if (stream && typeof stream.getTracks === 'function') {
+                    stream.getTracks().forEach((track) => track.stop());
+                }
+                tearDownCaptureCanvas();
+            }
+        };
+
+        if (wantsTransparentOutput) {
+            const config = await getWebCodecsConfig();
+            if (!config) {
+                tearDownCaptureCanvas();
+                addStatus('Transparent WebM export requires WebCodecs with VP9 alpha support in this browser.', 'ERROR');
+                return;
+            }
+            const handled = await exportWithWebCodecs(config);
+            if (handled) {
+                return;
+            }
+            tearDownCaptureCanvas();
+            addStatus('Transparent WebM export failed: WebCodecs encoder unavailable.', 'ERROR');
+            return;
+        }
+
+        if (typeof CCapture !== 'function') {
+            addStatus('WebM export unavailable: missing CCapture dependency.', 'ERROR');
+            tearDownCaptureCanvas();
+            return;
+        }
+
         const canvasCaptureLib = (window.CanvasCaptureLib && window.CanvasCaptureLib.CanvasCapture)
             || window.CanvasCapture;
         const cleanupAndFail = (message) => {
@@ -1472,7 +2121,9 @@ import { saveFile } from './common-functions.js';
             this.crawlRepetitions = 0;
             this._frameHistory = [];
             this._frameHistoryLimit = 15;
+            this._responsiveViewportHandler = null;
 
+            this._attachResponsiveViewportListener();
             window.addEventListener('resize', () => this.resizeCanvas());
             this.resizeCanvas();
         }
@@ -1519,18 +2170,22 @@ import { saveFile } from './common-functions.js';
         }
 
         _applyCanvasSize(width, height) {
-            const safeWidth = Number.isFinite(width) && width > 0 ? Math.round(width) : 1;
-            const safeHeight = Number.isFinite(height) && height > 0 ? Math.round(height) : 1;
-            if (this.canvas.width === safeWidth && this.canvas.height === safeHeight) {
+            if (!this.canvas) {
                 return;
             }
-            this.canvas.width = safeWidth;
-            this.canvas.height = safeHeight;
-            this.offsetX = this.canvas.width / 2;
-            this.offsetY = this.canvas.height / 2;
-            this.startFromRightInitialized = false;
-            this._invalidateVdsState();
-            this._resetFrameHistory();
+            const safeWidth = Number.isFinite(width) && width > 0 ? Math.round(width) : 1;
+            const safeHeight = Number.isFinite(height) && height > 0 ? Math.round(height) : 1;
+            const sizeChanged = this.canvas.width !== safeWidth || this.canvas.height !== safeHeight;
+            if (sizeChanged) {
+                this.canvas.width = safeWidth;
+                this.canvas.height = safeHeight;
+                this.offsetX = this.canvas.width / 2;
+                this.offsetY = this.canvas.height / 2;
+                this.startFromRightInitialized = false;
+                this._invalidateVdsState();
+                this._resetFrameHistory();
+            }
+            this._syncCanvasDisplaySize();
         }
 
         _normalizeExplicitDimension(value) {
@@ -1698,6 +2353,39 @@ import { saveFile } from './common-functions.js';
             } else {
                 this._frameHistory = [];
             }
+        }
+
+        _attachResponsiveViewportListener() {
+            if (!mobileCanvasMediaQuery) {
+                return;
+            }
+            this._responsiveViewportHandler = () => this._syncCanvasDisplaySize();
+            const handler = this._responsiveViewportHandler;
+            if (typeof mobileCanvasMediaQuery.addEventListener === 'function') {
+                mobileCanvasMediaQuery.addEventListener('change', handler);
+            } else if (typeof mobileCanvasMediaQuery.addListener === 'function') {
+                mobileCanvasMediaQuery.addListener(handler);
+            }
+        }
+
+        _detachResponsiveViewportListener() {
+            if (!mobileCanvasMediaQuery || !this._responsiveViewportHandler) {
+                return;
+            }
+            const handler = this._responsiveViewportHandler;
+            if (typeof mobileCanvasMediaQuery.removeEventListener === 'function') {
+                mobileCanvasMediaQuery.removeEventListener('change', handler);
+            } else if (typeof mobileCanvasMediaQuery.removeListener === 'function') {
+                mobileCanvasMediaQuery.removeListener(handler);
+            }
+            this._responsiveViewportHandler = null;
+        }
+
+        _syncCanvasDisplaySize() {
+            if (!this.canvas) {
+                return;
+            }
+            applyCanvasDisplaySize(this.canvas, this.canvas.width, this.canvas.height);
         }
 
         _cloneVdsState(state) {
@@ -2001,7 +2689,7 @@ import { saveFile } from './common-functions.js';
             }
 
             if (this._transparentBg) {
-                this.ctx.clearRect(0, 0, width, height);
+                clearContextFully(this.ctx, width, height);
                 return;
             }
             const fill = this.bgColor || '#000000';
@@ -2272,6 +2960,7 @@ import { saveFile } from './common-functions.js';
             this.isAnimating = false;
             this.lastTimestamp = null;
             this._restartDelayRemaining = 0;
+            this._detachResponsiveViewportListener();
             this.container.removeChild(this.canvas);
             this.canvas = null;
             this.ctx = null;
