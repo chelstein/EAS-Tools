@@ -123,6 +123,7 @@ const overrides = {
     "saline": "S AH L IY N",
     "pottawattamie": "P AA1 T AX W AA T UW M IY",
     "wichita": "W IH0 CH AX0 T AA",
+    "sawdust": "S AO1 D AH0 S T",
 };
 
 mode.addEventListener("change", () => {

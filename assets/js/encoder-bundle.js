@@ -562,13 +562,9 @@ async function fetchAndStore() {
         return byteArray;
     }
 
-    function extraspace() { generate_afsk(Array(15).fill(0, 0, 15)); }
-
     function preamble() {
         return bytetobits(genPreamble());
     }
-
-    function extramarks() { generate_afsk([1, 1, 1, 1, 1, 1]); }
 
     function getLocalDT(currentLocalDateTime) {
         const year = currentLocalDateTime.getFullYear();
@@ -615,86 +611,133 @@ async function fetchAndStore() {
 
     // END encode/utils.js
     // BEGIN encode/alert.js
-    function create_eom_tones() {
-        var eom = genArray(EOM);
-        generate_silence(SAMPLE_RATE);
-        for (var i = 0; i < 3; i++) {
-            if (es && esmode === "crs") { extraspace(); }
-            generate_afsk(eom);
-            if (es) { extraspace(); }
-            generate_silence(SAMPLE_RATE);
+    function getOverallEndecMode() {
+        const el = document.getElementById("overallEndecMode");
+        const raw = (el && typeof el.value === "string") ? el.value : "DEFAULT";
+        const mode = raw.trim().toUpperCase();
+        switch (mode) {
+            case "DEFAULT":
+            case "NWS":
+            case "DIGITAL":
+            case "SAGE":
+            case "TRILITHIC":
+                return mode;
+            default:
+                return "DEFAULT";
+        }
+    }
+
+    function samplesFromMs(ms) {
+        return Math.round(SAMPLE_RATE * (ms / 1000));
+    }
+
+    const SAME_PREAMBLE = "\xAB".repeat(16);
+    const DIGITAL_TAIL = "\xFF\xFF\xFF";
+
+    function stripLeadingPreamble16(s) {
+        return (typeof s === "string" && s.startsWith(SAME_PREAMBLE)) ? s.slice(16) : s;
+    }
+
+    function bitsFromStringLSB(str) {
+        const bits = [];
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i) & 0xFF;
+            for (let b = 0; b < 8; b++) {
+                bits.push((c >> b) & 1);
+            }
+        }
+        return bits;
+    }
+
+    function buildHeaderTxStrings(header, mode) {
+        const msg = stripLeadingPreamble16(header);
+        const data = SAME_PREAMBLE + msg;
+
+        switch (mode) {
+            case "NWS": {
+                const s = data + "\x00\x00";
+                return [s, s, s];
+            }
+            case "SAGE": {
+                const s = data + "\xFF";
+                return [s, s, s];
+            }
+            case "DIGITAL": {
+                const first = "\x00" + data + DIGITAL_TAIL;
+                const std = "\xAB" + data + DIGITAL_TAIL;
+                return [first, std, std];
+            }
+            default:
+                return [data, data, data];
+        }
+    }
+
+    function buildEomTxStrings(mode) {
+        const core = SAME_PREAMBLE + "NNNN";
+
+        if (mode === "DIGITAL") {
+            const part1 = "\x00" + core + DIGITAL_TAIL;
+            const part2 = core + DIGITAL_TAIL;
+            return [part1, part2, part2];
+        }
+
+        switch (mode) {
+            case "NWS": {
+                const s = core + "\x00\x00";
+                return [s, s, s];
+            }
+            case "SAGE": {
+                const s = core + "\xFF";
+                return [s, s, s];
+            }
+            default:
+                return [core, core, core];
+        }
+    }
+
+    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples) {
+        const cache = new Map();
+
+        for (let i = 0; i < txStrings.length; i++) {
+            const s = txStrings[i];
+            let bits = cache.get(s);
+            if (!bits) {
+                bits = bitsFromStringLSB(s);
+                cache.set(s, bits);
+            }
+
+            generate_afsk(bits);
+
+            const isLast = (i === txStrings.length - 1);
+            if (!isLast) {
+                generate_silence(betweenSilenceSamples);
+            } else if (finalSilenceSamples != null) {
+                generate_silence(finalSilenceSamples);
+            }
         }
     }
 
     function create_header_tones(header) {
-        var he = genArray(header);
-        for (var i = 0; i < 3; i++) {
-            // if (es && esmode === "crs") { extraspace(); } // not sure if this is implemented in NWR, will need to double-check before uncommenting
-            if (em) { extramarks(); }
-            generate_afsk(he);
-            if (em) { extramarks(); }
-            if (es) { extraspace(); }
-            generate_silence(SAMPLE_RATE);
-        }
+        const mode = getOverallEndecMode();
+
+        const txStrings = buildHeaderTxStrings(header, mode);
+
+        const between = (mode === "TRILITHIC") ? samplesFromMs(868) : samplesFromMs(1000);
+        const after = (mode === "TRILITHIC") ? samplesFromMs(1118) : samplesFromMs(1000);
+
+        emitTxBurstsFromStrings(txStrings, between, after);
     }
 
-    function generate_complex_tone(frequencies, modFrequency, durationSeconds) {
-        if (!frequencies || !frequencies.length) {
-            return;
-        }
+    function create_eom_tones() {
+        const mode = getOverallEndecMode();
 
-        var duration = typeof durationSeconds === "number" && durationSeconds > 0 ? durationSeconds : tlen;
-        var totalSamples = Math.floor(duration * SAMPLE_RATE);
-        if (totalSamples <= 0) {
-            return;
-        }
+        generate_silence(SAMPLE_RATE);
 
-        var twoPi = 2 * Math.PI;
-        var freqCount = frequencies.length;
-        var freqSteps = new Array(freqCount);
-        var phases = new Array(freqCount);
+        const txStrings = buildEomTxStrings(mode);
 
-        for (var i = 0; i < freqCount; i++) {
-            freqSteps[i] = (twoPi * frequencies[i]) / SAMPLE_RATE;
-            phases[i] = 0;
-        }
+        const between = (mode === "TRILITHIC") ? samplesFromMs(868) : samplesFromMs(1000);
 
-        var modPhase = 0;
-        var modStep = modFrequency ? (twoPi * modFrequency) / SAMPLE_RATE : 0;
-        var invCount = 1 / freqCount;
-
-        for (var sampleIndex = 0; sampleIndex < totalSamples; sampleIndex++) {
-            var carrier = 0;
-            for (var j = 0; j < freqCount; j++) {
-                carrier += Math.sin(phases[j]);
-                phases[j] += freqSteps[j];
-                if (phases[j] > Math.PI) {
-                    phases[j] -= twoPi;
-                } else if (phases[j] < -Math.PI) {
-                    phases[j] += twoPi;
-                }
-            }
-            carrier *= invCount;
-
-            var modulation = modStep ? (1 + Math.sin(modPhase)) * 0.5 : 1;
-            modPhase += modStep;
-            if (modPhase > Math.PI) {
-                modPhase -= twoPi;
-            } else if (modPhase < -Math.PI) {
-                modPhase += twoPi;
-            }
-
-            var s = carrier * modulation;
-
-            if (cl) {
-                if (s > 0.79) {
-                    s = 0.79;
-                } else if (s < -0.79) {
-                    s = -0.79;
-                }
-            }
-            samples.push(s);
-        }
+        emitTxBurstsFromStrings(txStrings, between, SAMPLE_RATE);
     }
 
     var pelmorexTonePromise = null;
@@ -751,22 +794,6 @@ async function fetchAndStore() {
         if (referenceTone && referenceTone.length) {
             appendPcmToSamples(referenceTone);
             return;
-        }
-
-        var tone1 = [932.33, 1046.5, 3135.96];
-        var tone2 = [440, 659.26, 3135.96];
-        var mod1 = 7271.96;
-        var mod2 = 1099.26;
-        var toneDuration = 0.5;
-        var totalDuration = 8;
-        var segmentCount = Math.round(totalDuration / toneDuration);
-
-        for (var i = 0; i < segmentCount; i++) {
-            if (i % 2 === 0) {
-                generate_complex_tone(tone1, mod1, toneDuration);
-            } else {
-                generate_complex_tone(tone2, mod2, toneDuration);
-            }
         }
     }
 
@@ -1118,6 +1145,36 @@ async function fetchAndStore() {
             const xhr = new XMLHttpRequest();
             const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit";
 
+            const ttsRate = document.getElementById("ttsRate")?.value || "0";
+            const ttsPitch = document.getElementById("ttsPitch")?.value || "0";
+            const voiceBackend = voiceBackendMap[Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(window.ttsVoice))] ? Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(window.ttsVoice)) : "Unknown";
+
+            if (voiceBackend.toLowerCase().includes("bal") && (ttsRate !== "0" || ttsPitch !== "0")) {
+                window.oldTtsText = window.ttsText;
+                if (ttsRate !== "0") {
+                    window.ttsText = `<rate absspeed="${ttsRate}">${window.ttsText}</rate>`;
+                }
+                if (ttsPitch !== "0") {
+                    window.ttsText = `<pitch absmiddle="${ttsPitch}">${window.ttsText}</pitch>`;
+                }
+            }
+
+            else if (voiceBackend.toLowerCase().includes("vt") && (ttsRate !== "0" || ttsPitch !== "0")) {
+                window.oldTtsText = window.ttsText;
+                const vtValue = (value) => {
+                    const parsed = Number(value);
+                    if (!Number.isFinite(parsed)) { return 100; }
+                    const scaled = Math.round((parsed * 10) + 100);
+                    return Math.min(200, Math.max(0, scaled));
+                };
+                if (ttsRate !== "0") {
+                    window.ttsText = `<vtml_speed value="${vtValue(ttsRate)}">${window.ttsText}</vtml_speed>`;
+                }
+                if (ttsPitch !== "0") {
+                    window.ttsText = `<vtml_pitch value="${vtValue(ttsPitch)}">${window.ttsText}</vtml_pitch>`;
+                }
+            }
+
             const params = new URLSearchParams();
             params.append("text", window.ttsVoice === "EMNet" ? header : window.ttsText);
             params.append("voice", window.ttsVoice);
@@ -1271,6 +1328,7 @@ async function fetchAndStore() {
             };
 
             xhr.send(params.toString());
+            window.ttsText = window.oldTtsText || window.ttsText;
         });
     }
 
@@ -1291,6 +1349,9 @@ async function fetchAndStore() {
                     break;
                 case "2":
                     await create_pelmorex_attention_tone();
+                    break;
+                case "3":
+                    create_header_tones(header);
                     break;
             }
         }
@@ -1387,10 +1448,6 @@ async function fetchAndStore() {
             }
         }
 
-        else {
-            generate_silence(SAMPLE_RATE);
-        }
-
         if (tone !== null) {
             switch (tone.toString()) {
                 case "0":
@@ -1400,6 +1457,9 @@ async function fetchAndStore() {
                     create_eom_tones();
                     break;
                 case "2":
+                    break;
+                case "3":
+                    create_eom_tones();
                     break;
             }
         }
@@ -1488,9 +1548,10 @@ async function fetchAndStore() {
 
     function updateVoiceOptions(t) {
         const selectedVoice = t.value;
+        const selectedBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(selectedVoice)) || "Unknown";
         window.ttsVoice = (selectedVoice || '').trim();
         const overrideTZElements = document.getElementsByClassName('overrideTZ');
-        const ttsTextElements = document.getElementsByClassName('ttsText');
+        const ttsRatePitchControls = document.getElementById('ttsRatePitchControls');
 
         if (selectedVoice === 'EMNet') {
             for (let i = 0; i < overrideTZElements.length; i++) {
@@ -1502,6 +1563,14 @@ async function fetchAndStore() {
             for (let i = 0; i < overrideTZElements.length; i++) {
                 overrideTZElements[i].style.display = 'none';
             }
+        }
+
+        if (selectedBackend.toLowerCase().includes("bal") || selectedBackend.toLowerCase().includes("vt")) {
+            ttsRatePitchControls.style.display = 'block';
+        }
+
+        else {
+            ttsRatePitchControls.style.display = 'none';
         }
     }
 
@@ -1525,8 +1594,6 @@ async function fetchAndStore() {
     let senderid = document.getElementById("par").value;
     let locationsList = locations.slice();
     let attentionTone = document.getElementById("att").value;
-    let extraMarks = document.getElementById("em").checked;
-    let useSpaces = document.getElementById("spaces").checked;
     let attentionToneDuration = document.getElementById("tlen").value;
     let announcementType = document.getElementById("announcementType").value;
     let overrideTZ = document.getElementById("useOverrideTZ")?.value || '';
@@ -1534,7 +1601,7 @@ async function fetchAndStore() {
     let ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
     let rawInput = (document.getElementById("cheader")?.value || '').trim();
     let clipSignal = document.getElementById("clip").checked;
-    let esmode = document.getElementById("esmode").value;
+    let overallEndecMode = document.getElementById("overallEndecMode").value;
 
     async function generateEas() {
         encoderMode = document.getElementById("encoderMode").value;
@@ -1545,8 +1612,6 @@ async function fetchAndStore() {
         senderid = document.getElementById("par").value;
         locationsList = locations.slice();
         attentionTone = document.getElementById("att").value;
-        extraMarks = document.getElementById("em").checked;
-        useSpaces = document.getElementById("spaces").checked;
         attentionToneDuration = document.getElementById("tlen").value;
         announcementType = document.getElementById("announcementType").value;
         overrideTZ = document.getElementById("useOverrideTZ")?.value || '';
@@ -1554,7 +1619,7 @@ async function fetchAndStore() {
         ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
         rawInput = (document.getElementById("cheader")?.value || '').trim();
         clipSignal = document.getElementById("clip").checked;
-        esmode = (document.getElementById("esmode").value || 'BMH').trim();
+        overallEndecMode = document.getElementById("overallEndecMode").value;
 
         localStorage.setItem("eas-tools-encoder-settings", JSON.stringify({
             'encoderMode': encoderMode,
@@ -1565,14 +1630,14 @@ async function fetchAndStore() {
             'par': senderid,
             'locs': locationsList,
             'att': attentionTone,
-            'em': extraMarks,
-            'spaces': useSpaces,
-            'esmode': esmode,
             'tlen': attentionToneDuration,
+            'overallEndecMode': overallEndecMode,
             'announcementType': announcementType,
             'useOverrideTZ': overrideTZ,
             'ttsText': ttsText,
             'ttsVoice': ttsVoice,
+            'ttsRate': ttsRate?.value || '0',
+            'ttsPitch': ttsPitch?.value || '0',
             'cheader': rawInput,
             'clip': clipSignal
         }));
@@ -1598,9 +1663,6 @@ async function fetchAndStore() {
         tlen = parseInt(tl.value);
         var l = hr.toString().padStart(2, "0") + min.toString().padStart(2, "0");
         tone = parseInt(att.value);
-        em = extram.checked;
-        es = spaces.checked;
-        esmode = document.getElementById("esmode").value;
         var usesCustomHeader = (window.useCustom && window.mode === "header");
 
         if (!rawinput.value && usesCustomHeader) {
@@ -2042,15 +2104,51 @@ async function fetchAndStore() {
         }
     });
 
-    spaces.addEventListener("change", function () {
-        es = spaces.checked;
-        if (es) { document.querySelectorAll(".esmode").forEach(e => e.style.display = "inline"); } else { document.querySelectorAll(".esmode").forEach(e => e.style.display = "none"); }
+    const ttsRate = document.getElementById("ttsRate");
+    const ttsRateReset = document.getElementById("ttsRateReset");
+    ttsRateReset.addEventListener("click", function () {
+        ttsRate.value = "0";
+        ttsRate.dispatchEvent(new Event('change'));
+    });
+    const ttsPitch = document.getElementById("ttsPitch");
+    const ttsPitchReset = document.getElementById("ttsPitchReset");
+    ttsPitchReset.addEventListener("click", function () {
+        ttsPitch.value = "0";
+        ttsPitch.dispatchEvent(new Event('change'));
     });
 
+    const syncTtsSlider = (element, spanId) => {
+        const valueSpan = document.getElementById(spanId);
+        valueSpan.textContent = element.value;
+    };
+
+    ["input", "change"].forEach((evtName) => {
+        ttsRate.addEventListener(evtName, function () {
+            syncTtsSlider(ttsRate, "ttsRateValue");
+        });
+
+        ttsPitch.addEventListener(evtName, function () {
+            syncTtsSlider(ttsPitch, "ttsPitchValue");
+        });
+    });
+
+    const attentionToneDiv = document.getElementById("tlenContainer");
+    const currentAttentionTone = document.getElementById("att");
+    currentAttentionTone.addEventListener("change", function () {
+        if (currentAttentionTone.value !== "3") {
+            attentionToneDiv.style.display = "inline";
+        } else {
+            attentionToneDiv.style.display = "none";
+        }
+    });
+
+    currentAttentionTone.dispatchEvent(new Event('change'));
     encoderModeSelect.dispatchEvent(new Event('change'));
     announcementTypeSelect.dispatchEvent(new Event('change'));
     ttsTextInput.dispatchEvent(new Event('change'));
     voiceSelect.dispatchEvent(new Event('change'));
+    ttsRate.dispatchEvent(new Event('change'));
+    ttsPitch.dispatchEvent(new Event('change'));
 
     // currently not used in main iife, but exported for console use and potential future use
     const noaaProductToFips = function (noaaProduct) {

@@ -9,12 +9,6 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to th
 
 ---
 
-## Video Demo
-
-TBD
-
----
-
 ## ✨ Features
 
 * **Decoder**
@@ -179,12 +173,12 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * canvas-capture.js: **canvas-capture.js** (bundled in `assets/js/canvas-capture.js`)
 * ffmpeg.wasm: **ffmpeg.wasm** (bundled in `assets/muxer`, built with WebPack)
 * phonemeize: **phoneme-bundle.js** and assorted files in `assets/js/` that are prefixed with `phoneme-` (WebPack bundled from [phonemeize](https://github.com/hans00/phonemize) NPM package with some custom modifications/additions for Web TTS use)
-* SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud
+* SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud; with credit to EAS.js (by [GWES](https://globaleas.org/)) for reference implementation for specific ENDEC profiles
 
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
   * [Mab879 C++ SAME Encoder](https://github.com/Mab879/eas_encoder)
-  * [Anon64 EAS Header Generator](https://anon64.bitkit.us/eas-gen/)
+  * [Anon64 EAS Header Generator](https://anon64.bitkit.us/eas-gen/) (removed)
   * [wavefile.js](https://rochars.github.io/wavefile/)
   * [wave‑resampler.js](https://github.com/rochars/wave-resampler)
   * [piper.tts.js](https://github.com/Mintplex-Labs/piper-tts-web)
@@ -196,6 +190,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [canvas-capture.js](https://github.com/amandaghassaei/canvas-capture)
   * [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm)
   * [phonemeize](https://github.com/hans00/phonemize)
+  * [EAS.js](https://github.com/globaleas/EAS.js/)
   * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
 
 > See each upstream project for their respective licenses.

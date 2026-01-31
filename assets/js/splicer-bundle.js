@@ -1810,7 +1810,38 @@ import { saveFile } from './common-functions.js';
             const xhr = new XMLHttpRequest();
             const url = "https://wagspuzzle.space/tools/eas-tts/index.php?handler=toolkit";
 
+            const ttsRate = document.getElementById("ttsRate2")?.value || "0";
+            const ttsPitch = document.getElementById("ttsPitch2")?.value || "0";
+            const voiceBackend = voiceBackendMap[Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voiceId))] ? Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voiceId)) : "Unknown";
+
+            let oldTtsText = text;
+
+            if (voiceBackend.toLowerCase().includes("bal") && (ttsRate !== "0" || ttsPitch !== "0")) {
+                if (ttsRate !== "0") {
+                    text = `<rate absspeed="${ttsRate}">${text}</rate>`;
+                }
+                if (ttsPitch !== "0") {
+                    text = `<pitch absmiddle="${ttsPitch}">${text}</pitch>`;
+                }
+            }
+
+            else if (voiceBackend.toLowerCase().includes("vt") && (ttsRate !== "0" || ttsPitch !== "0")) {
+                const vtValue = (value) => {
+                    const parsed = Number(value);
+                    if (!Number.isFinite(parsed)) { return 100; }
+                    const scaled = Math.round((parsed * 10) + 100);
+                    return Math.min(200, Math.max(0, scaled));
+                };
+                if (ttsRate !== "0") {
+                    text = `<vtml_speed value="${vtValue(ttsRate)}">${text}</vtml_speed>`;
+                }
+                if (ttsPitch !== "0") {
+                    text = `<vtml_pitch value="${vtValue(ttsPitch)}">${text}</vtml_pitch>`;
+                }
+            }
+
             const params = new URLSearchParams();
+
             params.append("text", voiceId === "EMNet" ? text : text);
             params.append("voice", voiceId);
             params.append("useOverrideTZ", overrideTZ ?? "UTC");
@@ -1905,6 +1936,8 @@ import { saveFile } from './common-functions.js';
             };
 
             xhr.send(params.toString());
+
+            text = oldTtsText ?? text;
         });
     };
 
@@ -2897,8 +2930,48 @@ import { saveFile } from './common-functions.js';
         spliceLoudnessInput.addEventListener('input', () => debounceLoudnessInput());
     }
 
+    const ttsRate = document.getElementById("ttsRate2");
+    const ttsRateReset = document.getElementById("ttsRateReset2");
+    ttsRateReset.addEventListener("click", function () {
+        ttsRate.value = "0";
+        ttsRate.dispatchEvent(new Event('change'));
+    });
+    const ttsPitch = document.getElementById("ttsPitch2");
+    const ttsPitchReset = document.getElementById("ttsPitchReset2");
+    ttsPitchReset.addEventListener("click", function () {
+        ttsPitch.value = "0";
+        ttsPitch.dispatchEvent(new Event('change'));
+    });
+
+    const syncTtsSlider = (element, spanId) => {
+        const valueSpan = document.getElementById(spanId);
+        valueSpan.textContent = element.value;
+    };
+
+    ["input", "change"].forEach((evtName) => {
+        ttsRate.addEventListener(evtName, function () {
+            syncTtsSlider(ttsRate, "ttsRateValue2");
+        });
+
+        ttsPitch.addEventListener(evtName, function () {
+            syncTtsSlider(ttsPitch, "ttsPitchValue2");
+        });
+    });
+
+    voiceSelect.addEventListener('change', () => {
+        const voiceBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voiceSelect.value));
+        const ttsControls = document.getElementById('ttsRatePitchControls2');
+
+        if (voiceBackend === 'VT' || voiceBackend === 'BAL') {
+            ttsControls.style.display = 'block';
+        } else {
+            ttsControls.style.display = 'none';
+        }
+    });
+
     const changeEvent = new Event('change');
 
+    voiceSelect?.dispatchEvent(changeEvent);
     enableStaticNoiseCheckbox?.dispatchEvent(changeEvent);
     staticNoiseLevelInput?.dispatchEvent(changeEvent);
     staticNoiseFadeDepthInput?.dispatchEvent(changeEvent);

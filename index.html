@@ -273,31 +273,29 @@
                 <hr>
                 <label for="att">Select Attention Tone:</label>
                 <select id="att">
-                    <option value="0" selected>EBS/Dual Frequency Attention Tones</option>
+                    <option value="0" selected>EBS/Dual Frequency Attention Tone</option>
                     <option value="1">NWR Attention Tone (1050hz)</option>
                     <option value="2">Pelmorex (Alert Ready - Canada) Attention Tone (NOTE: WILL NOT INCLUDE SAME HEADERS!)</option>
+                    <option value="3">No Attention Tone</option>
+                </select>
+                <div id="tlenContainer">
+                    <br>
+                    <br>
+                    <label for="tlen">Attention tone time (8-25 secs.):</label>
+                    <input type="number" id="tlen" min="8" max="25" value="10">
+                </div>
+                <br>
+                <br>
+                <label for="overallEndecMode">ENDEC Mode:</label>
+                <select id="overallEndecMode">
+                    <option value="DEFAULT" selected>None (Default)</option>
+                    <option value="NWS">National Weather Service</option>
+                    <option value="DIGITAL">SAGE 3644/DIGITAL</option>
+                    <option value="SAGE">SAGE 1822/ANALOG</option>
+                    <option value="TRILITHIC">Trilithic EASyPLUS</option>
                 </select>
                 <br>
                 <br>
-                <label for="tlen">Attention tone time (8-25 secs.):</label>
-                <input type="number" id="tlen" min="8" max="25" value="10">
-                <br>
-                <br>
-                <label for="em">Generate Extra Marks (for SAGE encoders):</label>
-                <input type="checkbox" id="em">
-                <br>
-                <br>
-                <label for="spaces">Generate Extra Spaces (for NWR encoding):</label>
-                <input type="checkbox" id="spaces" checked>
-                <br>
-                <br>
-                <label for="esmode" class="esmode">Extra Spaces Mode:</label>
-                <select id="esmode" class="esmode">
-                    <option value="crs">Console Replacement System (CRS, 1998-2016)</option>
-                    <option value="bmh" selected>Broadcast Message Handler (BMH, 2016-present)</option>
-                </select>
-                <br class="esmode">
-                <br class="esmode">
                 <label for="clip">Clip Signal (for authenticity):</label>
                 <input type="checkbox" id="clip" checked>
                 <hr>
@@ -318,6 +316,18 @@
                             <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
                             <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
                         </select>
+                        <br>
+                        <br>
+                        <div id="ttsRatePitchControls">
+                            <label for="ttsRate">Speech Speed: <span id="ttsRateValue">0</span></label>
+                            <input type="range" id="ttsRate" name="ttsRate" min="-10" max="10" value="0" step="1">
+                            <button type="button" id="ttsRateReset">Reset</button>
+                            <br>
+                            <br>
+                            <label for="ttsPitch">Speech Pitch: <span id="ttsPitchValue">0</span></label>
+                            <input type="range" id="ttsPitch" name="ttsPitch" min="-10" max="10" value="0" step="1">
+                            <button type="button" id="ttsPitchReset">Reset</button>
+                        </div>
                         <br class="overrideTZ">
                         <br class="overrideTZ">
                         <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
@@ -620,6 +630,16 @@
                                 <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
                                 <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
                             </select>
+                            <div id="ttsRatePitchControls2">
+                                <label for="ttsRate2">Speech Speed: <span id="ttsRateValue2">0</span></label>
+                                <input type="range" id="ttsRate2" name="ttsRate2" min="-10" max="10" value="0" step="1">
+                                <button type="button" id="ttsRateReset2">Reset</button>
+                                <br>
+                                <br>
+                                <label for="ttsPitch2">Speech Pitch: <span id="ttsPitchValue2">0</span></label>
+                                <input type="range" id="ttsPitch2" name="ttsPitch2" min="-10" max="10" value="0" step="1">
+                                <button type="button" id="ttsPitchReset2">Reset</button>
+                            </div>
                             <br class="splicerOverrideTZ">
                             <br class="splicerOverrideTZ">
                             <label for="useSplicerOverrideTZ" class="splicerOverrideTZ">Override Timezone (can only be used with EMNet):</label>
