@@ -1,4 +1,11 @@
-import { saveFile } from './common-functions.js';
+import {
+    ENDEC_MODES,
+    ENDEC_MODE_SIGNATURES,
+    createEndecModeVotes,
+    getEndecModeProfile,
+    normalizeEndecMode,
+    saveFile
+} from './common-functions.js';
 
 window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
     window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
@@ -472,6 +479,8 @@ async function fetchAndStore() {
     }
 
     async function stopStreamDecode(url) {
+        flushPendingDecodeTail();
+        finalizeActiveSameProduct();
         resetDecoderState();
         resetStreamRecovery();
         if (window.isRecording) {
@@ -854,8 +863,10 @@ async function fetchAndStore() {
         refreshLoopback();
     }
 
-    async function stopDecode() {
-        resetDecoderState();
+    async function stopDecode(resetEndec = true) {
+        flushPendingDecodeTail();
+        finalizeActiveSameProduct();
+        resetDecoderState(resetEndec);
         if (window.isRecording) {
             stopRecording();
         }
@@ -1009,6 +1020,642 @@ async function fetchAndStore() {
 
     // END decode/audio.js
     // BEGIN decode/afsk.js
+    const ENDEC_DEBUG_HEAD_BYTES = 96;
+    const ENDEC_DEBUG_TAIL_BYTES = 96;
+
+    function createEndecCharacteristicsState() {
+        return {
+            knownModes: ENDEC_MODE_SIGNATURES,
+            votes: createEndecModeVotes(),
+            markers: {
+                preambleSplit: 0,
+                preambleRun16: 0,
+                preambleRun17Plus: 0,
+                terminatorZero: 0,
+                validTerminatorZero: 0,
+                terminatorZeroRun2Plus: 0,
+                terminatorFF: 0,
+                validTerminatorFF: 0,
+                terminatorFFRun1: 0,
+                terminatorFFRun3Plus: 0,
+                digitalLeadZero: 0
+            },
+            timing: {
+                samples: 0,
+                averageGapMs: 0,
+                lastGapMs: 0,
+                trilithicGapHits: 0,
+                trilithicAfterGapHits: 0,
+                standardGapHits: 0
+            }
+        };
+    }
+
+    let endecCharacteristics = createEndecCharacteristicsState();
+    let detectedEndecMode = "DEFAULT";
+    let sameProductSequence = 0;
+    let activeSameProduct = null;
+    const sameProductResults = new Map();
+    if (typeof window !== "undefined" && typeof window.endecDebug !== "boolean") {
+        window.endecDebug = false;
+    }
+
+    function snapshotEndecCounters() {
+        return {
+            markers: Object.assign({}, endecCharacteristics.markers),
+            timing: Object.assign({}, endecCharacteristics.timing)
+        };
+    }
+
+    function createSameProductState() {
+        sameProductSequence++;
+        return {
+            id: sameProductSequence,
+            headerKey: "",
+            baseline: snapshotEndecCounters(),
+            segments: [],
+            alerts: [],
+            rawBytes: {
+                total: 0,
+                head: [],
+                tail: []
+            },
+            mode: "Detecting...",
+            ready: false
+        };
+    }
+
+    function ensureActiveSameProduct() {
+        if (!activeSameProduct) {
+            activeSameProduct = createSameProductState();
+        }
+        return activeSameProduct;
+    }
+
+    function normalizeSameProductHeaderKey(rawHeader) {
+        return (typeof rawHeader === "string") ? rawHeader.trim().toUpperCase() : "";
+    }
+
+    function maybeRotateSameProduct(rawHeader) {
+        const product = ensureActiveSameProduct();
+        const key = normalizeSameProductHeaderKey(rawHeader);
+        if (!key || key.startsWith("NNNN")) {
+            return product;
+        }
+        if (!product.headerKey) {
+            product.headerKey = key;
+            return product;
+        }
+        if (product.headerKey !== key && product.segments.length > 0) {
+            finalizeActiveSameProduct();
+            const next = ensureActiveSameProduct();
+            next.headerKey = key;
+            return next;
+        }
+        return product;
+    }
+
+    function diffCounterObjects(current, baseline) {
+        const out = {};
+        for (const key in current) {
+            const cur = current[key] || 0;
+            const base = baseline[key] || 0;
+            out[key] = Math.max(0, cur - base);
+        }
+        return out;
+    }
+
+    function formatHexByteList(bytes) {
+        if (!Array.isArray(bytes) || bytes.length === 0) {
+            return "";
+        }
+        return bytes.map((byteValue) => (byteValue & 0xFF).toString(16).padStart(2, "0")).join(" ");
+    }
+
+    function noteSameProductByte(byteValue) {
+        if (!Number.isFinite(byteValue)) {
+            return;
+        }
+        const byte = byteValue & 0xFF;
+        const product = ensureActiveSameProduct();
+        const raw = product.rawBytes;
+        raw.total++;
+        if (raw.head.length < ENDEC_DEBUG_HEAD_BYTES) {
+            raw.head.push(byte);
+            return;
+        }
+        if (raw.tail.length >= ENDEC_DEBUG_TAIL_BYTES) {
+            raw.tail.shift();
+        }
+        raw.tail.push(byte);
+    }
+
+    function buildSameProductAnalysis(mode, rule, metrics) {
+        return { mode, rule, metrics };
+    }
+
+    function logSameProductAnalysis(product, analysis) {
+        if (!(typeof window !== "undefined" && window.endecDebug)) {
+            return;
+        }
+        const headerPreview = (product.headerKey || "").slice(0, 96);
+        const rawInfo = {
+            total: product.rawBytes?.total || 0,
+            headHex: formatHexByteList(product.rawBytes?.head || []),
+            tailHex: formatHexByteList(product.rawBytes?.tail || []),
+            headCount: product.rawBytes?.head?.length || 0,
+            tailCount: product.rawBytes?.tail?.length || 0
+        };
+        const compactSegments = product.segments.map((segment) => ({
+            type: segment.type,
+            reason: segment.reason,
+            termByte: segment.terminatorByte,
+            termRun: segment.terminatorRunLength
+        }));
+        console.groupCollapsed(`[ENDEC DEBUG] product=${product.id} mode=${analysis.mode} rule=${analysis.rule}`);
+        console.log("header", headerPreview);
+        console.log("alerts", product.alerts.length, "segments", product.segments.length);
+        console.log("metrics", analysis.metrics);
+        console.log("segments", compactSegments);
+        console.log("rawBytes", rawInfo);
+        console.groupEnd();
+        const exportRecord = {
+            productId: product.id,
+            header: headerPreview,
+            mode: analysis.mode,
+            rule: analysis.rule,
+            metrics: analysis.metrics,
+            segments: compactSegments,
+            rawBytes: rawInfo
+        };
+        window.lastEndecDebug = exportRecord;
+        if (!Array.isArray(window.endecDebugHistory)) {
+            window.endecDebugHistory = [];
+        }
+        window.endecDebugHistory.push(exportRecord);
+        if (window.endecDebugHistory.length > 200) {
+            window.endecDebugHistory.shift();
+        }
+        console.log(`[ENDEC DEBUG EXPORT] ${JSON.stringify(exportRecord)}`);
+    }
+
+    function analyzeSameProductMode(product) {
+        if (!product || !product.segments.length) {
+            return buildSameProductAnalysis("DEFAULT", "empty_product", {
+                alerts: 0,
+                segments: 0
+            });
+        }
+        let termZeroRun2Plus = 0;
+        let termFFRun1 = 0;
+        let termFFRun3Plus = 0;
+        let preambleSplits = 0;
+        let maxZeroTermRun = 0;
+        let minZeroTermRun = Number.POSITIVE_INFINITY;
+        let maxFFTermRun = 0;
+
+        for (let i = 0; i < product.segments.length; i++) {
+            const segment = product.segments[i];
+            if (segment.reason === "PREAMBLE_SPLIT") {
+                preambleSplits++;
+            }
+            if (segment.reason !== "TERM_BYTE") {
+                continue;
+            }
+            if (segment.terminatorByte === 0x00 && segment.terminatorRunLength >= 2) {
+                termZeroRun2Plus++;
+                if (segment.terminatorRunLength > maxZeroTermRun) {
+                    maxZeroTermRun = segment.terminatorRunLength;
+                }
+                if (segment.terminatorRunLength < minZeroTermRun) {
+                    minZeroTermRun = segment.terminatorRunLength;
+                }
+            } else if (segment.terminatorByte === 0xFF && segment.terminatorRunLength >= 3) {
+                termFFRun3Plus++;
+                if (segment.terminatorRunLength > maxFFTermRun) {
+                    maxFFTermRun = segment.terminatorRunLength;
+                }
+            } else if (segment.terminatorByte === 0xFF && segment.terminatorRunLength === 1) {
+                termFFRun1++;
+            }
+        }
+
+        const deltas = snapshotEndecCounters();
+        const markers = diffCounterObjects(deltas.markers, product.baseline.markers);
+        const timing = diffCounterObjects(deltas.timing, product.baseline.timing);
+        const zeroRunSpread = (termZeroRun2Plus > 0 && minZeroTermRun !== Number.POSITIVE_INFINITY)
+            ? (maxZeroTermRun - minZeroTermRun)
+            : 0;
+        const digitalSignalMarkers = (markers.digitalLeadZero >= 1) ? 1 : 0;
+        const minNwsRuns = Math.max(4, product.alerts.length + 1);
+        const metrics = {
+            alerts: product.alerts.length,
+            segments: product.segments.length,
+            termZeroRun2Plus,
+            termFFRun1,
+            termFFRun3Plus,
+            maxZeroTermRun,
+            zeroRunSpread,
+            maxFFTermRun,
+            preambleSplits,
+            minNwsRuns,
+            digitalSignalMarkers,
+            markers: Object.assign({}, markers),
+            timing: Object.assign({}, timing)
+        };
+
+        const strongTrilithic = timing.trilithicGapHits >= 2
+            && (timing.trilithicAfterGapHits >= 1 || timing.trilithicGapHits > (timing.standardGapHits + 1));
+        if (strongTrilithic) {
+            return buildSameProductAnalysis("TRILITHIC", "strong_trilithic", metrics);
+        }
+
+        const strongDigitalWithLead = markers.digitalLeadZero >= 1
+            && (termFFRun3Plus >= 1 || markers.validTerminatorFF >= 2);
+        const strongDigitalByFfAndTiming = markers.digitalLeadZero === 0
+            && termZeroRun2Plus === 0
+            && termFFRun3Plus >= Math.max(3, product.alerts.length + 1)
+            && markers.validTerminatorFF >= termFFRun3Plus
+            && (timing.trilithicAfterGapHits >= 2 || (maxFFTermRun >= 192 && timing.averageGapMs >= 1065));
+        if (strongDigitalWithLead || strongDigitalByFfAndTiming) {
+            return buildSameProductAnalysis("DIGITAL", "strong_digital", metrics);
+        }
+        const strongDigitalByZeroTiming = markers.digitalLeadZero === 0
+            && termFFRun3Plus === 0
+            && termFFRun1 === 0
+            && termZeroRun2Plus >= minNwsRuns
+            && markers.validTerminatorZero >= termZeroRun2Plus
+            && timing.standardGapHits >= 3
+            && timing.averageGapMs >= 1180
+            && maxZeroTermRun <= 192;
+        if (strongDigitalByZeroTiming) {
+            return buildSameProductAnalysis("DIGITAL", "digital_zero_timing", metrics);
+        }
+
+        const strongSage = (termFFRun1 >= 2 && termFFRun3Plus === 0)
+            || (markers.digitalLeadZero === 0 && termFFRun3Plus >= Math.max(3, product.alerts.length + 1))
+            || (termFFRun1 >= 3 && termFFRun1 >= (termFFRun3Plus + 2) && digitalSignalMarkers === 0);
+        if (strongSage
+            && termZeroRun2Plus === 0
+            && markers.digitalLeadZero === 0) {
+            return buildSameProductAnalysis("SAGE", "strong_sage", metrics);
+        }
+
+        const strongNws = termZeroRun2Plus >= minNwsRuns
+            && termFFRun3Plus === 0
+            && termFFRun1 === 0
+            && markers.digitalLeadZero === 0
+            && preambleSplits === 0
+            && timing.standardGapHits === 0
+            && termZeroRun2Plus >= (preambleSplits + 3)
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0;
+        if (strongNws) {
+            return buildSameProductAnalysis("NWS", "strong_nws", metrics);
+        }
+
+        if (termZeroRun2Plus === 0 && (termFFRun1 > 0 || termFFRun3Plus > 0 || markers.validTerminatorFF > 0)) {
+            if (markers.digitalLeadZero === 0) {
+                return buildSameProductAnalysis("SAGE", "ff_fallback_no_digital_markers", metrics);
+            }
+            const digitalScore =
+                (termFFRun3Plus * 1.5) +
+                (markers.digitalLeadZero * 2);
+            const sageScore =
+                (termFFRun1 * 2) +
+                (Math.max(0, markers.validTerminatorFF - termFFRun3Plus) * 0.5);
+            const fallbackMetrics = Object.assign({}, metrics, { digitalScore, sageScore });
+            return buildSameProductAnalysis(digitalScore > sageScore ? "DIGITAL" : "SAGE", "ff_fallback", fallbackMetrics);
+        }
+
+        return buildSameProductAnalysis("DEFAULT", "default_fallback", metrics);
+    }
+
+    function finalizeActiveSameProduct() {
+        if (!activeSameProduct) {
+            return;
+        }
+        const product = activeSameProduct;
+        const analysis = analyzeSameProductMode(product);
+        const mode = analysis.mode;
+        product.mode = mode;
+        product.ready = true;
+        for (let i = 0; i < product.alerts.length; i++) {
+            product.alerts[i].endecMode = mode;
+            product.alerts[i].endecModeReady = true;
+        }
+        sameProductResults.set(product.id, { mode, ready: true, analysis });
+        if (sameProductResults.size > 256) {
+            const first = sameProductResults.keys().next().value;
+            sameProductResults.delete(first);
+        }
+        logSameProductAnalysis(product, analysis);
+        activeSameProduct = null;
+    }
+
+    function getEndecCharacteristicsState() {
+        if (!endecCharacteristics || typeof endecCharacteristics !== "object") {
+            endecCharacteristics = createEndecCharacteristicsState();
+        }
+        return endecCharacteristics;
+    }
+
+    function resetEndecDetection() {
+        endecCharacteristics = createEndecCharacteristicsState();
+        detectedEndecMode = "DEFAULT";
+        activeSameProduct = null;
+        sameProductResults.clear();
+    }
+
+    function addEndecVote(mode, weight) {
+        const characteristics = getEndecCharacteristicsState();
+        const normalized = normalizeEndecMode(mode);
+        characteristics.votes[normalized] = (characteristics.votes[normalized] || 0) + (weight || 0);
+    }
+
+    function isLikelySamePayload(payload) {
+        if (typeof payload !== "string") {
+            return false;
+        }
+        const msg = payload.trim().toUpperCase();
+        if (!msg) {
+            return false;
+        }
+        if (msg.startsWith("NNNN")) {
+            return true;
+        }
+        if (!msg.startsWith("ZCZC")) {
+            return false;
+        }
+        if (msg.length < 20) {
+            return false;
+        }
+        return msg.includes("+") && msg.includes("-");
+    }
+
+    function noteEndecPreambleRun(runLength) {
+        if (!Number.isFinite(runLength) || runLength < 15 || runLength > 24) {
+            return;
+        }
+        const characteristics = getEndecCharacteristicsState();
+        if (runLength >= 17) {
+            characteristics.markers.preambleRun17Plus++;
+            addEndecVote("DIGITAL", 4);
+        } else if (runLength >= 15) {
+            characteristics.markers.preambleRun16++;
+            addEndecVote("DEFAULT", 1.5);
+        } else {
+            return;
+        }
+        refreshDetectedEndecMode();
+    }
+
+    function detectEndecModeFromCharacteristics() {
+        const characteristics = getEndecCharacteristicsState();
+        const markers = characteristics.markers;
+        const timing = characteristics.timing;
+        const votes = characteristics.votes;
+
+        const strongTrilithic = timing.trilithicGapHits >= 2
+            && (timing.trilithicGapHits > (timing.standardGapHits + 1) || timing.trilithicAfterGapHits >= 1);
+        if (strongTrilithic) {
+            return "TRILITHIC";
+        }
+
+        const digitalEvidence =
+            ((markers.digitalLeadZero >= 1) ? 2 : 0) +
+            ((markers.preambleRun17Plus >= 1) ? 1 : 0) +
+            ((markers.terminatorFFRun3Plus >= 1) ? 2 : 0);
+        const strongDigital =
+            ((markers.digitalLeadZero >= 1) && (markers.preambleRun17Plus >= 1 || markers.terminatorFFRun3Plus >= 1))
+            || markers.terminatorFFRun3Plus >= 2
+            || digitalEvidence >= 4;
+
+        const strongSage = markers.terminatorFFRun1 >= 2
+            && markers.terminatorFFRun3Plus === 0
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleRun17Plus === 0;
+
+        const strongNws = markers.terminatorZeroRun2Plus >= 2
+            && markers.validTerminatorFF === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleSplit <= 1
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0;
+
+        if (strongDigital) {
+            return "DIGITAL";
+        }
+        if (strongSage) {
+            return "SAGE";
+        }
+        if (strongNws) {
+            return "NWS";
+        }
+
+        let bestMode = "DEFAULT";
+        let bestScore = votes.DEFAULT;
+        for (let i = 1; i < ENDEC_MODES.length; i++) {
+            const mode = ENDEC_MODES[i];
+            const score = votes[mode];
+            if (score > bestScore) {
+                bestScore = score;
+                bestMode = mode;
+            }
+        }
+        return bestMode;
+    }
+
+    function refreshDetectedEndecMode() {
+        const mode = detectEndecModeFromCharacteristics();
+        detectedEndecMode = mode;
+        return mode;
+    }
+
+    function getDetectedEndecMode() {
+        return normalizeEndecMode(detectedEndecMode);
+    }
+
+    function noteEndecSplitReason(reason, byteValue, payload, terminatorRunLength = 1) {
+        const characteristics = getEndecCharacteristicsState();
+        const validPayload = isLikelySamePayload(payload);
+        switch (reason) {
+            case "PREAMBLE_SPLIT":
+                characteristics.markers.preambleSplit++;
+                addEndecVote("DEFAULT", 1.5);
+                addEndecVote("TRILITHIC", 2);
+                break;
+            case "TERM_BYTE":
+                if (byteValue === 0x00) {
+                    characteristics.markers.terminatorZero++;
+                    if (validPayload) {
+                        if (terminatorRunLength >= 2) {
+                            characteristics.markers.validTerminatorZero++;
+                            characteristics.markers.terminatorZeroRun2Plus++;
+                            addEndecVote("NWS", 3.5);
+                        } else {
+                            addEndecVote("NWS", 0.5);
+                        }
+                    }
+                } else if (byteValue === 0xFF) {
+                    characteristics.markers.terminatorFF++;
+                    if (validPayload) {
+                        characteristics.markers.validTerminatorFF++;
+                        if (terminatorRunLength >= 3) {
+                            characteristics.markers.terminatorFFRun3Plus++;
+                            addEndecVote("DIGITAL", 4);
+                            addEndecVote("SAGE", 0.5);
+                        } else if (terminatorRunLength === 1) {
+                            characteristics.markers.terminatorFFRun1++;
+                            addEndecVote("SAGE", 4);
+                            addEndecVote("DIGITAL", 0.5);
+                        } else {
+                            addEndecVote("SAGE", 1.5);
+                            addEndecVote("DIGITAL", 1.5);
+                        }
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+        refreshDetectedEndecMode();
+    }
+
+    function noteEndecLeadingByteBeforePreamble(byteValue) {
+        if (byteValue !== 0x00) {
+            return;
+        }
+        const characteristics = getEndecCharacteristicsState();
+        characteristics.markers.digitalLeadZero++;
+        addEndecVote("DIGITAL", 5.5);
+        refreshDetectedEndecMode();
+    }
+
+    function noteEndecGapMs(gapMs) {
+        if (!Number.isFinite(gapMs) || gapMs < 200 || gapMs > 2500) {
+            return;
+        }
+        const characteristics = getEndecCharacteristicsState();
+        const timing = characteristics.timing;
+        timing.lastGapMs = gapMs;
+        timing.samples++;
+        timing.averageGapMs += (gapMs - timing.averageGapMs) / timing.samples;
+
+        if (gapMs >= 760 && gapMs <= 930) {
+            timing.trilithicGapHits++;
+            addEndecVote("TRILITHIC", 5);
+        } else if (gapMs >= 1080 && gapMs <= 1160) {
+            timing.trilithicAfterGapHits++;
+            addEndecVote("TRILITHIC", 3);
+        } else if (gapMs >= 930 && gapMs < 1050) {
+            timing.standardGapHits++;
+            addEndecVote("DEFAULT", 2);
+        }
+        refreshDetectedEndecMode();
+    }
+
+    function getOverallEndecMode() {
+        const detected = getDetectedEndecMode();
+        if (detected !== "DEFAULT") {
+            return detected;
+        }
+        const el = document.getElementById("overallEndecMode");
+        const raw = (el && typeof el.value === "string") ? el.value : detected;
+        return normalizeEndecMode(raw);
+    }
+
+    function samplesFromMs(ms) {
+        return Math.round(sampleRate * (ms / 1000));
+    }
+
+    const SAME_PREAMBLE = "\xAB".repeat(16);
+
+    function stripLeadingPreamble16(s) {
+        return (typeof s === "string" && s.startsWith(SAME_PREAMBLE)) ? s.slice(16) : s;
+    }
+
+    function bitsFromStringLSB(str) {
+        const bits = [];
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i) & 0xFF;
+            for (let b = 0; b < 8; b++) {
+                bits.push((c >> b) & 1);
+            }
+        }
+        return bits;
+    }
+
+    function buildTxStringsFromBursts(base, bursts) {
+        const txStrings = new Array(bursts.length);
+        for (let i = 0; i < bursts.length; i++) {
+            const burst = bursts[i];
+            txStrings[i] = burst.prefix + base + burst.suffix;
+        }
+        return txStrings;
+    }
+
+    function buildHeaderTxStrings(header, mode) {
+        const msg = stripLeadingPreamble16(header);
+        const data = SAME_PREAMBLE + msg;
+        const profile = getEndecModeProfile(mode);
+        return buildTxStringsFromBursts(data, profile.headerBursts);
+    }
+
+    function buildEomTxStrings(mode) {
+        const core = SAME_PREAMBLE + "NNNN";
+        const profile = getEndecModeProfile(mode);
+        return buildTxStringsFromBursts(core, profile.eomBursts);
+    }
+
+    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples) {
+        if (typeof generate_afsk !== "function" || typeof generate_silence !== "function") {
+            return;
+        }
+        const cache = new Map();
+
+        for (let i = 0; i < txStrings.length; i++) {
+            const s = txStrings[i];
+            let bits = cache.get(s);
+            if (!bits) {
+                bits = bitsFromStringLSB(s);
+                cache.set(s, bits);
+            }
+
+            generate_afsk(bits);
+
+            const isLast = (i === txStrings.length - 1);
+            if (!isLast) {
+                generate_silence(betweenSilenceSamples);
+            } else if (finalSilenceSamples != null) {
+                generate_silence(finalSilenceSamples);
+            }
+        }
+    }
+
+    function create_header_tones(header) {
+        const mode = getOverallEndecMode();
+        const profile = getEndecModeProfile(mode);
+        const txStrings = buildHeaderTxStrings(header, mode);
+        const between = samplesFromMs(profile.betweenGapMs);
+        const after = samplesFromMs(profile.afterGapMs);
+        emitTxBurstsFromStrings(txStrings, between, after);
+    }
+
+    function create_eom_tones() {
+        const mode = getOverallEndecMode();
+        const profile = getEndecModeProfile(mode);
+        const oneSecondSamples = samplesFromMs(1000);
+        if (typeof generate_silence === "function") {
+            generate_silence(oneSecondSamples);
+        }
+        const txStrings = buildEomTxStrings(mode);
+        const between = samplesFromMs(profile.betweenGapMs);
+        emitTxBurstsFromStrings(txStrings, between, oneSecondSamples);
+    }
+
+    resetEndecDetection();
     let buffer = [];
 
     function runDecoder(buf) {
@@ -1115,27 +1762,71 @@ async function fetchAndStore() {
     let headerTimes = 0;
     let syncReg = 0;
     let tolerance = 0.05;
+    let demodSampleCounter = 0;
+    let previousCompletedByte = -1;
+    let abRunLength = 0;
+    let preambleByteRun = 0;
+    let terminatorRunByte = -1;
+    let terminatorRunCount = 0;
+    let lastPayloadByteSample = 0;
 
     let currentMsg = "";
     let container = null;
+    let currentMsgFastPathHandled = false;
 
-    function finalizeAlert() {
+    function hasCompleteSameHeaderTail(msg) {
+        if (!msg || !msg.startsWith("ZCZC-") || msg[msg.length - 1] !== "-") {
+            return false;
+        }
+        const lastDash = msg.length - 1;
+        const senderDash = msg.lastIndexOf("-", lastDash - 1);
+        if (senderDash < 0) {
+            return false;
+        }
+        return (lastDash - senderDash - 1) === 8;
+    }
+
+    function finalizeAlert(reason = "UNKNOWN", terminatorByte = null, terminatorRunLength = 1) {
         decoding = false;
+        abRunLength = 0;
+        preambleByteRun = 0;
+        terminatorRunByte = -1;
+        terminatorRunCount = 0;
         updateSync(false);
+        maybeRotateSameProduct(currentMsg);
+        noteEndecSplitReason(reason, terminatorByte, currentMsg, terminatorRunLength);
+        const segmentMeta = {
+            reason,
+            terminatorByte,
+            terminatorRunLength,
+            observedMode: getDetectedEndecMode()
+        };
         if (container) {
-            container.innerText += " ";
+            container.appendChild(document.createTextNode(" "));
             try {
-                processHeader(currentMsg, container);
+                if (currentMsgFastPathHandled) {
+                    const product = maybeRotateSameProduct(currentMsg);
+                    product.segments.push({
+                        type: "header",
+                        reason: segmentMeta.reason || "UNKNOWN",
+                        terminatorByte: segmentMeta.terminatorByte ?? null,
+                        terminatorRunLength: segmentMeta.terminatorRunLength ?? 0,
+                        observedMode: segmentMeta.observedMode || "DEFAULT"
+                    });
+                } else {
+                    processHeader(currentMsg, container, segmentMeta);
+                }
             } catch (e) {
                 console.error("Error finalizing alert:", e);
             }
         }
         container = null;
         currentMsg = "";
+        currentMsgFastPathHandled = false;
         headerTimes = 0;
     }
 
-    function resetDecoderState() {
+    function resetDecoderState(resetEndec = true) {
         stopAutoRecording();
         bitclock = 0;
         prevbit = 0;
@@ -1150,6 +1841,17 @@ async function fetchAndStore() {
         syncReg = 0;
         currentMsg = "";
         container = null;
+        currentMsgFastPathHandled = false;
+        demodSampleCounter = 0;
+        previousCompletedByte = -1;
+        abRunLength = 0;
+        preambleByteRun = 0;
+        terminatorRunByte = -1;
+        terminatorRunCount = 0;
+        lastPayloadByteSample = 0;
+        if (resetEndec) {
+            resetEndecDetection();
+        }
         clock = 0;
         markIndex = 0;
         spaceIndex = 0;
@@ -1165,7 +1867,19 @@ async function fetchAndStore() {
         }
     }
 
+    function flushPendingDecodeTail() {
+        if (!decoding || !currentMsg.length) {
+            return;
+        }
+        if (terminatorRunCount > 0 && (terminatorRunByte === 0x00 || terminatorRunByte === 0xFF)) {
+            finalizeAlert("TERM_BYTE", terminatorRunByte, terminatorRunCount);
+        } else {
+            finalizeAlert("PREAMBLE_SPLIT");
+        }
+    }
+
     function clockdemod(sample) {
+        demodSampleCounter++;
         const bit = discriminator(sample);
         if (bit !== prevbit) {
             bitclock = 0;
@@ -1179,40 +1893,113 @@ async function fetchAndStore() {
             }
             bytePos++;
             if (bytePos == 8) {
+                const byteSample = demodSampleCounter;
+                if (!decoding) {
+                    if (terminatorRunCount > 0) {
+                        terminatorRunByte = -1;
+                        terminatorRunCount = 0;
+                    }
+                    if (currentByte === 0xAB) {
+                        if (abRunLength === 0) {
+                            noteEndecLeadingByteBeforePreamble(previousCompletedByte);
+                            if (lastPayloadByteSample > 0) {
+                                const gapMs = ((byteSample - lastPayloadByteSample) * 1000) / sampleRate;
+                                noteEndecGapMs(gapMs);
+                            }
+                        }
+                        abRunLength++;
+                    } else {
+                        abRunLength = 0;
+                    }
+                }
+                if (currentByte === 0xAB && currentMsg.length === 0 && (preambleByteRun > 0 || headerTimes > 0)) {
+                    preambleByteRun++;
+                } else if (preambleByteRun > 0) {
+                    noteEndecPreambleRun(preambleByteRun);
+                    preambleByteRun = 0;
+                }
                 if (currentByte == 0xAB) {
                     headerTimes++;
                     if (headerTimes > 4) {
                         decoding = true;
+                        abRunLength = 0;
                         updateSync(true);
                     }
                 } else {
                     headerTimes = 0;
                 }
                 if (decoding) {
-                    if (!micSource && currentByte == 0xAB && headerTimes > 4 && currentMsg.length && container) {
-                        finalizeAlert();
-                        headerTimes = 1;
-                    } else if (currentByte == 0 || currentByte == 0xFF) {
-                        finalizeAlert();
-                    } else if (currentByte !== 0xAB) {
-                        if (!container) {
-                            container = document.createElement("div");
-                            container.className = "alert";
-                            document.querySelector("#output").appendChild(container);
+                    noteSameProductByte(currentByte);
+                    let handledByte = false;
+                    const isTerminatorByte = (currentByte == 0 || currentByte == 0xFF);
+                    if (isTerminatorByte) {
+                        if (terminatorRunCount === 0) {
+                            terminatorRunByte = currentByte;
+                            terminatorRunCount = 1;
+                        } else if (terminatorRunByte === currentByte) {
+                            terminatorRunCount++;
+                        } else {
+                            const termByte = terminatorRunByte;
+                            const termCount = terminatorRunCount;
+                            finalizeAlert("TERM_BYTE", termByte, termCount);
                         }
-                        const currentChar = String.fromCharCode(currentByte);
-                        // If the character is not valid, just skip printing it and continue to the next valid character
-                        if (currentByte >= 32 && currentByte <= 126 && /^[A-Za-z0-9\-\+\/\(\)\\ ]$/.test(currentChar) === false) {
-                            // Skip invalid character
-                        }
+                        handledByte = true;
+                    } else if (terminatorRunCount > 0) {
+                        const termByte = terminatorRunByte;
+                        const termCount = terminatorRunCount;
+                        finalizeAlert("TERM_BYTE", termByte, termCount);
+                        headerTimes = (currentByte == 0xAB) ? 1 : 0;
+                        handledByte = true;
+                    }
 
-                        else {
-                            container.innerText += currentChar;
-                            currentMsg += currentChar;
+                    if (!handledByte) {
+                        if (!micSource && currentByte == 0xAB && headerTimes > 4 && currentMsg.length && container) {
+                            if (lastPayloadByteSample > 0) {
+                                const splitGapMs = ((byteSample - lastPayloadByteSample) * 1000) / sampleRate;
+                                noteEndecGapMs(splitGapMs);
+                            }
+                            finalizeAlert("PREAMBLE_SPLIT");
+                            headerTimes = 1;
+                        } else if (currentByte !== 0xAB) {
+                            lastPayloadByteSample = byteSample;
+                            if (!container) {
+                                container = document.createElement("div");
+                                container.className = "alert";
+                                document.querySelector("#output").appendChild(container);
+                            }
+                            const currentChar = String.fromCharCode(currentByte);
+                            // If the character is not valid, just skip printing it and continue to the next valid character
+                            if (currentByte >= 32 && currentByte <= 126 && /^[A-Za-z0-9\-\+\/\(\)\\ ]$/.test(currentChar) === false) {
+                                // Skip invalid character
+                            }
+
+                            else {
+                                container.innerText += currentChar;
+                                currentMsg += currentChar;
+                                if (currentMsg === "NNNN" && eomCount === 2) {
+                                    finalizeAlert("EOM_PAYLOAD");
+                                } else if (!currentMsgFastPathHandled && currentChar === "-" && hasCompleteSameHeaderTail(currentMsg)) {
+                                    const product = maybeRotateSameProduct(currentMsg);
+                                    const parsedHeader = parseHeader(currentMsg, product.id);
+                                    if (parsedHeader && !parsedHeader.eom) {
+                                        product.alerts.push(parsedHeader);
+                                        const view = document.createElement("button");
+                                        view.addEventListener("click", () => {
+                                            showModal(parsedHeader);
+                                            window.modalShown = true;
+                                        });
+                                        view.innerText = "View Alert";
+                                        container.appendChild(document.createElement("span")).innerHTML = "&emsp;&emsp;";
+                                        container.appendChild(view);
+                                        currentMsgFastPathHandled = true;
+                                    }
+                                }
+                            }
+                            handleAutoRecordingTriggers();
                         }
-                        handleAutoRecordingTriggers();
                     }
                 }
+                previousCompletedByte = currentByte;
                 bytePos = 0;
                 currentByte = 0;
             }
@@ -1258,10 +2045,20 @@ async function fetchAndStore() {
     }
     // END decode/clock.js
     // BEGIN decode/header.js
-    function parseHeader(input) {
+    function parseHeader(input, productId = null) {
         if (input.startsWith("NNNN")) {
+            eomCount++;
+            const isFinalEomBurst = (eomCount === 3);
+            if (isFinalEomBurst) {
+                finalizeActiveSameProduct();
+                eomCount = 0;
+            }
             return {
-                eom: true
+                eom: true,
+                endecMode: "Detecting...",
+                endecModeReady: false,
+                productId,
+                isFinalEomBurst
             };
         }
         let output = {};
@@ -1279,6 +2076,9 @@ async function fetchAndStore() {
         output.issueTime = parseTime(second.shift());
         output.sender = second.shift();
         output.rawHeader = input;
+        output.endecMode = "Detecting...";
+        output.endecModeReady = false;
+        output.productId = productId;
         return output;
     }
 
@@ -1331,36 +2131,48 @@ async function fetchAndStore() {
 
     let eomCount = 0;
 
-    function processHeader(header, container) {
+    function processHeader(header, container, segmentMeta = null) {
+        const product = maybeRotateSameProduct(header);
         const view = document.createElement("button");
-        const parsedHeader = parseHeader(header);
+        const parsedHeader = parseHeader(header, product.id);
+
         if (!parsedHeader) {
             return;
-        } else if (parsedHeader.eom) {
+        }
+
+        product.segments.push({
+            type: parsedHeader.eom ? "eom" : "header",
+            reason: segmentMeta?.reason || "UNKNOWN",
+            terminatorByte: segmentMeta?.terminatorByte ?? null,
+            terminatorRunLength: segmentMeta?.terminatorRunLength ?? 0,
+            observedMode: segmentMeta?.observedMode || "DEFAULT"
+        });
+
+        if (parsedHeader.eom) {
             const eomIndicator = document.createElement("div");
             eomIndicator.style.color = "gray";
             eomIndicator.style.display = "inline";
             eomIndicator.innerText = "[EOM]";
             container.appendChild(eomIndicator);
-            eomCount++;
-            if (eomCount == 3) {
+            if (parsedHeader.isFinalEomBurst) {
                 const eomSeparator = document.createElement("hr");
                 eomSeparator.classList = "eom-hr";
                 container.appendChild(eomSeparator);
-                eomCount = 0;
             }
             return;
         }
+
+        product.alerts.push(parsedHeader);
+
         view.addEventListener("click", () => {
             showModal(parsedHeader);
             window.modalShown = true;
         });
+
         view.innerText = "View Alert";
+
+        container.appendChild(document.createElement("span")).innerHTML = "&emsp;&emsp;";
         container.appendChild(view);
-        const decoderClear = document.querySelector('[data-decoder-clear]');
-        if (decoderClear) {
-            decoderClear.disabled = false;
-        }
     }
     // END decode/header.js
     // BEGIN decode/alertinfo.js
@@ -1368,24 +2180,31 @@ async function fetchAndStore() {
     const modalContainer = document.querySelector(".modalContainer");
     const infoContainer = document.querySelector(".modalInfo");
     const modalBox = document.querySelector(".modalBox");
+    let modalRequestToken = 0;
     modalClose.addEventListener("click", () => {
         if (window.modalShown) {
+            modalRequestToken++;
             modalContainer.style.display = "none";
         }
     });
 
     modalContainer.addEventListener("click", (e) => {
         if (e.target === modalContainer && window.modalShown) {
+            modalRequestToken++;
             modalContainer.style.display = "none";
         }
     });
 
     async function showAlertInfo(header) {
+        const requestToken = ++modalRequestToken;
         const e2tReady = window.EAS2TextModulePromise;
         const resourcePromise = e2tReady.then(({ loadAllResources }) =>
             loadAllResources({ fallbackBase: 'assets/E2T/' })
         );
         const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
+        if (requestToken !== modalRequestToken) {
+            return;
+        }
         let alertType = "Information";
 
         infoContainer.innerHTML = "";
@@ -1394,6 +2213,17 @@ async function fetchAndStore() {
         const issueTime = header.issueTime;
         const expirationTime = getExpirationTime(issueTime, header.alertTime);
         const regex = window.EASREGEX;
+        let endecMode = header.endecMode || "Detecting...";
+        if (!header.endecModeReady) {
+            const resolved = sameProductResults.get(header.productId);
+            if (resolved && resolved.ready) {
+                endecMode = resolved.mode;
+                header.endecMode = resolved.mode;
+                header.endecModeReady = true;
+            } else {
+                endecMode = "Detecting...";
+            }
+        }
         const cleanHeader = header.rawHeader.trim().replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6-');
 
         let eas = await EAS2Text.fromUSMessage(cleanHeader, { resources, mode: 'NONE', useLocaleTimezone: true }).catch((e) => {
@@ -1450,6 +2280,7 @@ async function fetchAndStore() {
         infoContainer.appendChild(createInfo(`Expires on: ${dateToReadable(expirationTime, false)}`));
         infoContainer.appendChild(createInfo(`Time until Expiration: ${isExpired(issueTime, expirationTime) ? "EXPIRED" : relativeToReadable(subtractRelative(expirationTime, new Date()), false)}`));
         infoContainer.appendChild(createInfo(`Sender ID: ${header.sender}`));
+        infoContainer.appendChild(createInfo(`ENDEC Used (best-guess): ${endecMode}`));
         infoContainer.appendChild(document.createElement("br"));
         infoContainer.appendChild(createInfo(`Human-Readable Alert Text: "${easText}"`));
         infoContainer.appendChild(document.createElement("br"));
@@ -1600,7 +2431,7 @@ async function fetchAndStore() {
                     const chunk = channelData.slice(i, i + chunkSize);
                     runDecoder(chunk);
                 }
-                stopDecode();
+                stopDecode(false);
                 audiofileInput.disabled = false;
                 decoderToggle.disabled = false;
                 decoderLoad.disabled = false;
@@ -1639,4 +2470,48 @@ async function fetchAndStore() {
             clearStreamURLButton.style.display = "none";
         });
     }
+
+    const dropArea = document.getElementById('decoder-panel');
+    if (dropArea) {
+        dropArea.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropArea.classList.add('dragover');
+        });
+
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.classList.remove('dragover');
+        });
+
+        dropArea.addEventListener('drop', async (event) => {
+            event.preventDefault();
+            dropArea.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                addStatus("PROCESSING...", "yellow");
+                resetDecoderState();
+                const file = files[0];
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
+                updateSampleRate(audioBuffer.sampleRate);
+                const channelData = audioBuffer.getChannelData(0);
+                const chunkSize = 128;
+                for (let i = 0; i < channelData.length; i += chunkSize) {
+                    const chunk = channelData.slice(i, i + chunkSize);
+                    runDecoder(chunk);
+                }
+                stopDecode(false);
+            }
+        });
+    }
+
+    const mutationObserver = new MutationObserver(() => {
+        const alertElements = document.querySelectorAll('.alert');
+        if (alertElements.length > 0) {
+            decoderClear.disabled = false;
+        } else {
+            decoderClear.disabled = true;
+        }
+    });
+
+    mutationObserver.observe(document.getElementById('output'), { childList: true, subtree: true });
 })();

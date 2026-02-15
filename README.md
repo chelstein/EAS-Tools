@@ -5,7 +5,11 @@
 Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to the brim with features, such as a full **decoder**, **encoder**, **text crawl generator**, **audio splicer**, **phoneme converter/generator**, and **video/audio muxer**. All tools are client‑side and work offline after the initial load. All open source and freely available on GitHub. Run your own copy if you'd like!
 
 > ⚠️ **Legal & ethics notice**
-> This project is for **lab, testing, hobbyist, and educational use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit.
+> This project is for **lab, testing, hobbyist, and educational use only**. In many jurisdictions (e.g., U.S. FCC 47 CFR §11.45), transmitting or simulating EAS tones outside of authorized tests is prohibited. **Do not broadcast** generated tones or headers over public channels. The author is NOT responsible for ANY misuse of this software toolkit. You must also adhere to the EAS Tools [Terms of Service](https://eas.tools/terms.html) at all times when using the app.
+
+---
+
+![Decoder Screenshot](./assets/demo_screenshots/decoder.png)
 
 ---
 
@@ -15,7 +19,7 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to th
   * Real‑time decoding of EAS/SAME headers from microphone input
   * File upload support for decoding prerecorded EAS audio
   * Visual audio meter for signal strength
-  * Parsed header information: alert type, issuer, affected locations, issue/expiration times, sender ID, and human‑readable text
+  * Parsed header information: alert type, issuer, affected locations, issue/expiration times, sender ID, ENDEC used, and human‑readable text
 * **Encoder**
   * Form‑based SAME header generation with validation
   * Text‑to‑speech synthesis of alert message (using WebAssembly voices/outside TTS service)
@@ -92,6 +96,7 @@ What you’ll see:
   * **Expires On**: Date & time of expiration
   * **Time until expiration**: "EXPIRED" if expired, or relative time of expiration
   * **Sender ID**: 8 character sender identifier (e.g., "KOAX/NWS")
+  * **ENDEC Used**: The EAS ENDEC profile that the alert matches (e.g., "SAGE", "DIGITAL", "TRILITHIC", etc.)
   * **Human-Readable Alert Text**: The message associated with the alert, parsed using a JS port of [EAS2Text](https://github.com/Newton-Communications/E2T/)
   * **Color-coding** of the alert severity for quick visual identification
 
@@ -173,7 +178,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * canvas-capture.js: **canvas-capture.js** (bundled in `assets/js/canvas-capture.js`)
 * ffmpeg.wasm: **ffmpeg.wasm** (bundled in `assets/muxer`, built with WebPack)
 * phonemeize: **phoneme-bundle.js** and assorted files in `assets/js/` that are prefixed with `phoneme-` (WebPack bundled from [phonemeize](https://github.com/hans00/phonemize) NPM package with some custom modifications/additions for Web TTS use)
-* SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud; with credit to EAS.js (by [GWES](https://globaleas.org/)) for reference implementation for specific ENDEC profiles
+* SAME decoding/encoding logic: Original code by CryptoDude3 (removed GitHub Pages site), maintained and expanded by wagwan-piffting-blud; with credit to EAS.js (by [GWES](https://globaleas.org/)) for reference implementation for specific ENDEC profiles for both decoder and encoder logic
 
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
@@ -205,6 +210,6 @@ This project is licensed under **GPL‑3.0** (see [`LICENSE`](./LICENSE)).
 
 ## 📍 Disclaimers
 
-This tool decodes and synthesizes EAS/SAME signals for **lab, testing, hobbyist, and educational** purposes only. You are responsible for complying with all laws, regulations, and organizational policies applicable to your use. The author is NOT responsible for ANY misuse of this software toolkit.
+This tool decodes and synthesizes EAS/SAME signals for **lab, testing, hobbyist, and educational** purposes only. You are responsible for complying with all laws, regulations, and organizational policies applicable to your use. The author is NOT responsible for ANY misuse of this software toolkit. You must also adhere to the EAS Tools [Terms of Service](https://eas.tools/terms.html) at all times when using the app.
 
 ## GenAI Disclosure Notice: Portions of this repository have been generated using Generative AI tools (ChatGPT, ChatGPT Codex, GitHub Copilot).

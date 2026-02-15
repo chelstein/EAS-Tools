@@ -730,6 +730,24 @@ button[disabled] {
     margin-right: 110px;
 }
 
+.dragover {
+    border-color: #ff7800 !important;
+    background-color: #777777 !important;
+    border: 6px dashed #ff7800 !important;
+}
+
+.dragover::before{
+    content: "Release to upload";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ff7800;
+    font-size: 1.5rem;
+    font-weight: bold;
+    pointer-events: none;
+}
+
 /* Media Queries */
 /* Mobile devices */
 @media screen and (max-width: 1079px) {

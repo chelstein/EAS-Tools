@@ -1,4 +1,4 @@
-import { saveFile } from './common-functions.js';
+import { getEndecModeProfile, normalizeEndecMode, saveFile } from './common-functions.js';
 
 if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
@@ -614,17 +614,7 @@ async function fetchAndStore() {
     function getOverallEndecMode() {
         const el = document.getElementById("overallEndecMode");
         const raw = (el && typeof el.value === "string") ? el.value : "DEFAULT";
-        const mode = raw.trim().toUpperCase();
-        switch (mode) {
-            case "DEFAULT":
-            case "NWS":
-            case "DIGITAL":
-            case "SAGE":
-            case "TRILITHIC":
-                return mode;
-            default:
-                return "DEFAULT";
-        }
+        return normalizeEndecMode(raw);
     }
 
     function samplesFromMs(ms) {
@@ -632,7 +622,6 @@ async function fetchAndStore() {
     }
 
     const SAME_PREAMBLE = "\xAB".repeat(16);
-    const DIGITAL_TAIL = "\xFF\xFF\xFF";
 
     function stripLeadingPreamble16(s) {
         return (typeof s === "string" && s.startsWith(SAME_PREAMBLE)) ? s.slice(16) : s;
@@ -649,50 +638,26 @@ async function fetchAndStore() {
         return bits;
     }
 
+    function buildTxStringsFromBursts(base, bursts) {
+        const txStrings = new Array(bursts.length);
+        for (let i = 0; i < bursts.length; i++) {
+            const burst = bursts[i];
+            txStrings[i] = burst.prefix + base + burst.suffix;
+        }
+        return txStrings;
+    }
+
     function buildHeaderTxStrings(header, mode) {
         const msg = stripLeadingPreamble16(header);
         const data = SAME_PREAMBLE + msg;
-
-        switch (mode) {
-            case "NWS": {
-                const s = data + "\x00\x00";
-                return [s, s, s];
-            }
-            case "SAGE": {
-                const s = data + "\xFF";
-                return [s, s, s];
-            }
-            case "DIGITAL": {
-                const first = "\x00" + data + DIGITAL_TAIL;
-                const std = "\xAB" + data + DIGITAL_TAIL;
-                return [first, std, std];
-            }
-            default:
-                return [data, data, data];
-        }
+        const profile = getEndecModeProfile(mode);
+        return buildTxStringsFromBursts(data, profile.headerBursts);
     }
 
     function buildEomTxStrings(mode) {
         const core = SAME_PREAMBLE + "NNNN";
-
-        if (mode === "DIGITAL") {
-            const part1 = "\x00" + core + DIGITAL_TAIL;
-            const part2 = core + DIGITAL_TAIL;
-            return [part1, part2, part2];
-        }
-
-        switch (mode) {
-            case "NWS": {
-                const s = core + "\x00\x00";
-                return [s, s, s];
-            }
-            case "SAGE": {
-                const s = core + "\xFF";
-                return [s, s, s];
-            }
-            default:
-                return [core, core, core];
-        }
+        const profile = getEndecModeProfile(mode);
+        return buildTxStringsFromBursts(core, profile.eomBursts);
     }
 
     function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples) {
@@ -719,25 +684,21 @@ async function fetchAndStore() {
 
     function create_header_tones(header) {
         const mode = getOverallEndecMode();
-
+        const profile = getEndecModeProfile(mode);
         const txStrings = buildHeaderTxStrings(header, mode);
-
-        const between = (mode === "TRILITHIC") ? samplesFromMs(868) : samplesFromMs(1000);
-        const after = (mode === "TRILITHIC") ? samplesFromMs(1118) : samplesFromMs(1000);
-
+        const between = samplesFromMs(profile.betweenGapMs);
+        const after = samplesFromMs(profile.afterGapMs);
         emitTxBurstsFromStrings(txStrings, between, after);
     }
 
     function create_eom_tones() {
         const mode = getOverallEndecMode();
-
-        generate_silence(SAMPLE_RATE);
-
+        const profile = getEndecModeProfile(mode);
+        const oneSecondSamples = samplesFromMs(1000);
+        generate_silence(oneSecondSamples);
         const txStrings = buildEomTxStrings(mode);
-
-        const between = (mode === "TRILITHIC") ? samplesFromMs(868) : samplesFromMs(1000);
-
-        emitTxBurstsFromStrings(txStrings, between, SAMPLE_RATE);
+        const between = samplesFromMs(profile.betweenGapMs);
+        emitTxBurstsFromStrings(txStrings, between, oneSecondSamples);
     }
 
     var pelmorexTonePromise = null;
