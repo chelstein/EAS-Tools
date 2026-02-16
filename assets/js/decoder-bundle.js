@@ -4,7 +4,8 @@ import {
     createEndecModeVotes,
     getEndecModeProfile,
     normalizeEndecMode,
-    saveFile
+    saveFile,
+    isObject
 } from './common-functions.js';
 
 window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
@@ -1057,7 +1058,7 @@ async function fetchAndStore() {
     let activeSameProduct = null;
     const sameProductResults = new Map();
     if (typeof window !== "undefined" && typeof window.endecDebug !== "boolean") {
-        window.endecDebug = false;
+        window.endecDebug = false; // set to true in the console to enable detailed same product logging, which will also be exported to window.lastEndecDebug and window.endecDebugHistory for further analysis. This is intentionally opt-in due to the potential volume of logs generated.
     }
 
     function snapshotEndecCounters() {
@@ -1263,6 +1264,47 @@ async function fetchAndStore() {
             markers: Object.assign({}, markers),
             timing: Object.assign({}, timing)
         };
+        const minSageRuns = Math.max(3, product.alerts.length + 1);
+        const exactSage1822ByRun1 = termZeroRun2Plus === 0
+            && termFFRun3Plus === 0
+            && termFFRun1 >= minSageRuns
+            && markers.validTerminatorFF === termFFRun1
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0;
+        const exactSage1822ByRun3Profile = termZeroRun2Plus === 0
+            && termFFRun1 === 0
+            && termFFRun3Plus >= minSageRuns
+            && markers.validTerminatorFF >= termFFRun3Plus
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleRun17Plus === 0
+            && timing.standardGapHits >= 2
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0
+            && timing.averageGapMs >= 900
+            && timing.averageGapMs <= 1055
+            && maxFFTermRun <= 160;
+        const exactSage1822ByPartialCapture = termZeroRun2Plus === 0
+            && termFFRun1 === 0
+            && termFFRun3Plus === 2
+            && markers.validTerminatorFF >= termFFRun3Plus
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleRun17Plus === 0
+            && preambleSplits >= 1
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0
+            && timing.standardGapHits === 0
+            && maxFFTermRun <= 96
+            && timing.averageGapMs >= 1040
+            && timing.averageGapMs <= 1110;
+        const exactSage1822 = exactSage1822ByRun1 || exactSage1822ByRun3Profile || exactSage1822ByPartialCapture;
+        metrics.exactSage1822 = exactSage1822;
+        metrics.exactSage1822ByRun1 = exactSage1822ByRun1;
+        metrics.exactSage1822ByRun3Profile = exactSage1822ByRun3Profile;
+        metrics.exactSage1822ByPartialCapture = exactSage1822ByPartialCapture;
 
         const strongTrilithic = timing.trilithicGapHits >= 2
             && (timing.trilithicAfterGapHits >= 1 || timing.trilithicGapHits > (timing.standardGapHits + 1));
@@ -1278,7 +1320,7 @@ async function fetchAndStore() {
             && markers.validTerminatorFF >= termFFRun3Plus
             && (timing.trilithicAfterGapHits >= 2 || (maxFFTermRun >= 192 && timing.averageGapMs >= 1065));
         if (strongDigitalWithLead || strongDigitalByFfAndTiming) {
-            return buildSameProductAnalysis("DIGITAL", "strong_digital", metrics);
+            return buildSameProductAnalysis("SAGE DIGITAL 3644", "strong_digital", metrics);
         }
         const strongDigitalByZeroTiming = markers.digitalLeadZero === 0
             && termFFRun3Plus === 0
@@ -1289,16 +1331,19 @@ async function fetchAndStore() {
             && timing.averageGapMs >= 1180
             && maxZeroTermRun <= 192;
         if (strongDigitalByZeroTiming) {
-            return buildSameProductAnalysis("DIGITAL", "digital_zero_timing", metrics);
+            return buildSameProductAnalysis("SAGE DIGITAL 3644", "digital_zero_timing", metrics);
         }
 
-        const strongSage = (termFFRun1 >= 2 && termFFRun3Plus === 0)
+        const sageLike = (termFFRun1 >= 2 && termFFRun3Plus === 0)
             || (markers.digitalLeadZero === 0 && termFFRun3Plus >= Math.max(3, product.alerts.length + 1))
             || (termFFRun1 >= 3 && termFFRun1 >= (termFFRun3Plus + 2) && digitalSignalMarkers === 0);
-        if (strongSage
+        if (sageLike
             && termZeroRun2Plus === 0
             && markers.digitalLeadZero === 0) {
-            return buildSameProductAnalysis("SAGE", "strong_sage", metrics);
+            if (exactSage1822) {
+                return buildSameProductAnalysis("SAGE ANALOG 1822", "strong_sage_1822_exact", metrics);
+            }
+            return buildSameProductAnalysis("SAGE DIGITAL 3644", "sage_like_prefer_digital", metrics);
         }
 
         const strongNws = termZeroRun2Plus >= minNwsRuns
@@ -1316,7 +1361,10 @@ async function fetchAndStore() {
 
         if (termZeroRun2Plus === 0 && (termFFRun1 > 0 || termFFRun3Plus > 0 || markers.validTerminatorFF > 0)) {
             if (markers.digitalLeadZero === 0) {
-                return buildSameProductAnalysis("SAGE", "ff_fallback_no_digital_markers", metrics);
+                if (exactSage1822) {
+                    return buildSameProductAnalysis("SAGE ANALOG 1822", "ff_fallback_exact_1822", metrics);
+                }
+                return buildSameProductAnalysis("SAGE DIGITAL 3644", "ff_fallback_prefer_digital", metrics);
             }
             const digitalScore =
                 (termFFRun3Plus * 1.5) +
@@ -1325,7 +1373,10 @@ async function fetchAndStore() {
                 (termFFRun1 * 2) +
                 (Math.max(0, markers.validTerminatorFF - termFFRun3Plus) * 0.5);
             const fallbackMetrics = Object.assign({}, metrics, { digitalScore, sageScore });
-            return buildSameProductAnalysis(digitalScore > sageScore ? "DIGITAL" : "SAGE", "ff_fallback", fallbackMetrics);
+            if (!exactSage1822 && digitalScore === sageScore) {
+                return buildSameProductAnalysis("SAGE DIGITAL 3644", "ff_fallback_tie_prefer_digital", fallbackMetrics);
+            }
+            return buildSameProductAnalysis(digitalScore > sageScore ? "SAGE DIGITAL 3644" : "SAGE ANALOG 1822", "ff_fallback", fallbackMetrics);
         }
 
         return buildSameProductAnalysis("DEFAULT", "default_fallback", metrics);
@@ -1400,7 +1451,7 @@ async function fetchAndStore() {
         const characteristics = getEndecCharacteristicsState();
         if (runLength >= 17) {
             characteristics.markers.preambleRun17Plus++;
-            addEndecVote("DIGITAL", 4);
+            addEndecVote("SAGE DIGITAL 3644", 4);
         } else if (runLength >= 15) {
             characteristics.markers.preambleRun16++;
             addEndecVote("DEFAULT", 1.5);
@@ -1426,9 +1477,11 @@ async function fetchAndStore() {
             ((markers.digitalLeadZero >= 1) ? 2 : 0) +
             ((markers.preambleRun17Plus >= 1) ? 1 : 0) +
             ((markers.terminatorFFRun3Plus >= 1) ? 2 : 0);
+        const digitalRunTimingSupport = markers.terminatorFFRun3Plus >= 2
+            && (timing.trilithicAfterGapHits >= 1 || timing.averageGapMs >= 1065);
         const strongDigital =
             ((markers.digitalLeadZero >= 1) && (markers.preambleRun17Plus >= 1 || markers.terminatorFFRun3Plus >= 1))
-            || markers.terminatorFFRun3Plus >= 2
+            || digitalRunTimingSupport
             || digitalEvidence >= 4;
 
         const strongSage = markers.terminatorFFRun1 >= 2
@@ -1436,6 +1489,37 @@ async function fetchAndStore() {
             && markers.validTerminatorZero === 0
             && markers.digitalLeadZero === 0
             && markers.preambleRun17Plus === 0;
+        const exactSage1822ByRun1 = strongSage
+            && markers.validTerminatorFF === markers.terminatorFFRun1;
+        const exactSage1822ByRun3Profile = markers.terminatorZeroRun2Plus === 0
+            && markers.terminatorFFRun1 === 0
+            && markers.terminatorFFRun3Plus >= 3
+            && markers.validTerminatorFF >= markers.terminatorFFRun3Plus
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleRun17Plus === 0
+            && timing.standardGapHits >= 2
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0
+            && timing.averageGapMs >= 900
+            && timing.averageGapMs <= 1055;
+        const exactSage1822ByPartialCapture = markers.terminatorZeroRun2Plus === 0
+            && markers.terminatorFFRun1 === 0
+            && markers.terminatorFFRun3Plus === 2
+            && markers.validTerminatorFF >= markers.terminatorFFRun3Plus
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0
+            && markers.preambleRun17Plus === 0
+            && markers.preambleSplit >= 1
+            && timing.trilithicGapHits === 0
+            && timing.trilithicAfterGapHits === 0
+            && timing.standardGapHits === 0
+            && timing.averageGapMs >= 1040
+            && timing.averageGapMs <= 1110;
+        const exactSage1822 = exactSage1822ByRun1 || exactSage1822ByRun3Profile || exactSage1822ByPartialCapture;
+        const sageLike = markers.validTerminatorFF >= 2
+            && markers.validTerminatorZero === 0
+            && markers.digitalLeadZero === 0;
 
         const strongNws = markers.terminatorZeroRun2Plus >= 2
             && markers.validTerminatorFF === 0
@@ -1445,10 +1529,13 @@ async function fetchAndStore() {
             && timing.trilithicAfterGapHits === 0;
 
         if (strongDigital) {
-            return "DIGITAL";
+            return "SAGE DIGITAL 3644";
         }
-        if (strongSage) {
-            return "SAGE";
+        if (exactSage1822) {
+            return "SAGE ANALOG 1822";
+        }
+        if (strongSage || sageLike) {
+            return "SAGE DIGITAL 3644";
         }
         if (strongNws) {
             return "NWS";
@@ -1504,15 +1591,15 @@ async function fetchAndStore() {
                         characteristics.markers.validTerminatorFF++;
                         if (terminatorRunLength >= 3) {
                             characteristics.markers.terminatorFFRun3Plus++;
-                            addEndecVote("DIGITAL", 4);
-                            addEndecVote("SAGE", 0.5);
+                            addEndecVote("SAGE DIGITAL 3644", 4);
+                            addEndecVote("SAGE ANALOG 1822", 0.5);
                         } else if (terminatorRunLength === 1) {
                             characteristics.markers.terminatorFFRun1++;
-                            addEndecVote("SAGE", 4);
-                            addEndecVote("DIGITAL", 0.5);
+                            addEndecVote("SAGE ANALOG 1822", 4);
+                            addEndecVote("SAGE DIGITAL 3644", 0.5);
                         } else {
-                            addEndecVote("SAGE", 1.5);
-                            addEndecVote("DIGITAL", 1.5);
+                            addEndecVote("SAGE ANALOG 1822", 1.5);
+                            addEndecVote("SAGE DIGITAL 3644", 1.5);
                         }
                     }
                 }
@@ -1529,7 +1616,7 @@ async function fetchAndStore() {
         }
         const characteristics = getEndecCharacteristicsState();
         characteristics.markers.digitalLeadZero++;
-        addEndecVote("DIGITAL", 5.5);
+        addEndecVote("SAGE DIGITAL 3644", 5.5);
         refreshDetectedEndecMode();
     }
 
@@ -2132,13 +2219,21 @@ async function fetchAndStore() {
     let eomCount = 0;
 
     function processHeader(header, container, segmentMeta = null) {
-        const product = maybeRotateSameProduct(header);
-        const view = document.createElement("button");
-        const parsedHeader = parseHeader(header, product.id);
+        let product = null;
+        let parsedHeader = null;
 
-        if (!parsedHeader) {
-            return;
+        if (isObject(header)) {
+            product = maybeRotateSameProduct(header.rawHeader);
+            parsedHeader = parseHeader(header.rawHeader, product.id);
+            parsedHeader.endecMode = "NONE (Raw Header)";
+            parsedHeader.endecModeReady = true;
+            parsedHeader.productId = null;
+        } else {
+            product = maybeRotateSameProduct(header);
+            parsedHeader = parseHeader(header, product.id);
         }
+
+        const view = document.createElement("button");
 
         product.segments.push({
             type: parsedHeader.eom ? "eom" : "header",
@@ -2150,7 +2245,7 @@ async function fetchAndStore() {
 
         if (parsedHeader.eom) {
             const eomIndicator = document.createElement("div");
-            eomIndicator.style.color = "gray";
+            eomIndicator.style.color = "var(--color-border-light)";
             eomIndicator.style.display = "inline";
             eomIndicator.innerText = "[EOM]";
             container.appendChild(eomIndicator);
@@ -2235,6 +2330,7 @@ async function fetchAndStore() {
         }
         const encodedHeader = encodeURIComponent(header.rawHeader);
         const easText = eas.EASText.replace(/\n/g, "<br>");
+        const openInEncoderButton = `<button id="openInEncoderButton${requestToken}">Open in SAME Encoder</button>`;
 
         if (easText.match(/(Warning|Emergency|Immediate)/i) && !easText.match(/(Demo)/i)) {
             modalBox.style.border = "3px solid red";
@@ -2284,7 +2380,15 @@ async function fetchAndStore() {
         infoContainer.appendChild(document.createElement("br"));
         infoContainer.appendChild(createInfo(`Human-Readable Alert Text: "${easText}"`));
         infoContainer.appendChild(document.createElement("br"));
-        infoContainer.appendChild(createInfo(`<a href="index.html?header=${encodedHeader}&tool=encoder">Open in SAME Encoder</a>`));
+        infoContainer.appendChild(createInfo(openInEncoderButton));
+
+        const openInEncoderBtn = document.getElementById(`openInEncoderButton${requestToken}`);
+        if (openInEncoderBtn) {
+            openInEncoderBtn.addEventListener("click", () => {
+                const encoderUrl = `index.html?tool=encoder&header=${encodedHeader}`;
+                window.location.href = encoderUrl;
+            });
+        }
     }
 
     function timeToReadable(time, use24) {
@@ -2468,6 +2572,29 @@ async function fetchAndStore() {
         clearStreamURLButton.addEventListener('click', function () {
             window.streamUrl = null;
             clearStreamURLButton.style.display = "none";
+        });
+    }
+
+    const rawHeaderButton = document.querySelector('[data-decoder-load-raw]');
+    if (rawHeaderButton) {
+        rawHeaderButton.addEventListener('click', function () {
+            const rawHeader = prompt("Enter the raw SAME header (e.g. \"ZCZC-PEP-NPT-000000+0030-2761820-KETV    -\"): ");
+            if (window.EASREGEX.test(rawHeader)) {
+                const container = document.createElement("div");
+                container.className = "raw-alert";
+                container.style.display = "inline-block";
+                document.querySelector("#output").appendChild(document.createElement("span")).innerHTML = rawHeader;
+                document.querySelector("#output").appendChild(container);
+                const rawHeaderObject = {
+                    rawHeader: rawHeader
+                }
+                processHeader(rawHeaderObject, container);
+                const eomHr = document.createElement("hr");
+                eomHr.classList.add("eom-hr");
+                document.querySelector("#output").appendChild(eomHr);
+            } else {
+                alert("Invalid SAME header format. Please enter a valid header.");
+            }
         });
     }
 

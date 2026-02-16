@@ -1,4 +1,4 @@
-import { getEndecModeProfile, normalizeEndecMode, saveFile } from './common-functions.js';
+import { getEndecModeProfile, normalizeEndecMode, saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
 
 if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
@@ -23,7 +23,7 @@ if (typeof window !== 'undefined') {
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'dracula',
+            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
             lineWrapping: true,
         });
 

@@ -1,6 +1,6 @@
-import { saveFile } from './common-functions.js';
+import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
 
-(async function () {
+async function initCrawlEditor() {
     let crawlTextEditor = null;
 
     function initCrawlTextEditor() {
@@ -13,7 +13,7 @@ import { saveFile } from './common-functions.js';
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'dracula',
+            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
             lineWrapping: true,
         });
 
@@ -32,7 +32,7 @@ import { saveFile } from './common-functions.js';
 
     window.crawlEditor = initCrawlTextEditor();
     window.crawlEditor.refresh();
-})();
+}
 
 (function () {
     const MOBILE_CANVAS_MEDIA_QUERY = '(max-width: 1079px)';
@@ -4535,6 +4535,12 @@ import { saveFile } from './common-functions.js';
             alert(`Preset #${presetNumber} loaded! Please click "Start Crawl" to apply the preset.`);
         } else {
             alert(`No preset found for #${presetNumber}.`);
+        }
+    });
+
+    document.getElementById('crawlMode').addEventListener('change', async (event) => {
+        if (event.target.value == 'custom' && !window.crawlEditor) {
+            await initCrawlEditor();
         }
     });
 })();

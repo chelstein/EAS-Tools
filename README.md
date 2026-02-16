@@ -16,7 +16,7 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to th
 ## ✨ Features
 
 * **Decoder**
-  * Real‑time decoding of EAS/SAME headers from microphone input
+  * Real‑time decoding of EAS/SAME headers from microphone input, or raw ZCZC‑formatted header input
   * File upload support for decoding prerecorded EAS audio
   * Visual audio meter for signal strength
   * Parsed header information: alert type, issuer, affected locations, issue/expiration times, sender ID, ENDEC used, and human‑readable text
@@ -83,22 +83,24 @@ Web‑based **EAS / SAME Tools** that run entirely in your browser. Packed to th
 4. (Optional) Enable **Play back this audio source?** checkbox to hear the audio through your speakers/headphones
 5. Play an EAS/SAME tone; watch the meter & parsed headers
 6. (Optional) Upload a prerecorded EAS audio file using the **Upload Audio File** button
+7. (Optional) Click the **Load/Analyze Raw ZCZC Header** button to manually input a raw ZCZC‑formatted SAME header for parsing and display without audio input
 
 What you’ll see:
 
-* **Raw header** (e.g., `ZCZC-...-...-...`)
+* **Raw header** (e.g., `ZCZC-EAS-RMT...`)
 * Parsed data about the alert (click "View Alert" to see full details):
   * **Severity**: "Warning", "Watch", "Advisory", "Test", etc.
   * **Type**: "Tornado Warning", "Required Weekly Test", etc.
   * **Issuer**: "National Weather Service", "Civil Authorities", etc.
-  * **Affected Locations**: County names ("Los Angeles County", "Orange County", etc.)
+  * **Affected Locations**: County names ("Douglas County", "Sarpy County", etc.)
   * **Issue Date**: Date & time of issuance
   * **Expires On**: Date & time of expiration
   * **Time until expiration**: "EXPIRED" if expired, or relative time of expiration
   * **Sender ID**: 8 character sender identifier (e.g., "KOAX/NWS")
-  * **ENDEC Used**: The EAS ENDEC profile that the alert matches (e.g., "SAGE", "DIGITAL", "TRILITHIC", etc.)
+  * **ENDEC Used**: The EAS ENDEC profile that the alert matches (e.g., "SAGE", "DIGITAL", "TRILITHIC", etc., best guess based on the header structure and content)
   * **Human-Readable Alert Text**: The message associated with the alert, parsed using a JS port of [EAS2Text](https://github.com/Newton-Communications/E2T/)
-  * **Color-coding** of the alert severity for quick visual identification
+  * **Open in SAME Encoder**: Button to copy the header into the Encoder tool form for easy regeneration of the same exact alert
+  * **Color-coding** of the alert modal for quick visual identification of severity (e.g., red border for "Warning" or "Emergency" alerts that are not tests or demos)
 
 ### Encoder
 
@@ -183,7 +185,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * Inspiration / references:
   * [nicksmadscience SAME Encoder, Python](https://github.com/nicksmadscience/eas-same-encoder)
   * [Mab879 C++ SAME Encoder](https://github.com/Mab879/eas_encoder)
-  * [Anon64 EAS Header Generator](https://anon64.bitkit.us/eas-gen/) (removed)
+  * Anon64 EAS Header Generator (removed)
   * [wavefile.js](https://rochars.github.io/wavefile/)
   * [wave‑resampler.js](https://github.com/rochars/wave-resampler)
   * [piper.tts.js](https://github.com/Mintplex-Labs/piper-tts-web)
@@ -196,7 +198,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm)
   * [phonemeize](https://github.com/hans00/phonemize)
   * [EAS.js](https://github.com/globaleas/EAS.js/)
-  * [CryptoDude3 GitHub Pages site](https://cryptodude3.github.io/) (removed) for most of the original code (encoder/decoder logic) and some of the page looks.
+  * CryptoDude3 GitHub Pages site (removed) for most of the original code (encoder/decoder logic) and current page looks
 
 > See each upstream project for their respective licenses.
 

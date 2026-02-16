@@ -1,3 +1,5 @@
+import { CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
+
 const { Backend, wordToBackend, convertPhonemes } = window.PhonemeTools;
 
 (async function () {
@@ -13,7 +15,7 @@ const { Backend, wordToBackend, convertPhonemes } = window.PhonemeTools;
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'dracula',
+            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
             lineWrapping: true,
         });
 

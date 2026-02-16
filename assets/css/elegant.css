@@ -1,0 +1,33 @@
+/* Elegant Light theme for CodeMirror 5, with tweaked colors (Dracula-like) and a more modern look, as well as code tag support. Based on the Elegant theme by Marijn Haverbeke, with modifications by Wags (and Codex). */
+
+.cm-s-elegant.CodeMirror, .cm-s-elegant .CodeMirror-gutters {
+  background-color: #f7f9ff !important;
+  color: #1f2937 !important;
+  border: none;
+}
+
+.cm-s-elegant .CodeMirror-gutters { color: #e8edf9; }
+.cm-s-elegant .CodeMirror-cursor { border-left: solid thin #1f2937; }
+.cm-s-elegant .CodeMirror-linenumber { color: #64748b; }
+.cm-s-elegant .CodeMirror-selected { background: rgba(79, 98, 179, 0.22); }
+.cm-s-elegant .CodeMirror-line::selection, .cm-s-elegant .CodeMirror-line > span::selection, .cm-s-elegant .CodeMirror-line > span > span::selection { background: rgba(79, 98, 179, 0.22); }
+.cm-s-elegant .CodeMirror-line::-moz-selection, .cm-s-elegant .CodeMirror-line > span::-moz-selection, .cm-s-elegant .CodeMirror-line > span > span::-moz-selection { background: rgba(79, 98, 179, 0.22); }
+.cm-s-elegant span.cm-comment { color: #5f6fa1; }
+.cm-s-elegant span.cm-string, .cm-s-elegant span.cm-string-2 { color: #806600; }
+.cm-s-elegant span.cm-number { color: #6d3fb0; }
+.cm-s-elegant span.cm-variable { color: #1c7a48; }
+.cm-s-elegant span.cm-variable-2 { color: #0f172a; }
+.cm-s-elegant span.cm-def { color: #1c7a48; }
+.cm-s-elegant span.cm-operator { color: #b42387; }
+.cm-s-elegant span.cm-keyword { color: #b42387; }
+.cm-s-elegant span.cm-atom { color: #6d3fb0; }
+.cm-s-elegant span.cm-meta { color: #334155; }
+.cm-s-elegant span.cm-tag { color: #b42387; }
+.cm-s-elegant span.cm-attribute { color: #1c7a48; }
+.cm-s-elegant span.cm-qualifier { color: #1c7a48; }
+.cm-s-elegant span.cm-property { color: #0b7285; }
+.cm-s-elegant span.cm-builtin { color: #1c7a48; }
+.cm-s-elegant span.cm-variable-3, .cm-s-elegant span.cm-type { color: #a45b00; }
+
+.cm-s-elegant .CodeMirror-activeline-background { background: #e8f2ff; }
+.cm-s-elegant .CodeMirror-matchingbracket { outline:1px solid grey; color:black !important; }

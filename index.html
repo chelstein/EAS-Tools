@@ -27,6 +27,7 @@
         <link rel="stylesheet" href="assets/css/hack.css">
         <link rel="stylesheet" href="assets/css/codemirror.css">
         <link rel="stylesheet" href="assets/css/dracula.css">
+        <link rel="stylesheet" href="assets/css/elegant.css">
         <link rel="stylesheet" href="assets/css/style.css">
         <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
@@ -61,6 +62,7 @@
                     <button type="button" data-decoder-stream-toggle>Start Stream Decoder</button>
                     <input type="file" style="display: none;" id="audiofile" accept="audio/*">
                     <button type="button" data-decoder-load>Upload Audio File</button>
+                    <button type="button" data-decoder-load-raw>Load/Analyze Raw ZCZC Header</button>
                     <button type="button" data-decoder-record-toggle disabled>Start Recording (alerts toggle this automatically)</button>
                     <button type="button" data-decoder-clear disabled>Clear Logs</button>
                 </span>
@@ -368,7 +370,7 @@
                 <hr>
                 <p id="status"></p>
                 <hr>
-                <p>Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, <a href="https://anon64.bitkit.us/eas-gen/">Anon64 EAS Header Generator</a>, and CryptoDude3 GitHub Pages (removed) for original inspiration</p>
+                <p>Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, Anon64 EAS Header Generator (removed), and CryptoDude3 GitHub Pages (removed) for original inspiration</p>
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
                 <h2 class="section-heading">Text Crawl Generator</h2>
@@ -391,7 +393,7 @@
                 <br>
                 <label for="crawlText" class="crawl-text">Enter text to generate crawl:</label>
                 <br class="crawl-text">
-                <textarea id="crawlText" name="crawlText" placeholder="Type the text for the crawl..."></textarea>
+                <textarea id="crawlText" name="crawlText" placeholder="Type the text for the crawl..." style="display: none !important;"></textarea>
                 <label for="crawlRawHeader" style="display: none;" class="crawl-raw-header">Input a raw EAS header:</label>
                 <input id="crawlRawHeader" style="display: none; width: 50vw;" class="crawl-raw-header" placeholder="ZCZC-WXR-TOR..."></input>
                 <hr>

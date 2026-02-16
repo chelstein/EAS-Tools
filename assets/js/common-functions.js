@@ -38,14 +38,14 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         headerBursts: [{ prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }],
         eomBursts: [{ prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }]
     },
-    DIGITAL: {
+    SAGE_DIGITAL_3644: {
         signature: { tail: "FF FF FF", lead: "00 on first burst", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
         headerBursts: [{ prefix: "\x00", suffix: "\xFF\xFF\xFF" }, { prefix: "\xAB", suffix: "\xFF\xFF\xFF" }, { prefix: "\xAB", suffix: "\xFF\xFF\xFF" }],
         eomBursts: [{ prefix: "\x00", suffix: "\xFF\xFF\xFF" }, { prefix: "", suffix: "\xFF\xFF\xFF" }, { prefix: "", suffix: "\xFF\xFF\xFF" }]
     },
-    SAGE: {
+    SAGE_ANALOG_1822: {
         signature: { tail: "FF", lead: "none", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
@@ -100,3 +100,10 @@ export function createEndecModeVotes(initialValue = 0) {
     }
     return votes;
 }
+
+export function isObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export const CODEMIRROR_LIGHT_THEME_NAME = "elegant";
+export const CODEMIRROR_DARK_THEME_NAME = "dracula";

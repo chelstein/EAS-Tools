@@ -1,4 +1,4 @@
-import { saveFile } from './common-functions.js';
+import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
 
 (async function () {
     let splicerTextEditor = null;
@@ -13,7 +13,7 @@ import { saveFile } from './common-functions.js';
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: 'dracula',
+            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
             lineWrapping: true,
         });
 

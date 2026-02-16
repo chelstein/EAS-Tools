@@ -27,6 +27,7 @@
         <link rel="stylesheet" href="assets/css/hack.css">
         <link rel="stylesheet" href="assets/css/codemirror.css">
         <link rel="stylesheet" href="assets/css/dracula.css">
+        <link rel="stylesheet" href="assets/css/elegant.css">
         <link rel="stylesheet" href="assets/css/style.css">
         <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
@@ -105,7 +106,8 @@
         </main>
         <footer></footer>
         <script src="assets/js/footer.js"></script>
-        <script>
+        <script type="module">
+            import { CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './assets/js/common-functions.js';
             (async function () {
                 let vtmlCodemirrorPre = null;
                 let balCodemirrorPre = null;
@@ -129,7 +131,7 @@
                         lineNumbers: true,
                         mode: 'text/xml',
                         matchBrackets: true,
-                        theme: 'dracula',
+                        theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
                         lineWrapping: true,
                         readOnly: true,
                     });
@@ -168,7 +170,7 @@ The current time is, ${currentTime}.
                         lineNumbers: true,
                         mode: 'text/xml',
                         matchBrackets: true,
-                        theme: 'dracula',
+                        theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
                         lineWrapping: true,
                         readOnly: true,
                     });
