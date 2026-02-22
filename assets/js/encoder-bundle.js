@@ -611,17 +611,84 @@ async function fetchAndStore() {
 
     // END encode/utils.js
     // BEGIN encode/alert.js
+
     function getOverallEndecMode() {
         const el = document.getElementById("overallEndecMode");
         const raw = (el && typeof el.value === "string") ? el.value : "DEFAULT";
-        return normalizeEndecMode(raw);
+        const normalized = (typeof raw === "string") ? raw.trim().toUpperCase() : "DEFAULT";
+
+        if (normalized === LEGACY_DIGITAL_MODE) {
+            return LEGACY_DIGITAL_MODE;
+        }
+
+        if (normalized === "DIGITAL") {
+            return "SAGE_DIGITAL_3644";
+        }
+
+        if (normalized === "SAGE") {
+            return "SAGE_ANALOG_1822";
+        }
+
+        return normalizeEndecMode(normalized);
     }
 
     function samplesFromMs(ms) {
         return Math.round(SAMPLE_RATE * (ms / 1000));
     }
 
+    const LEGACY_DIGITAL_MODE = "DIGITAL_LEGACY";
+    const LEGACY_DIGITAL_LABEL = "SAGE 3644/DIGITAL (Legacy)";
     const SAME_PREAMBLE = "\xAB".repeat(16);
+    const DIGITAL_TAIL = "\xFF\xFF\xFF";
+
+    function ensureLegacyDigitalModeOption() {
+        const modeSelect = document.getElementById("overallEndecMode");
+        if (!modeSelect) {
+            return;
+        }
+
+        const options = modeSelect.options;
+        let digitalOption = null;
+        let legacyOption = null;
+        let insertBeforeOption = null;
+
+        for (let i = 0; i < options.length; i++) {
+            const option = options[i];
+            const value = (typeof option.value === "string") ? option.value.trim().toUpperCase() : "";
+
+            if (value === "DIGITAL" || value === "SAGE_DIGITAL_3644") {
+                digitalOption = option;
+                continue;
+            }
+
+            if (value === LEGACY_DIGITAL_MODE) {
+                legacyOption = option;
+                continue;
+            }
+
+            if (!insertBeforeOption && (value === "SAGE" || value === "SAGE_ANALOG_1822" || value === "TRILITHIC")) {
+                insertBeforeOption = option;
+            }
+        }
+
+        if (digitalOption) {
+            digitalOption.textContent = "SAGE 3644/DIGITAL (Improved)";
+        }
+
+        if (!legacyOption) {
+            legacyOption = document.createElement("option");
+            legacyOption.value = LEGACY_DIGITAL_MODE;
+            legacyOption.textContent = LEGACY_DIGITAL_LABEL;
+            if (insertBeforeOption) {
+                modeSelect.insertBefore(legacyOption, insertBeforeOption);
+            } else {
+                modeSelect.appendChild(legacyOption);
+            }
+        } else {
+            legacyOption.value = LEGACY_DIGITAL_MODE;
+            legacyOption.textContent = LEGACY_DIGITAL_LABEL;
+        }
+    }
 
     function stripLeadingPreamble16(s) {
         return (typeof s === "string" && s.startsWith(SAME_PREAMBLE)) ? s.slice(16) : s;
@@ -650,12 +717,26 @@ async function fetchAndStore() {
     function buildHeaderTxStrings(header, mode) {
         const msg = stripLeadingPreamble16(header);
         const data = SAME_PREAMBLE + msg;
+
+        if (mode === LEGACY_DIGITAL_MODE) {
+            const first = "\x00" + data + DIGITAL_TAIL;
+            const std = "\xAB" + data + DIGITAL_TAIL;
+            return [first, std, std];
+        }
+
         const profile = getEndecModeProfile(mode);
         return buildTxStringsFromBursts(data, profile.headerBursts);
     }
 
     function buildEomTxStrings(mode) {
         const core = SAME_PREAMBLE + "NNNN";
+
+        if (mode === LEGACY_DIGITAL_MODE) {
+            const part1 = "\x00" + core + DIGITAL_TAIL;
+            const part2 = core + DIGITAL_TAIL;
+            return [part1, part2, part2];
+        }
+
         const profile = getEndecModeProfile(mode);
         return buildTxStringsFromBursts(core, profile.eomBursts);
     }
@@ -684,20 +765,22 @@ async function fetchAndStore() {
 
     function create_header_tones(header) {
         const mode = getOverallEndecMode();
-        const profile = getEndecModeProfile(mode);
         const txStrings = buildHeaderTxStrings(header, mode);
-        const between = samplesFromMs(profile.betweenGapMs);
-        const after = samplesFromMs(profile.afterGapMs);
+        const isLegacyDigital = (mode === LEGACY_DIGITAL_MODE);
+        const profile = isLegacyDigital ? null : getEndecModeProfile(mode);
+        const between = samplesFromMs(isLegacyDigital ? 1000 : profile.betweenGapMs);
+        const after = samplesFromMs(isLegacyDigital ? 1000 : profile.afterGapMs);
         emitTxBurstsFromStrings(txStrings, between, after);
     }
 
     function create_eom_tones() {
         const mode = getOverallEndecMode();
-        const profile = getEndecModeProfile(mode);
+        const isLegacyDigital = (mode === LEGACY_DIGITAL_MODE);
+        const profile = isLegacyDigital ? null : getEndecModeProfile(mode);
         const oneSecondSamples = samplesFromMs(1000);
         generate_silence(oneSecondSamples);
         const txStrings = buildEomTxStrings(mode);
-        const between = samplesFromMs(profile.betweenGapMs);
+        const between = samplesFromMs(isLegacyDigital ? 1000 : profile.betweenGapMs);
         emitTxBurstsFromStrings(txStrings, between, oneSecondSamples);
     }
 
@@ -1546,6 +1629,7 @@ async function fetchAndStore() {
     window.ttsVoice = (document.getElementById('ttsVoice')?.value || '').trim();
 
     const audioPlayback = document.getElementById("audioPlayback");
+    ensureLegacyDigitalModeOption();
 
     let encoderMode = document.getElementById("encoderMode").value;
     let event = document.getElementById("events").value;

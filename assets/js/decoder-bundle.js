@@ -2530,9 +2530,29 @@ async function fetchAndStore() {
                 const audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
                 updateSampleRate(audioBuffer.sampleRate);
                 const channelData = audioBuffer.getChannelData(0);
+                let sumSquares = 0;
+                let peak = 0;
+                for (let i = 0; i < channelData.length; i++) {
+                    const sample = channelData[i];
+                    const abs = sample < 0 ? -sample : sample;
+                    if (abs > peak) peak = abs;
+                    sumSquares += sample * sample;
+                }
+                if (peak > 0 && channelData.length > 0) {
+                    const rms = Math.sqrt(sumSquares / channelData.length);
+                    const minRms = 0.08912509381337455; // -21 dBFS
+                    if (rms > 0 && rms <= minRms) {
+                        const gain = 0.99 / peak;
+                        if (gain > 1) {
+                            for (let i = 0; i < channelData.length; i++) {
+                                channelData[i] *= gain;
+                            }
+                        }
+                    }
+                }
                 const chunkSize = 128;
                 for (let i = 0; i < channelData.length; i += chunkSize) {
-                    const chunk = channelData.slice(i, i + chunkSize);
+                    const chunk = channelData.subarray(i, i + chunkSize);
                     runDecoder(chunk);
                 }
                 stopDecode(false);
