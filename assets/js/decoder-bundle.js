@@ -2800,7 +2800,16 @@ async function fetchAndStore() {
         decoderLoad.addEventListener('click', function () {
             const audiofileInput = document.getElementById('audiofile');
             if (audiofileInput) {
-                audiofileInput.click();
+                audiofileInput.value = "";
+                if (typeof audiofileInput.showPicker === "function") {
+                    try {
+                        audiofileInput.showPicker();
+                    } catch {
+                        audiofileInput.click();
+                    }
+                } else {
+                    audiofileInput.click();
+                }
             }
         });
     }
@@ -2808,13 +2817,14 @@ async function fetchAndStore() {
     const audiofileInput = document.getElementById('audiofile');
     if (audiofileInput) {
         audiofileInput.addEventListener('change', async function () {
-            const file = this.files[0];
-            if (file) {
-                addStatus("PROCESSING...", "yellow");
-                audiofileInput.disabled = true;
-                decoderToggle.disabled = true;
-                decoderLoad.disabled = true;
-                resetDecoderState();
+            const file = this.files && this.files[0];
+            if (!file) return;
+            addStatus("PROCESSING...", "yellow");
+            audiofileInput.disabled = true;
+            decoderToggle.disabled = true;
+            decoderLoad.disabled = true;
+            resetDecoderState();
+            try {
                 const arrayBuffer = await file.arrayBuffer();
                 const audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
                 updateSampleRate(audioBuffer.sampleRate);
@@ -2845,9 +2855,14 @@ async function fetchAndStore() {
                     runDecoder(chunk);
                 }
                 stopDecode(false);
+            } catch (e) {
+                console.error("Failed to decode uploaded audio file:", e);
+                addStatus("FAILED TO READ AUDIO FILE!", "red");
+            } finally {
                 audiofileInput.disabled = false;
                 decoderToggle.disabled = false;
                 decoderLoad.disabled = false;
+                audiofileInput.value = "";
             }
         });
     }

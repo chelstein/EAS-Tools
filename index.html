@@ -63,7 +63,7 @@
                 <span>
                     <button type="button" data-decoder-toggle>Start Microphone Decoder</button>
                     <button type="button" data-decoder-stream-toggle>Start Stream Decoder</button>
-                    <input type="file" style="display: none;" id="audiofile" accept="audio/*">
+                    <input type="file" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;" id="audiofile" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a">
                     <button type="button" data-decoder-load>Upload Audio File</button>
                     <button type="button" data-decoder-load-raw>Load/Analyze Raw ZCZC Header</button>
                     <button type="button" data-decoder-record-toggle disabled>Start Recording (alerts toggle this automatically)</button>
@@ -359,7 +359,7 @@
                 <div id="customAudioDiv" style="display: none;">
                     <br>
                     <label for="customAudioFile">Upload Custom Audio File (WAV format):</label>
-                    <input type="file" id="customAudioFile" accept=".wav,audio/wav,audio/wave,audio/x-wav">
+                    <input type="file" id="customAudioFile" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a">
                 </div>
                 <hr>
                 <div class="control-panel">
@@ -619,7 +619,7 @@
                         <div>
                             <label for="spliceFile">Load Audio File:</label>
                             <br>
-                            <input id="spliceFile" type="file" accept="*.*" data-splice-file style="display: none;">
+                            <input id="spliceFile" type="file" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a" data-splice-file style="display: none;">
                             <button type="button" data-splice-load>Load File</button>
                             <span data-splice-file-status class="status-line"></span>
                         </div>
