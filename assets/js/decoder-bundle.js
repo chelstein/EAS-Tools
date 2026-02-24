@@ -215,6 +215,249 @@ async function fetchAndStore() {
     let streamElement = null;
     let streamSource = null;
     let streamToggleActive = false;
+    let nativeRecActive = false;
+    let nativeRecChunks = [];
+    let nativeRecSampleRate = 0;
+    let nativeRecChannels = 1;
+
+    function nativeRecStart(sr, ch) {
+      nativeRecActive = true;
+      nativeRecChunks = [];
+      nativeRecSampleRate = sr || 25000;
+      nativeRecChannels = ch || 1;
+    }
+
+    function nativeRecPush(pcmI16, sr, ch) {
+      if (!nativeRecActive) return;
+      if (sr) nativeRecSampleRate = sr;
+      if (ch) nativeRecChannels = ch;
+      nativeRecChunks.push(new Int16Array(pcmI16));
+    }
+
+    function nativeRecStopToWavBlob() {
+      nativeRecActive = false;
+
+      let totalSamples = 0;
+      for (const c of nativeRecChunks) totalSamples += c.length;
+
+      const wavBytes = 44 + totalSamples * 2;
+      const buf = new ArrayBuffer(wavBytes);
+      const view = new DataView(buf);
+
+      function writeStr(off, s) {
+        for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+      }
+
+      const sr = nativeRecSampleRate || 25000;
+      const ch = nativeRecChannels || 1;
+      const byteRate = sr * ch * 2;
+      const blockAlign = ch * 2;
+      const dataSize = totalSamples * 2;
+
+      writeStr(0, "RIFF");
+      view.setUint32(4, 36 + dataSize, true);
+      writeStr(8, "WAVE");
+
+      writeStr(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, ch, true);
+      view.setUint32(24, sr, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, 16, true);
+
+      writeStr(36, "data");
+      view.setUint32(40, dataSize, true);
+
+      let off = 44;
+      for (const chunk of nativeRecChunks) {
+        for (let i = 0; i < chunk.length; i++, off += 2) {
+          view.setInt16(off, chunk[i], true);
+        }
+      }
+
+      nativeRecChunks = [];
+      return new Blob([buf], { type: "audio/wav" });
+    }
+
+    let nativeStreamActive = false;
+    let nativeStreamUrl = null;
+    let nativePCMListener = null;
+
+    let nativeMeterActive = false;
+    let nativeMeterTarget = 0;
+
+    let nativeRemainder = new Float32Array(0);
+    let nativeLastSR = 0;
+
+    function getOggPlugin() {
+      return window.Capacitor?.Plugins?.OggStream || null;
+    }
+
+    function isCapacitorIOS() {
+      try { return window.Capacitor?.getPlatform?.() === "ios"; }
+      catch { return false; }
+    }
+
+    function canWebViewPlayOgg() {
+      try {
+        const a = document.createElement("audio");
+        return (a.canPlayType("audio/ogg") || a.canPlayType('audio/ogg; codecs="opus"')) !== "";
+      } catch {
+        return false;
+      }
+    }
+
+    function shouldUseNativeOgg(url) {
+      if (!isCapacitorIOS()) return false;
+      if (!getOggPlugin()) return false;
+      if (window.forceNativeOgg === true) return true;
+
+      const u = String(url || "").toLowerCase();
+      const looksOgg = u.includes(".ogg") || u.includes(".oga") || u.includes(".opus");
+
+      return looksOgg || !canWebViewPlayOgg();
+    }
+
+    function b64ToInt16ArrayLE(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return new Int16Array(buf);
+    }
+
+    function updateNativeMeterFromInt16(pcmI16, channels) {
+      channels = channels || 1;
+      const frames = Math.floor(pcmI16.length / channels);
+      if (frames <= 0) return;
+
+      let sum = 0;
+      if (channels === 1) {
+        for (let i = 0; i < frames; i++) {
+          const s = pcmI16[i] / 32768;
+          sum += s * s;
+        }
+      } else {
+        for (let i = 0; i < frames; i++) {
+          let acc = 0;
+          const base = i * channels;
+          for (let ch = 0; ch < channels; ch++) acc += pcmI16[base + ch];
+          const s = (acc / channels) / 32768;
+          sum += s * s;
+        }
+      }
+
+      const rms = Math.sqrt(sum / frames);
+      nativeMeterTarget = Math.min(1, rms * 3);
+      nativeMeterActive = true;
+      startMeter();
+    }
+
+    function feedNativePCM_Int16(pcmI16, sampleRate, channels) {
+      if (!pcmI16 || !pcmI16.length) return;
+
+      if (sampleRate && sampleRate !== nativeLastSR) {
+        updateSampleRate(sampleRate);
+        nativeLastSR = sampleRate;
+      }
+
+      channels = channels || 1;
+      const frames = Math.floor(pcmI16.length / channels);
+
+      const mono = new Float32Array(frames);
+      if (channels === 1) {
+        for (let i = 0; i < frames; i++) mono[i] = pcmI16[i] / 32768;
+      } else {
+        for (let i = 0; i < frames; i++) {
+          let acc = 0;
+          const base = i * channels;
+          for (let ch = 0; ch < channels; ch++) acc += pcmI16[base + ch];
+          mono[i] = (acc / channels) / 32768;
+        }
+      }
+
+      const combined = new Float32Array(nativeRemainder.length + mono.length);
+      combined.set(nativeRemainder, 0);
+      combined.set(mono, nativeRemainder.length);
+
+      const CHUNK = 128;
+      let off = 0;
+      while (off + CHUNK <= combined.length) {
+        runDecoder(combined.subarray(off, off + CHUNK));
+        off += CHUNK;
+      }
+      nativeRemainder = combined.slice(off);
+    }
+
+    async function setNativeLoopbackEnabled(enabled) {
+      const plugin = getOggPlugin();
+      if (!plugin) return;
+      try {
+        await plugin.setVolume({ volume: enabled ? 1.0 : 0.0 });
+      } catch (e) {
+        console.warn("Native setVolume failed:", e);
+      }
+    }
+
+    async function stopNativeOggStream() {
+      const plugin = getOggPlugin();
+      if (!plugin) return;
+
+      try { await plugin.stop(); } catch {}
+
+      if (nativePCMListener && typeof nativePCMListener.remove === "function") {
+        try { await nativePCMListener.remove(); } catch {}
+      }
+
+      nativePCMListener = null;
+      nativeStreamActive = false;
+      nativeStreamUrl = null;
+      nativeRemainder = new Float32Array(0);
+      nativeLastSR = 0;
+
+      nativeMeterActive = false;
+      nativeMeterTarget = 0;
+    }
+
+    async function startNativeOggStream(url) {
+      const plugin = getOggPlugin();
+      if (!plugin) throw new Error("OggStream plugin not available");
+
+      if (streamElement) await stopStreamDecode(streamElement.src);
+      if (nativeStreamActive) await stopNativeOggStream();
+
+      const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
+      if (clearStreamURLButton) clearStreamURLButton.style.display = "inline-block";
+
+      resetStreamRecovery();
+
+      nativePCMListener = await plugin.addListener("pcm", (ev) => {
+        try {
+          const pcmI16 = b64ToInt16ArrayLE(ev.pcmBase64);
+          updateNativeMeterFromInt16(pcmI16, ev.channels);
+          feedNativePCM_Int16(pcmI16, ev.sampleRate, ev.channels);
+          nativeRecPush(pcmI16, ev.sampleRate, ev.channels);
+        } catch (e) {
+          console.warn("PCM handler error:", e);
+        }
+      });
+
+      nativeStreamActive = true;
+      nativeStreamUrl = url;
+
+      await plugin.play({ url, tapPcm: true, tapSampleRate: 25000 });
+
+      document.querySelector('[data-decoder-record-toggle]').disabled = false;
+      addStatus("STREAMING...", "green");
+      setStreamToggleState(true);
+
+      await setNativeLoopbackEnabled(isLoopbackEnabled());
+
+      return { native: true, url };
+    }
+
     let inputTapNode = null;
     let inputTapSource = null;
     let meterInputSource = null;
@@ -256,14 +499,16 @@ async function fetchAndStore() {
         }
         let target = 0;
         if (meterInputSource) {
-            levelAnalyser.getByteTimeDomainData(levelBuffer);
-            let sum = 0;
-            for (let i = 0; i < levelBuffer.length; i++) {
-                const sample = (levelBuffer[i] - 128) / 128;
-                sum += sample * sample;
-            }
-            const rms = Math.sqrt(sum / levelBuffer.length);
-            target = Math.min(1, rms * 3);
+          levelAnalyser.getByteTimeDomainData(levelBuffer);
+          let sum = 0;
+          for (let i = 0; i < levelBuffer.length; i++) {
+            const sample = (levelBuffer[i] - 128) / 128;
+            sum += sample * sample;
+          }
+          const rms = Math.sqrt(sum / levelBuffer.length);
+          target = Math.min(1, rms * 3);
+        } else if (nativeMeterActive) {
+          target = nativeMeterTarget;
         }
         const smoothing = target > meterLevel ? 0.35 : 0.18;
         meterLevel += (target - meterLevel) * smoothing;
@@ -413,6 +658,19 @@ async function fetchAndStore() {
         if (streamElement) {
             await stopStreamDecode(streamElement.src);
         }
+
+        if (shouldUseNativeOgg(url)) {
+          try {
+            return await startNativeOggStream(url);
+          } catch (e) {
+            console.error("Native OGG start failed:", e);
+            addStatus("STREAM ACCESS FAILED!", "red");
+            window.streamUrl = null;
+            setStreamToggleState(false);
+            return null;
+          }
+        }
+
         try {
             const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
             clearStreamURLButton.style.display = "inline-block";
@@ -484,6 +742,11 @@ async function fetchAndStore() {
         finalizeActiveSameProduct();
         resetDecoderState();
         resetStreamRecovery();
+
+        if (nativeStreamActive) {
+          await stopNativeOggStream();
+        }
+
         if (window.isRecording) {
             stopRecording();
         }
@@ -534,13 +797,20 @@ async function fetchAndStore() {
     const RECORD_LABEL_STOP = "Stop Recording (alerts toggle this automatically)";
 
     async function startRecording() {
+        if (nativeStreamActive) {
+            nativeRecStart(nativeLastSR || 25000, 1);
+            addStatus("RECORDING...", "green");
+            window.isRecording = true;
+            updateRecordButtonLabel(true);
+            return true;
+          }
         if (window.isRecording) {
             return true;
         }
         const activeSource = inputTapNode;
-        if (!activeSource) {
-            addStatus("NO AUDIO SOURCE TO RECORD!", "red");
-            return false;
+        if (!inputTapNode && !nativeStreamActive) {
+          addStatus("NO AUDIO SOURCE TO RECORD!", "red");
+          return;
         }
         if (!workletModulePromise) {
             addStatus("RECORDING NOT SUPPORTED IN THIS BROWSER", "red");
@@ -625,7 +895,16 @@ async function fetchAndStore() {
         return true;
     }
 
-    function stopRecording() {
+    async function stopRecording() {
+        if (nativeStreamActive) {
+            const b = nativeRecStopToWavBlob();
+            console.warn("isBlob", b instanceof Blob);
+            console.warn("type", b.type);
+            console.warn("size", b.size);
+            await triggerRecordingDownload(b);
+            addStatus("RECORDING SAVED!", "green");
+            return true;
+          }
         if (!window.isRecording) {
             return false;
         }
@@ -764,7 +1043,12 @@ async function fetchAndStore() {
 
     async function triggerRecordingDownload(buffer) {
         const filename = `eas-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
-        await saveFile(filename, buffer, "audio/wav");
+        try {
+            await saveFile(filename, buffer, "audio/wav");
+          } catch (e) {
+            console.error("saveFile failed:", e, e?.message, e?.stack);
+            throw e;
+          }
     }
 
     function updateRecordButtonLabel(isRecordingState) {
@@ -910,44 +1194,49 @@ async function fetchAndStore() {
     }
 
     async function startLoopback() {
-        stopLoopback();
-        const loopbackSource = inputTapNode;
-        if (!loopbackSource) {
-            return;
-        }
-        loopbackDest = decodeContext.createMediaStreamDestination();
-        loopbackSourceNode = loopbackSource;
-        loopbackSourceNode.connect(loopbackDest);
-        const loopbackStream = loopbackDest.stream;
-        const audio = document.createElement("audio");
-        audio.srcObject = loopbackStream;
-        audio.autoplay = true;
-        audio.controls = false;
-        audio.style.display = "none";
-        audio.setAttribute("aria-hidden", "true");
-        audio.setAttribute("aria-loopback", "true");
-        document.body.appendChild(audio);
-        const playPromise = audio.play && audio.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-            playPromise.catch(() => { });
-        }
+      stopLoopback();
+
+      if (nativeStreamActive) {
+        await setNativeLoopbackEnabled(true);
+        return;
+      }
+
+      const loopbackSource = inputTapNode;
+      if (!loopbackSource) return;
+
+      loopbackDest = decodeContext.createMediaStreamDestination();
+      loopbackSourceNode = loopbackSource;
+      loopbackSourceNode.connect(loopbackDest);
+
+      const audio = document.createElement("audio");
+      audio.srcObject = loopbackDest.stream;
+      audio.autoplay = true;
+      audio.controls = false;
+      audio.style.display = "none";
+      audio.setAttribute("aria-hidden", "true");
+      audio.setAttribute("aria-loopback", "true");
+      document.body.appendChild(audio);
+
+      const playPromise = audio.play && audio.play();
+      if (playPromise?.catch) playPromise.catch(() => {});
     }
 
     async function stopLoopback() {
-        if (loopbackSourceNode && loopbackDest) {
-            try {
-                loopbackSourceNode.disconnect(loopbackDest);
-            } catch (error) {
-                console.warn("Error disconnecting loopback source", error);
-            }
-        }
-        loopbackSourceNode = null;
-        loopbackDest = null;
-        const audioElements = document.querySelectorAll("audio[aria-loopback='true']");
-        audioElements.forEach(audio => {
-            audio.srcObject = null;
-            audio.remove();
-        });
+      if (nativeStreamActive) {
+        await setNativeLoopbackEnabled(false);
+      }
+
+      if (loopbackSourceNode && loopbackDest) {
+        try { loopbackSourceNode.disconnect(loopbackDest); }
+        catch (e) { console.warn("Error disconnecting loopback source", e); }
+      }
+      loopbackSourceNode = null;
+      loopbackDest = null;
+
+      document.querySelectorAll("audio[aria-loopback='true']").forEach(a => {
+        a.srcObject = null;
+        a.remove();
+      });
     }
 
     function setStreamToggleState(active) {
