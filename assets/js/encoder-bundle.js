@@ -317,7 +317,6 @@ async function fetchAndStore() {
         await __loadRelayPopFile(cfg.fileStart);
         await __loadRelayPopFile(cfg.fileEnd);
     }
-    // END relay-pop (Trilithic)
 
     const PIPER_BUNDLE_URL = 'assets/piper-tts/piper.tts.bundle.js';
     const ORT_WASM_BASE = 'assets/piper-tts/onnxruntime-web/';
@@ -823,9 +822,7 @@ async function fetchAndStore() {
         return buildTxStringsFromBursts(core, profile.eomBursts);
     }
 
-    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples, relayPopCfg) {
-        if (!relayPopCfg.enabled) return;
-
+    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples, relayPopCfg = null) {
         const cache = new Map();
 
         for (let i = 0; i < txStrings.length; i++) {
@@ -836,9 +833,9 @@ async function fetchAndStore() {
                 cache.set(s, bits);
             }
 
-            appendRelayPop(relayPopCfg.fileStart);
+            if (relayPopCfg !== null) appendRelayPop(relayPopCfg.fileStart);
             generate_afsk(bits);
-            appendRelayPop(relayPopCfg.fileEnd);
+            if (relayPopCfg !== null) appendRelayPop(relayPopCfg.fileEnd);
 
             const isLast = (i === txStrings.length - 1);
             if (!isLast) {
