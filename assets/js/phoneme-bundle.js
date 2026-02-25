@@ -1,4 +1,4 @@
-import { CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
+import { CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES_DARK_THEME } from './common-functions.js';
 
 const { Backend, wordToBackend, convertPhonemes } = window.PhonemeTools;
 
@@ -15,7 +15,7 @@ const { Backend, wordToBackend, convertPhonemes } = window.PhonemeTools;
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
+            theme: USES_DARK_THEME ? CODEMIRROR_DARK_THEME_NAME : CODEMIRROR_LIGHT_THEME_NAME,
             lineWrapping: true,
         });
 

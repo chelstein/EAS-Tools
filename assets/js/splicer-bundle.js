@@ -1,4 +1,4 @@
-import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
+import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES_DARK_THEME } from './common-functions.js';
 
 (async function () {
     let splicerTextEditor = null;
@@ -13,7 +13,7 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } fro
             lineNumbers: true,
             mode: 'text/xml',
             matchBrackets: true,
-            theme: window.matchMedia('(prefers-color-scheme: light)').matches ? CODEMIRROR_LIGHT_THEME_NAME : CODEMIRROR_DARK_THEME_NAME,
+            theme: USES_DARK_THEME ? CODEMIRROR_DARK_THEME_NAME : CODEMIRROR_LIGHT_THEME_NAME,
             lineWrapping: true,
         });
 
@@ -1055,7 +1055,7 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } fro
         const waveformSampleRate = waveformData.sampleRate || state.sampleRate || 44100;
         const w = canvas.width;
         const h = canvas.height;
-        const userLightMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        const userLightMode = !USES_DARK_THEME;
         ctx.fillStyle = userLightMode ? '#ffffff' : '#0b0b0b';
         ctx.fillRect(0, 0, w, h);
         ctx.strokeStyle = '#222';

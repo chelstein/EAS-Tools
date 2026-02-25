@@ -5,7 +5,8 @@ import {
     getEndecModeProfile,
     normalizeEndecMode,
     saveFile,
-    isObject
+    isObject,
+    USES_DARK_THEME
 } from './common-functions.js';
 
 window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
@@ -789,7 +790,7 @@ async function fetchAndStore() {
         document.querySelector('[data-decoder-toggle]').disabled = false;
         document.querySelector('[data-decoder-load]').disabled = false;
         document.querySelector('[data-decoder-record-toggle]').disabled = true;
-        addStatus("WAITING...", "white");
+        addStatus("WAITING...", USES_DARK_THEME ? "white" : "black");
         setStreamToggleState(false);
     }
 
@@ -1159,7 +1160,7 @@ async function fetchAndStore() {
             detachInputTap();
             stopMeter();
             decodeContext.suspend();
-            addStatus("WAITING...", "white");
+            addStatus("WAITING...", USES_DARK_THEME ? "white" : "black");
             return;
         }
         micSource.mediaStream.getTracks().forEach(e => e.stop());
@@ -1177,7 +1178,7 @@ async function fetchAndStore() {
         decodeContext.suspend();
         document.querySelector('[data-decoder-stream-toggle]').disabled = false;
         document.querySelector('[data-decoder-record-toggle]').disabled = true;
-        addStatus("WAITING...", "white");
+        addStatus("WAITING...", USES_DARK_THEME ? "white" : "black");
     }
     populateMicrophones();
 

@@ -237,6 +237,88 @@ async function fetchAndStore() {
         }
     }
 
+    function __clampSample(s) {
+        if (cl) {
+            if (s > 0.79) return 0.79;
+            if (s < -0.79) return -0.79;
+            return s;
+        }
+        if (s > 0.99) return 0.99;
+        if (s < -0.99) return -0.99;
+        return s;
+    }
+
+    const __relayPopFileCache = new Map();
+    const __relayPopFileLoaders = new Map();
+
+    function __loadRelayPopFile(file) {
+        if (__relayPopFileCache.has(file)) return Promise.resolve(__relayPopFileCache.get(file));
+        if (__relayPopFileLoaders.has(file)) return __relayPopFileLoaders.get(file);
+
+        const loader = (async () => {
+            try {
+                const response = await fetch(file);
+                if (!response.ok) {
+                    throw new Error("Failed to fetch relay pop file.");
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const decodeContext = new (window.AudioContext || window.webkitAudioContext)();
+                const decode = decodeContext.decodeAudioData.bind(decodeContext);
+                const audioBuffer = decode.length > 1
+                    ? await new Promise((resolve, reject) => decode(arrayBuffer.slice(0), resolve, reject))
+                    : await decode(arrayBuffer.slice(0));
+
+                if (typeof decodeContext.close === "function") {
+                    decodeContext.close().catch(() => { });
+                }
+
+                const channels = Math.max(1, audioBuffer.numberOfChannels);
+                const length = audioBuffer.length;
+                const merged = new Float32Array(length);
+                const invChannels = 1 / channels;
+
+                for (let channel = 0; channel < channels; channel++) {
+                    const channelData = audioBuffer.getChannelData(channel);
+                    for (let i = 0; i < length; i++) {
+                        merged[i] += channelData[i] * invChannels;
+                    }
+                }
+
+                const pcm = (audioBuffer.sampleRate === SAMPLE_RATE)
+                    ? merged
+                    : resamplePcm(merged, audioBuffer.sampleRate, SAMPLE_RATE);
+                __relayPopFileCache.set(file, pcm);
+                return pcm;
+            } catch (error) {
+                __relayPopFileCache.set(file, null);
+                console.error("Unable to decode relay pop audio.", error);
+                return null;
+            } finally {
+                __relayPopFileLoaders.delete(file);
+            }
+        })();
+
+        __relayPopFileLoaders.set(file, loader);
+        return loader;
+    }
+
+    function appendRelayPop(cfg) {
+        if (!cfg) return;
+        const popPcm = __relayPopFileCache.get(cfg);
+        if (!popPcm || !popPcm.length) return;
+        for (let i = 0; i < popPcm.length; i++) {
+            samples.push(__clampSample(popPcm[i]));
+        }
+    }
+
+    async function ensureRelayPopReady(cfg) {
+        if (!cfg || cfg.enabled === false || !cfg.fileStart || !cfg.fileEnd) return;
+        await __loadRelayPopFile(cfg.fileStart);
+        await __loadRelayPopFile(cfg.fileEnd);
+    }
+    // END relay-pop (Trilithic)
+
     const PIPER_BUNDLE_URL = 'assets/piper-tts/piper.tts.bundle.js';
     const ORT_WASM_BASE = 'assets/piper-tts/onnxruntime-web/';
 
@@ -741,7 +823,9 @@ async function fetchAndStore() {
         return buildTxStringsFromBursts(core, profile.eomBursts);
     }
 
-    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples) {
+    function emitTxBurstsFromStrings(txStrings, betweenSilenceSamples, finalSilenceSamples, relayPopCfg) {
+        if (!relayPopCfg.enabled) return;
+
         const cache = new Map();
 
         for (let i = 0; i < txStrings.length; i++) {
@@ -752,7 +836,9 @@ async function fetchAndStore() {
                 cache.set(s, bits);
             }
 
+            appendRelayPop(relayPopCfg.fileStart);
             generate_afsk(bits);
+            appendRelayPop(relayPopCfg.fileEnd);
 
             const isLast = (i === txStrings.length - 1);
             if (!isLast) {
@@ -770,7 +856,8 @@ async function fetchAndStore() {
         const profile = isLegacyDigital ? null : getEndecModeProfile(mode);
         const between = samplesFromMs(isLegacyDigital ? 1000 : profile.betweenGapMs);
         const after = samplesFromMs(isLegacyDigital ? 1000 : profile.afterGapMs);
-        emitTxBurstsFromStrings(txStrings, between, after);
+        const relayPop = (mode === "TRILITHIC_POP") ? profile.relayPop : null;
+        emitTxBurstsFromStrings(txStrings, between, after, relayPop);
     }
 
     function create_eom_tones() {
@@ -781,7 +868,8 @@ async function fetchAndStore() {
         generate_silence(oneSecondSamples);
         const txStrings = buildEomTxStrings(mode);
         const between = samplesFromMs(isLegacyDigital ? 1000 : profile.betweenGapMs);
-        emitTxBurstsFromStrings(txStrings, between, oneSecondSamples);
+        const relayPop = (mode === "TRILITHIC_POP") ? profile.relayPop : null;
+        emitTxBurstsFromStrings(txStrings, between, oneSecondSamples, relayPop);
     }
 
     var pelmorexTonePromise = null;
@@ -1380,6 +1468,12 @@ async function fetchAndStore() {
         document.getElementById("generate").disabled = true;
         document.getElementById("save").disabled = true;
         addStatus("Generating EAS...");
+
+        const endecMode = getOverallEndecMode();
+        if (endecMode === "TRILITHIC_POP") {
+            const profile = getEndecModeProfile(endecMode);
+            await ensureRelayPopReady(profile.relayPop);
+        }
 
         if (tone !== null) {
             switch (tone.toString()) {

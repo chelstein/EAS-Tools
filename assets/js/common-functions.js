@@ -56,6 +56,21 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         signature: { tail: "none", lead: "none", burstGapMs: 868 },
         betweenGapMs: 868,
         afterGapMs: 1118,
+        relayPop: {
+            enabled: false
+        },
+        headerBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }],
+        eomBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }]
+    },
+    TRILITHIC_POP: {
+        signature: { tail: "none", lead: "none", burstGapMs: 868 },
+        betweenGapMs: 868,
+        afterGapMs: 1118,
+        relayPop: {
+            enabled: true,
+            fileStart: "assets/pop_start.wav",
+            fileEnd: "assets/pop.wav"
+        },
         headerBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }],
         eomBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }]
     }
@@ -68,6 +83,7 @@ export const ENDEC_MODE_PROFILES = Object.freeze(
                 signature: Object.freeze(profile.signature),
                 betweenGapMs: profile.betweenGapMs,
                 afterGapMs: profile.afterGapMs,
+                relayPop: profile.relayPop ? Object.freeze({ ...profile.relayPop }) : null,
                 headerBursts: freezeBurstList(profile.headerBursts),
                 eomBursts: freezeBurstList(profile.eomBursts)
             });
@@ -107,3 +123,5 @@ export function isObject(value) {
 
 export const CODEMIRROR_LIGHT_THEME_NAME = "elegant";
 export const CODEMIRROR_DARK_THEME_NAME = "dracula";
+
+export const USES_DARK_THEME = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? true : false;

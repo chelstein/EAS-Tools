@@ -1136,6 +1136,11 @@ button[disabled] {
         border-radius: 6px;
         min-height: 40px;
     }
+
+    select#nav-select {
+        color: var(--color-text);
+        background-color: var(--color-bg);
+    }
 }
 
 /* Reduced motion */
