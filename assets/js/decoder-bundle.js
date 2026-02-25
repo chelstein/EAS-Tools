@@ -224,7 +224,7 @@ async function fetchAndStore() {
     function nativeRecStart(sr, ch) {
         nativeRecActive = true;
         nativeRecChunks = [];
-        nativeRecSampleRate = sr || 25000;
+        nativeRecSampleRate = sr || 44100;
         nativeRecChannels = ch || 1;
     }
 
@@ -798,7 +798,7 @@ async function fetchAndStore() {
 
     async function startRecording() {
         if (nativeStreamActive) {
-            nativeRecStart(nativeLastSR || 25000, 1);
+            nativeRecStart(nativeLastSR || 44100, 1);
             addStatus("RECORDING...", "green");
             window.isRecording = true;
             updateRecordButtonLabel(true);
