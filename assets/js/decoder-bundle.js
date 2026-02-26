@@ -285,6 +285,7 @@ async function fetchAndStore() {
     let nativeStreamActive = false;
     let nativeStreamUrl = null;
     let nativePCMListener = null;
+    let nativeErrorListener = null;
 
     let nativeMeterActive = false;
     let nativeMeterTarget = 0;
@@ -323,6 +324,10 @@ async function fetchAndStore() {
             const raw = String(url || "").toLowerCase().split(/[?#]/)[0];
             return hasOggExt(raw);
         }
+    }
+
+    function shouldUseNativeStreamPath() {
+        return isCapacitorIOS() && !!getOggPlugin();
     }
 
     function b64ToInt16ArrayLE(b64) {
@@ -415,8 +420,12 @@ async function fetchAndStore() {
         if (nativePCMListener && typeof nativePCMListener.remove === "function") {
             try { await nativePCMListener.remove(); } catch { }
         }
+        if (nativeErrorListener && typeof nativeErrorListener.remove === "function") {
+            try { await nativeErrorListener.remove(); } catch { }
+        }
 
         nativePCMListener = null;
+        nativeErrorListener = null;
         nativeStreamActive = false;
         nativeStreamUrl = null;
         nativeRemainder = new Float32Array(0);
@@ -426,9 +435,10 @@ async function fetchAndStore() {
         nativeMeterTarget = 0;
     }
 
-    async function startNativeOggStream(url) {
+    async function startNativeOggStream(url, fallbackToWebOnError = false) {
         const plugin = getOggPlugin();
         if (!plugin) throw new Error("OggStream plugin not available");
+        setMeterSupported(true);
 
         if (streamElement) await stopStreamDecode(streamElement.src);
         if (nativeStreamActive) await stopNativeOggStream();
@@ -448,11 +458,38 @@ async function fetchAndStore() {
                 console.warn("PCM handler error:", e);
             }
         });
+        nativeErrorListener = await plugin.addListener("error", async (ev) => {
+            const message = ev && ev.message ? String(ev.message) : "native stream failure";
+            console.warn("Native stream runtime error:", message);
+            if (!nativeStreamActive || nativeStreamUrl !== url) {
+                return;
+            }
+            if (message.startsWith("HOSTILE_STREAM:")) {
+                const alertMessage = "This stream is not decodeable on iOS native. There is nothing I can do to fix this. Please try a different stream or use the web-based decoder. Sorry for the inconvenience.";
+                try {
+                    window.alert(alertMessage);
+                } catch (_) { }
+                addStatus("STREAM FORMAT NOT SUPPORTED ON IOS!", "red");
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                window.streamUrl = null;
+                void stopStreamDecode(url);
+                return;
+            }
+            if (!fallbackToWebOnError) {
+                addStatus("STREAM ACCESS FAILED!", "red");
+                void stopStreamDecode(url);
+                return;
+            }
+            void (async () => {
+                await stopNativeOggStream();
+                await startStreamDecoder(url, true);
+            })();
+        });
 
         nativeStreamActive = true;
         nativeStreamUrl = url;
 
-        await plugin.play({ url, tapPcm: true, tapSampleRate: 25000 });
+        await plugin.play({ url, tapPcm: true, tapSampleRate: 44100 });
 
         document.querySelector('[data-decoder-record-toggle]').disabled = false;
         addStatus("STREAMING...", "green");
@@ -470,8 +507,13 @@ async function fetchAndStore() {
     const meterFill = meterElement ? meterElement.querySelector("[data-level-fill]") : null;
     let levelAnalyser = null;
     let levelBuffer = null;
+    let levelFreqBuffer = null;
+    let meterSinkGain = null;
     let meterAnimation = 0;
+    let meterRunning = false;
     let meterLevel = 0;
+    let decoderMeterTarget = 0;
+    let meterHiddenBySupport = false;
     let loopbackDest = null;
     let loopbackSourceNode = null;
     const STREAM_RECOVERY_DELAY = 2000;
@@ -495,25 +537,75 @@ async function fetchAndStore() {
         levelAnalyser.fftSize = 256;
         levelAnalyser.smoothingTimeConstant = 0.25;
         levelBuffer = new Uint8Array(levelAnalyser.fftSize);
+        levelFreqBuffer = new Uint8Array(levelAnalyser.frequencyBinCount);
+        meterSinkGain = decodeContext.createGain();
+        meterSinkGain.gain.value = 0;
+        levelAnalyser.connect(meterSinkGain);
+        meterSinkGain.connect(decodeContext.destination);
+    }
+
+    function setMeterSupported(supported) {
+        if (!meterElement) {
+            return;
+        }
+        if (supported) {
+            if (meterHiddenBySupport) {
+                meterElement.style.display = "";
+                meterElement.removeAttribute("aria-hidden");
+                meterHiddenBySupport = false;
+            }
+            return;
+        }
+        if (!meterHiddenBySupport) {
+            meterElement.style.display = "none";
+            meterElement.setAttribute("aria-hidden", "true");
+            meterHiddenBySupport = true;
+        }
+        stopMeter();
     }
 
     function renderMeter() {
-        if (!meterAnimation || !meterFill || !levelAnalyser || !levelBuffer) {
+        if (!meterRunning || !meterFill || !levelAnalyser || !levelBuffer) {
+            meterRunning = false;
             meterAnimation = 0;
             return;
         }
         let target = 0;
-        if (meterInputSource) {
+        let rms = 0;
+        let spectral = 0;
+        if (levelAnalyser && levelBuffer) {
             levelAnalyser.getByteTimeDomainData(levelBuffer);
             let sum = 0;
             for (let i = 0; i < levelBuffer.length; i++) {
                 const sample = (levelBuffer[i] - 128) / 128;
                 sum += sample * sample;
             }
-            const rms = Math.sqrt(sum / levelBuffer.length);
+            rms = Math.sqrt(sum / levelBuffer.length);
             target = Math.min(1, rms * 3);
-        } else if (nativeMeterActive) {
+            if (target < 0.01 && levelFreqBuffer) {
+                levelAnalyser.getByteFrequencyData(levelFreqBuffer);
+                let peak = 0;
+                for (let i = 0; i < levelFreqBuffer.length; i++) {
+                    const bin = levelFreqBuffer[i];
+                    if (bin > peak) {
+                        peak = bin;
+                    }
+                }
+                spectral = peak / 255;
+                if (spectral > target) {
+                    target = spectral;
+                }
+            }
+        }
+        if (nativeMeterActive && nativeMeterTarget > target) {
             target = nativeMeterTarget;
+        }
+        if (decoderMeterTarget > target) {
+            target = decoderMeterTarget;
+        }
+        decoderMeterTarget *= 0.88;
+        if (decoderMeterTarget < 0.001) {
+            decoderMeterTarget = 0;
         }
         const smoothing = target > meterLevel ? 0.35 : 0.18;
         meterLevel += (target - meterLevel) * smoothing;
@@ -528,13 +620,15 @@ async function fetchAndStore() {
     }
 
     function startMeter() {
-        if (!meterFill || !levelAnalyser || meterAnimation) {
+        if (!meterFill || !levelAnalyser || meterRunning) {
             return;
         }
+        meterRunning = true;
         meterAnimation = requestAnimationFrame(renderMeter);
     }
 
     function stopMeter() {
+        meterRunning = false;
         if (meterAnimation) {
             cancelAnimationFrame(meterAnimation);
             meterAnimation = 0;
@@ -649,7 +743,49 @@ async function fetchAndStore() {
         meterInputSource = null;
     }
 
-    async function startStreamDecoder(url) {
+    function getCapturedAudioStream(audio) {
+        if (!audio) return null;
+        const capture = audio.captureStream || audio.webkitCaptureStream;
+        if (typeof capture !== "function") {
+            return null;
+        }
+        try {
+            return capture.call(audio);
+        } catch (error) {
+            console.warn("Unable to capture audio stream:", error);
+            return null;
+        }
+    }
+
+    function tryPromoteStreamSourceToCapture(audio) {
+        const captured = getCapturedAudioStream(audio);
+        if (!captured) {
+            return false;
+        }
+        const tracks = captured.getAudioTracks ? captured.getAudioTracks() : [];
+        if (!tracks || tracks.length === 0) {
+            return false;
+        }
+        let source;
+        try {
+            source = decodeContext.createMediaStreamSource(captured);
+        } catch (error) {
+            console.warn("Unable to create media stream source from captured stream:", error);
+            return false;
+        }
+        try {
+            if (streamSource) {
+                streamSource.disconnect();
+            }
+        } catch (error) {
+            console.warn("Error disconnecting original stream source:", error);
+        }
+        attachInputTap(source);
+        streamSource = source;
+        return true;
+    }
+
+    async function startStreamDecoder(url, forceWeb = false) {
         if (!url) {
             addStatus("INVALID STREAM URL!", "red");
             window.streamUrl = null;
@@ -663,16 +799,21 @@ async function fetchAndStore() {
         if (streamElement) {
             await stopStreamDecode(streamElement.src);
         }
+        const nativeOggPath = shouldUseNativeOgg(url);
+        const nativeStreamPath = shouldUseNativeStreamPath();
+        setMeterSupported(!(isCapacitorIOS() && !nativeOggPath));
 
-        if (shouldUseNativeOgg(url)) {
+        if (nativeStreamPath && !forceWeb) {
             try {
-                return await startNativeOggStream(url);
+                return await startNativeOggStream(url, !nativeOggPath);
             } catch (e) {
-                console.error("Native OGG start failed:", e);
-                addStatus("STREAM ACCESS FAILED!", "red");
-                window.streamUrl = null;
-                setStreamToggleState(false);
-                return null;
+                console.error("Native stream start failed:", e);
+                if (nativeOggPath) {
+                    addStatus("STREAM ACCESS FAILED!", "red");
+                    window.streamUrl = null;
+                    setStreamToggleState(false);
+                    return null;
+                }
             }
         }
 
@@ -685,8 +826,12 @@ async function fetchAndStore() {
             audio.autoplay = false;
             audio.controls = false;
             audio.preload = "auto";
+            audio.playsInline = true;
             audio.style.display = "none";
             audio.setAttribute("aria-hidden", "true");
+            const loopbackEnabled = isLoopbackEnabled();
+            audio.muted = !loopbackEnabled;
+            audio.volume = 1;
             document.body.appendChild(audio);
             const source = decodeContext.createMediaElementSource(audio);
             attachInputTap(source);
@@ -713,6 +858,9 @@ async function fetchAndStore() {
             streamElement = audio;
             streamSource = source;
             await audio.play();
+            if (isCapacitorIOS()) {
+                tryPromoteStreamSourceToCapture(audio);
+            }
             document.querySelector('[data-decoder-record-toggle]').disabled = false;
             addStatus("STREAMING...", "green");
             setStreamToggleState(true);
@@ -747,6 +895,7 @@ async function fetchAndStore() {
         finalizeActiveSameProduct();
         resetDecoderState();
         resetStreamRecovery();
+        setMeterSupported(true);
 
         if (nativeStreamActive) {
             await stopNativeOggStream();
@@ -1143,6 +1292,7 @@ async function fetchAndStore() {
     }
 
     async function startDecode(stream) {
+        setMeterSupported(true);
         const source = decodeContext.createMediaStreamSource(stream);
         const micInputNode = createMicInputNode(source);
         micSource = source;
@@ -1191,7 +1341,17 @@ async function fetchAndStore() {
         return !!(loopbackToggle && loopbackToggle.checked);
     }
 
+    function syncStreamElementLoopbackState() {
+        if (!streamElement) {
+            return;
+        }
+        const loopbackEnabled = isLoopbackEnabled();
+        streamElement.muted = !loopbackEnabled;
+        streamElement.volume = 1;
+    }
+
     function refreshLoopback() {
+        syncStreamElementLoopbackState();
         if (!isLoopbackEnabled()) {
             return;
         }
@@ -1200,6 +1360,7 @@ async function fetchAndStore() {
 
     async function startLoopback() {
         await stopLoopback();
+        syncStreamElementLoopbackState();
 
         if (nativeStreamActive) {
             await setNativeLoopbackEnabled(true);
@@ -1227,6 +1388,7 @@ async function fetchAndStore() {
     }
 
     async function stopLoopback() {
+        syncStreamElementLoopbackState();
         if (nativeStreamActive) {
             await setNativeLoopbackEnabled(false);
         }
@@ -2042,6 +2204,16 @@ async function fetchAndStore() {
     function runDecoder(buf) {
         if (!buf || !buf.length) {
             return;
+        }
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+            const s = buf[i];
+            sum += s * s;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const mapped = Math.min(1, rms * 3);
+        if (mapped > decoderMeterTarget) {
+            decoderMeterTarget = mapped;
         }
         afskdemod(buf);
     }
