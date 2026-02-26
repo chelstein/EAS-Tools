@@ -314,10 +314,15 @@ async function fetchAndStore() {
         if (!isCapacitorIOS()) return false;
         if (!getOggPlugin()) return false;
 
-        const u = String(url || "").toLowerCase();
-        const looksOgg = u.includes(".ogg") || u.includes(".oga") || u.includes(".opus");
+        const hasOggExt = (value) => /\.(ogg|oga|opus)$/.test(value);
 
-        return looksOgg
+        try {
+            const parsed = new URL(String(url || ""), window.location.href);
+            return hasOggExt((parsed.pathname || "").toLowerCase());
+        } catch {
+            const raw = String(url || "").toLowerCase().split(/[?#]/)[0];
+            return hasOggExt(raw);
+        }
     }
 
     function b64ToInt16ArrayLE(b64) {
