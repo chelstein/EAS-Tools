@@ -220,11 +220,12 @@ async function fetchAndStore() {
     let nativeRecChunks = [];
     let nativeRecSampleRate = 0;
     let nativeRecChannels = 1;
+    const NATIVE_TAP_SAMPLE_RATE = 48000;
 
     function nativeRecStart(sr, ch) {
         nativeRecActive = true;
         nativeRecChunks = [];
-        nativeRecSampleRate = sr || 44100;
+        nativeRecSampleRate = sr || NATIVE_TAP_SAMPLE_RATE;
         nativeRecChannels = ch || 1;
     }
 
@@ -249,7 +250,7 @@ async function fetchAndStore() {
             for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
         }
 
-        const sr = nativeRecSampleRate || 25000;
+        const sr = nativeRecSampleRate || nativeLastSR || NATIVE_TAP_SAMPLE_RATE;
         const ch = nativeRecChannels || 1;
         const byteRate = sr * ch * 2;
         const blockAlign = ch * 2;
@@ -368,9 +369,10 @@ async function fetchAndStore() {
     function feedNativePCM_Int16(pcmI16, sampleRate, channels) {
         if (!pcmI16 || !pcmI16.length) return;
 
-        if (sampleRate && sampleRate !== nativeLastSR) {
-            updateSampleRate(sampleRate);
-            nativeLastSR = sampleRate;
+        const effectiveSampleRate = sampleRate || nativeLastSR || NATIVE_TAP_SAMPLE_RATE;
+        if (effectiveSampleRate !== nativeLastSR) {
+            updateSampleRate(effectiveSampleRate);
+            nativeLastSR = effectiveSampleRate;
         }
 
         channels = channels || 1;
@@ -489,7 +491,7 @@ async function fetchAndStore() {
         nativeStreamActive = true;
         nativeStreamUrl = url;
 
-        await plugin.play({ url, tapPcm: true, tapSampleRate: 44100 });
+        await plugin.play({ url, tapPcm: true, tapSampleRate: NATIVE_TAP_SAMPLE_RATE });
 
         document.querySelector('[data-decoder-record-toggle]').disabled = false;
         addStatus("STREAMING...", "green");
@@ -952,7 +954,7 @@ async function fetchAndStore() {
 
     async function startRecording() {
         if (nativeStreamActive) {
-            nativeRecStart(nativeLastSR || 44100, 1);
+            nativeRecStart(nativeLastSR || NATIVE_TAP_SAMPLE_RATE, 1);
             addStatus("RECORDING...", "green");
             window.isRecording = true;
             updateRecordButtonLabel(true);
@@ -2298,7 +2300,7 @@ async function fetchAndStore() {
         }
     }
 
-    updateSampleRate(48000);
+    updateSampleRate(NATIVE_TAP_SAMPLE_RATE);
 
     // END decode/afsk.js
     // BEGIN decode/clock.js
