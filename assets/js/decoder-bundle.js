@@ -227,7 +227,6 @@ async function fetchAndStore() {
                 return false;
             }
 
-            // Exclude macOS/macCatalyst hosts while allowing iOS/iPadOS devices.
             const ua = navigator.userAgent || "";
             const isDesktopMac = /\bMacintosh\b/i.test(ua) && !(/\biPhone|\biPad|\biPod\b/i.test(ua)) && !(navigator.maxTouchPoints > 1);
             return !isDesktopMac;
@@ -236,22 +235,674 @@ async function fetchAndStore() {
         }
     }
 
-    function removeStreamControlsOnCapacitorIOS() {
-        if (!isCapacitorIOS()) {
-            return;
-        }
-        const streamToggleButton = document.querySelector('[data-decoder-stream-toggle]');
-        if (streamToggleButton) {
-            streamToggleButton.remove();
-        }
-        const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
-        if (clearStreamURLButton) {
-            clearStreamURLButton.remove();
-        }
-        window.streamUrl = null;
-    }
+    function removeStreamControlsOnCapacitorIOS() { }
 
     removeStreamControlsOnCapacitorIOS();
+
+    const IOS_STREAM_DECODE_SR = 44100;
+    const IOS_STREAM_CHUNK_BYTES = 24576;
+    const IOS_STREAM_FRAME_SIZE = 128;
+    const IOS_LOOPBACK_CROSSFADE_SEC = 0.01;
+    let iosDecoderFrameRemainder = new Float32Array(0);
+
+    class MiniFFmpeg {
+        constructor() {
+            this._worker = null;
+            this._nextId = 1;
+            this._pending = {};
+            this.loaded = false;
+            this._logs = [];
+        }
+        _post(type, data, transfer) {
+            return new Promise((resolve, reject) => {
+                const id = this._nextId++;
+                this._pending[id] = { resolve, reject };
+                this._worker.postMessage({ id, type, data }, transfer || []);
+            });
+        }
+        _onMessage({ data: msg }) {
+            if (msg.type === "LOG") {
+                const logMsg = msg.data?.message || msg.data;
+                this._logs.push(logMsg);
+                if (this._logs.length > 200) this._logs.splice(0, this._logs.length - 100);
+                return;
+            }
+            if (msg.type === "PROGRESS") {
+                return;
+            }
+            const entry = this._pending[msg.id];
+            if (!entry) return;
+            delete this._pending[msg.id];
+            if (msg.type === "ERROR") {
+                entry.reject(new Error(String(msg.data)));
+            } else {
+                entry.resolve(msg.data);
+            }
+        }
+        drainLogs() {
+            const copy = this._logs.slice();
+            this._logs.length = 0;
+            return copy;
+        }
+        async load() {
+            if (this.loaded) return;
+            const base = new URL("./", window.location.href).href;
+            const workerURL = new URL("assets/muxer/138.bundle.js", base).href;
+            this._worker = new Worker(workerURL);
+            this._worker.onmessage = (e) => this._onMessage(e);
+            this._worker.onerror = (e) => console.error("[iOS stream] Worker error event:", e);
+            const coreURL = new URL("assets/muxer/ffmpeg-wasm/ffmpeg-core-single.js", base).href;
+            const wasmURL = new URL("assets/muxer/ffmpeg-wasm/ffmpeg-core-single.wasm", base).href;
+            await this._post("LOAD", { coreURL, wasmURL });
+            this.loaded = true;
+        }
+        writeFile(path, data) {
+            const buf = data instanceof Uint8Array ? data : new Uint8Array(data);
+            return this._post("WRITE_FILE", { path, data: buf }, [buf.buffer.slice(0)]);
+        }
+        readFile(path) { return this._post("READ_FILE", { path, encoding: "binary" }); }
+        exec(args) { return this._post("EXEC", { args, timeout: -1 }); }
+        deleteFile(path) { return this._post("DELETE_FILE", { path }); }
+        terminate() {
+            if (this._worker) { this._worker.terminate(); this._worker = null; }
+            this.loaded = false;
+            this._pending = {};
+        }
+    }
+
+    class SoftwareBandpass {
+        constructor(sr, freq, Q) {
+            const w0 = 2 * Math.PI * freq / sr;
+            const alpha = Math.sin(w0) / (2 * Q);
+            const a0 = 1 + alpha;
+            this.b0 = alpha / a0;
+            this.b2 = -alpha / a0;
+            this.a1 = (-2 * Math.cos(w0)) / a0;
+            this.a2 = (1 - alpha) / a0;
+            this.x1 = 0; this.x2 = 0;
+            this.y1 = 0; this.y2 = 0;
+        }
+        process(input) {
+            const out = new Float32Array(input.length);
+            for (let i = 0; i < input.length; i++) {
+                const x = input[i];
+                const y = this.b0 * x + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+                this.x2 = this.x1; this.x1 = x;
+                this.y2 = this.y1; this.y1 = y;
+                out[i] = y;
+            }
+            return out;
+        }
+        reset() { this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0; }
+    }
+
+    let iosFFmpeg = null;
+    let iosStreamAbort = null;
+    let iosBandpass = null;
+    let iosLoopbackContext = null;
+    let iosLoopbackQueueTime = 0;
+    let iosLoopbackHasQueuedAudio = false;
+
+    function startIOSLoopback(url) {
+        if (iosLoopbackContext && iosLoopbackContext.state !== "closed") {
+            if (iosLoopbackContext.state === "suspended") {
+                iosLoopbackContext.resume().catch((e) => {
+                    console.warn("[iOS loopback] resume() rejected:", e);
+                });
+            }
+            return;
+        }
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) {
+            console.warn("[iOS loopback] AudioContext unavailable");
+            return;
+        }
+        iosLoopbackContext = new Ctx({ sampleRate: IOS_STREAM_DECODE_SR });
+        iosLoopbackQueueTime = iosLoopbackContext.currentTime + 0.05;
+        iosLoopbackHasQueuedAudio = false;
+        if (iosLoopbackContext.state === "suspended") {
+            iosLoopbackContext.resume().catch((e) => {
+                console.warn("[iOS loopback] resume() rejected:", e);
+            });
+        }
+    }
+
+    function stopIOSLoopback() {
+        if (!iosLoopbackContext) {
+            return;
+        }
+        const ctx = iosLoopbackContext;
+        iosLoopbackContext = null;
+        iosLoopbackQueueTime = 0;
+        iosLoopbackHasQueuedAudio = false;
+        ctx.close().catch(() => { });
+    }
+
+    function queueIOSLoopbackPCM(pcm) {
+        const ctx = iosLoopbackContext;
+        if (!ctx || !pcm || !pcm.length || ctx.state === "closed") {
+            return;
+        }
+        const now = ctx.currentTime;
+        if (iosLoopbackQueueTime < now + 0.02) {
+            iosLoopbackQueueTime = now + 0.02;
+        }
+        if (iosLoopbackQueueTime > now + 3) {
+            iosLoopbackQueueTime = now + 0.05;
+        }
+        const playback = new Float32Array(pcm.length);
+        playback.set(pcm);
+        const audioBuffer = ctx.createBuffer(1, playback.length, IOS_STREAM_DECODE_SR);
+        audioBuffer.copyToChannel(playback, 0);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ctx.destination);
+
+        const clipDuration = audioBuffer.duration;
+        const fadeSec = Math.min(IOS_LOOPBACK_CROSSFADE_SEC, clipDuration * 0.25);
+        const shouldCrossfade = iosLoopbackHasQueuedAudio && fadeSec > 0;
+        let startAt = iosLoopbackQueueTime;
+        if (shouldCrossfade) {
+            startAt -= fadeSec;
+        }
+        if (startAt < now + 0.02) {
+            startAt = now + 0.02;
+        }
+        const endAt = startAt + clipDuration;
+
+        gain.gain.cancelScheduledValues(startAt);
+        if (shouldCrossfade) {
+            gain.gain.setValueAtTime(0, startAt);
+            gain.gain.linearRampToValueAtTime(1, startAt + fadeSec);
+            gain.gain.setValueAtTime(1, endAt - fadeSec);
+            gain.gain.linearRampToValueAtTime(0, endAt);
+        } else {
+            gain.gain.setValueAtTime(1, startAt);
+        }
+
+        source.start(startAt);
+        iosLoopbackQueueTime = endAt;
+        iosLoopbackHasQueuedAudio = true;
+        source.onended = () => {
+            try {
+                source.disconnect();
+                gain.disconnect();
+            } catch { }
+        };
+    }
+
+    async function ensureIOSFFmpeg() {
+        if (iosFFmpeg && iosFFmpeg.loaded) return iosFFmpeg;
+        if (iosFFmpeg) { iosFFmpeg.terminate(); }
+        iosFFmpeg = new MiniFFmpeg();
+        await iosFFmpeg.load();
+        return iosFFmpeg;
+    }
+
+    function isFfmpegMemoryFault(errorLike) {
+        const msg = String(errorLike?.message || errorLike || "");
+        return msg.includes("Out of bounds memory access")
+            || msg.includes("_malloc")
+            || msg.includes("_ffmpeg");
+    }
+
+    function ensureIOSBandpass() {
+        if (!iosBandpass) {
+            iosBandpass = new SoftwareBandpass(IOS_STREAM_DECODE_SR, 1822.9, 3);
+        }
+        return iosBandpass;
+    }
+
+    let _iosChunkSeq = 0;
+    async function ffmpegDecodeChunk(ff, rawBytes) {
+        const seq = ++_iosChunkSeq;
+        const inName = "ios_in.dat";
+        const outName = "ios_out.raw";
+
+        ff.drainLogs();
+        await ff.writeFile(inName, rawBytes);
+
+        try {
+            await ff.exec([
+                "-hide_banner", "-loglevel", "info",
+                "-i", inName,
+                "-vn",
+                "-f", "f32le",
+                "-acodec", "pcm_f32le",
+                "-ar", String(IOS_STREAM_DECODE_SR),
+                "-ac", "1",
+                outName
+            ]);
+        } catch (e) {
+            console.warn(`[iOS stream chunk #${seq}] ffmpeg exec threw:`, e?.message || e);
+            if (isFfmpegMemoryFault(e)) {
+                try { await ff.deleteFile(inName); } catch { }
+                try { await ff.deleteFile(outName); } catch { }
+                const memErr = new Error("FFMPEG_MEMORY_FAULT");
+                memErr.code = "FFMPEG_MEMORY_FAULT";
+                throw memErr;
+            }
+        }
+
+        ff.drainLogs();
+
+        let pcmBytes;
+        try {
+            pcmBytes = await ff.readFile(outName);
+        } catch (readErr) {
+            console.warn(`[iOS stream chunk #${seq}] readFile failed (no output produced):`, readErr?.message || readErr);
+            try { await ff.deleteFile(inName); } catch { }
+            return null;
+        }
+        try { await ff.deleteFile(inName); } catch { }
+        try { await ff.deleteFile(outName); } catch { }
+
+
+        if (!pcmBytes || pcmBytes.length < 4) {
+            console.warn(`[iOS stream chunk #${seq}] PCM output too small, skipping`);
+            return null;
+        }
+
+        const alignedLen = pcmBytes.length - (pcmBytes.length % 4);
+        const aligned = new Uint8Array(alignedLen);
+        aligned.set(pcmBytes.subarray(0, alignedLen));
+        const f32 = new Float32Array(aligned.buffer);
+
+        let rms = 0, peak = 0, min = Infinity, max = -Infinity;
+        for (let i = 0; i < f32.length; i++) {
+            const s = f32[i];
+            rms += s * s;
+            const abs = s < 0 ? -s : s;
+            if (abs > peak) peak = abs;
+            if (s < min) min = s;
+            if (s > max) max = s;
+        }
+        rms = Math.sqrt(rms / f32.length);
+        const durationMs = ((f32.length / IOS_STREAM_DECODE_SR) * 1000).toFixed(1);
+
+        const preview = Array.from(f32.slice(0, 20)).map(s => s.toFixed(5));
+
+        return f32;
+    }
+
+    let _iosFeedSeq = 0;
+    function feedDecoderFrames(filtered) {
+        const seq = ++_iosFeedSeq;
+        const combined = concatFloat32(iosDecoderFrameRemainder, filtered);
+        const totalFrames = Math.floor(combined.length / IOS_STREAM_FRAME_SIZE);
+
+        let fRms = 0, fPeak = 0;
+        for (let i = 0; i < filtered.length; i++) {
+            const s = filtered[i];
+            fRms += s * s;
+            const abs = s < 0 ? -s : s;
+            if (abs > fPeak) fPeak = abs;
+        }
+        fRms = Math.sqrt(fRms / filtered.length);
+
+        const preview = Array.from(filtered.slice(0, 20)).map(s => s.toFixed(6));
+
+        let frameCount = 0;
+        for (let i = 0; i + IOS_STREAM_FRAME_SIZE <= combined.length; i += IOS_STREAM_FRAME_SIZE) {
+            const frame = combined.subarray(i, i + IOS_STREAM_FRAME_SIZE);
+            runDecoder(frame);
+            frameCount++;
+        }
+        const remainder = combined.length - (frameCount * IOS_STREAM_FRAME_SIZE);
+        iosDecoderFrameRemainder = remainder > 0
+            ? combined.slice(combined.length - remainder)
+            : new Float32Array(0);
+    }
+
+    function concatUint8(a, b) {
+        const c = new Uint8Array(a.length + b.length);
+        c.set(a, 0);
+        c.set(b, a.length);
+        return c;
+    }
+
+    function concatFloat32(a, b) {
+        if (!a || a.length === 0) return b;
+        if (!b || b.length === 0) return a;
+        const out = new Float32Array(a.length + b.length);
+        out.set(a, 0);
+        out.set(b, a.length);
+        return out;
+    }
+
+    function extractOggHeaderPages(data) {
+        let offset = 0;
+        let headerEnd = 0;
+
+        while (offset + 27 <= data.length) {
+            if (data[offset] !== 0x4F || data[offset + 1] !== 0x67 ||
+                data[offset + 2] !== 0x67 || data[offset + 3] !== 0x53) {
+                break;
+            }
+
+            const numSegments = data[offset + 26];
+            if (offset + 27 + numSegments > data.length) break;
+
+            let bodySize = 0;
+            for (let i = 0; i < numSegments; i++) {
+                bodySize += data[offset + 27 + i];
+            }
+
+            const pageEnd = offset + 27 + numSegments + bodySize;
+            if (pageEnd > data.length) break;
+
+            const g0 = data[offset + 6];
+            const g1 = data[offset + 7];
+            const g2 = data[offset + 8];
+            const g3 = data[offset + 9];
+            const g4 = data[offset + 10];
+            const g5 = data[offset + 11];
+            const g6 = data[offset + 12];
+            const g7 = data[offset + 13];
+            const granLow = g0 | (g1 << 8) | (g2 << 16) | ((g3 << 24) >>> 0);
+            const granHigh = g4 | (g5 << 8) | (g6 << 16) | ((g7 << 24) >>> 0);
+
+            const isGranuleZeroOrFF =
+                (granLow === 0 && granHigh === 0) ||
+                (granLow === 0xFFFFFFFF && granHigh === 0xFFFFFFFF);
+
+            if (!isGranuleZeroOrFF) {
+                break;
+            }
+
+            headerEnd = pageEnd;
+            offset = pageEnd;
+        }
+
+        return data.slice(0, headerEnd);
+    }
+
+    function isOggStream(data) {
+        return data.length >= 4 &&
+            data[0] === 0x4F && data[1] === 0x67 &&
+            data[2] === 0x67 && data[3] === 0x53;
+    }
+
+    function isOggBosPage(data) {
+        return isOggStream(data) && data.length >= 6 && ((data[5] & 0x02) !== 0);
+    }
+
+    function getLastCompleteOggPageEnd(data) {
+        let offset = 0;
+        let lastCompleteEnd = 0;
+        while (offset + 27 <= data.length) {
+            if (!isOggStream(data.subarray(offset, offset + 4))) {
+                break;
+            }
+            const numSegments = data[offset + 26];
+            const lacingEnd = offset + 27 + numSegments;
+            if (lacingEnd > data.length) {
+                break;
+            }
+            let bodySize = 0;
+            for (let i = 0; i < numSegments; i++) {
+                bodySize += data[offset + 27 + i];
+            }
+            const pageEnd = lacingEnd + bodySize;
+            if (pageEnd > data.length) {
+                break;
+            }
+            lastCompleteEnd = pageEnd;
+            offset = pageEnd;
+        }
+        return lastCompleteEnd;
+    }
+
+    function getLastSafeOggSplit(data, minBytes = 0) {
+        let offset = 0;
+        const pages = [];
+        while (offset + 27 <= data.length) {
+            if (!isOggStream(data.subarray(offset, offset + 4))) {
+                break;
+            }
+            const numSegments = data[offset + 26];
+            const lacingEnd = offset + 27 + numSegments;
+            if (lacingEnd > data.length) {
+                break;
+            }
+            let bodySize = 0;
+            for (let i = 0; i < numSegments; i++) {
+                bodySize += data[offset + 27 + i];
+            }
+            const pageEnd = lacingEnd + bodySize;
+            if (pageEnd > data.length) {
+                break;
+            }
+            pages.push({
+                end: pageEnd,
+                continued: (data[offset + 5] & 0x01) !== 0
+            });
+            offset = pageEnd;
+        }
+
+        if (pages.length < 2) {
+            return 0;
+        }
+
+        let split = 0;
+        for (let i = 0; i < pages.length - 1; i++) {
+            const boundary = pages[i].end;
+            const nextPageContinued = pages[i + 1].continued;
+            if (!nextPageContinued && boundary >= minBytes) {
+                split = boundary;
+            }
+        }
+        return split;
+    }
+
+    async function startIOSStreamDecoder(url) {
+        await stopIOSStreamDecoder();
+        _iosChunkSeq = 0;
+        _iosFeedSeq = 0;
+        iosDecoderFrameRemainder = new Float32Array(0);
+
+
+        addStatus("LOADING FFMPEG...", "yellow");
+
+        let ff;
+        try {
+            ff = await ensureIOSFFmpeg();
+        } catch (e) {
+            console.error("[iOS stream] Failed to load FFmpeg WASM:", e);
+            addStatus("FFMPEG LOAD FAILED!", "red");
+            return null;
+        }
+
+        const bandpass = ensureIOSBandpass();
+        bandpass.reset();
+        updateSampleRate(IOS_STREAM_DECODE_SR);
+
+        const controller = new AbortController();
+        iosStreamAbort = controller;
+
+        let response;
+        try {
+            response = await fetch(url, { signal: controller.signal });
+        } catch (e) {
+            if (e.name === "AbortError") return null;
+            console.error("[iOS stream] Fetch failed:", e);
+            addStatus("STREAM FETCH FAILED!", "red");
+            return null;
+        }
+
+        if (!response.ok || !response.body) {
+            console.error("[iOS stream] Bad response:", response.status);
+            addStatus("STREAM RESPONSE ERROR!", "red");
+            return null;
+        }
+
+        const reader = response.body.getReader();
+        let accum = new Uint8Array(0);
+        let totalBytesRead = 0;
+        let readCount = 0;
+        let oggHeaders = null;
+        let isOgg = false;
+        let headerExtracted = false;
+
+        addStatus("STREAMING...", "green");
+        setStreamToggleState(true);
+
+        const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
+        if (clearStreamURLButton) {
+            clearStreamURLButton.style.display = "inline-block";
+        }
+
+        setMeterSupported(false);
+
+        if (isLoopbackEnabled()) {
+            startIOSLoopback(url);
+        }
+
+        (async () => {
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    readCount++;
+                    totalBytesRead += value.length;
+                    accum = concatUint8(accum, value);
+
+                    if (readCount <= 5 || readCount % 50 === 0) {
+                        const hexPreview = Array.from(value.slice(0, 16)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+                    }
+
+                    if (accum.length < IOS_STREAM_CHUNK_BYTES) continue;
+
+                    if (!headerExtracted) {
+                        if (isOggStream(accum)) {
+                            isOgg = true;
+                            oggHeaders = extractOggHeaderPages(accum);
+                            if (!oggHeaders || oggHeaders.length === 0) {
+                                continue;
+                            }
+                            headerExtracted = true;
+                        } else {
+                            headerExtracted = true;
+                        }
+                    }
+
+
+                    let raw;
+                    if (isOgg) {
+                        const safeSplitEnd = getLastSafeOggSplit(accum, IOS_STREAM_CHUNK_BYTES);
+                        if (safeSplitEnd <= 0) {
+                            continue;
+                        }
+                        if (safeSplitEnd < accum.length) {
+                            raw = accum.slice(0, safeSplitEnd);
+                            accum = accum.slice(safeSplitEnd);
+                        } else {
+                            raw = accum;
+                            accum = new Uint8Array(0);
+                        }
+                    } else {
+                        raw = accum;
+                        accum = new Uint8Array(0);
+                    }
+
+                    if (isOgg && oggHeaders && oggHeaders.length > 0 && !isOggBosPage(raw)) {
+                        raw = concatUint8(oggHeaders, raw);
+                    }
+
+                    let pcm;
+                    try {
+                        pcm = await ffmpegDecodeChunk(ff, raw);
+                    } catch (decodeErr) {
+                        if (decodeErr?.code === "FFMPEG_MEMORY_FAULT") {
+                            try { ff.terminate(); } catch { }
+                            ff = await ensureIOSFFmpeg();
+                            continue;
+                        }
+                        throw decodeErr;
+                    }
+                    if (!pcm || pcm.length === 0) {
+                        console.warn("[iOS stream] ffmpegDecodeChunk returned null/empty — skipping");
+                        continue;
+                    }
+                    if (isLoopbackEnabled()) {
+                        queueIOSLoopbackPCM(pcm);
+                    }
+
+                    const filtered = bandpass.process(pcm);
+                    feedDecoderFrames(filtered);
+                }
+                addStatus("STREAM ENDED", "yellow");
+            } catch (e) {
+                if (e.name === "AbortError") {
+                } else {
+                    console.error("[iOS stream] Stream read error:", e);
+                    addStatus("STREAM ERROR!", "red");
+                }
+            } finally {
+                if (accum.length > 0) {
+                    try {
+                        let tailData = accum;
+                        if (isOgg) {
+                            const completeEnd = getLastCompleteOggPageEnd(tailData);
+                            if (completeEnd <= 0) {
+                                tailData = new Uint8Array(0);
+                            } else if (completeEnd < tailData.length) {
+                                tailData = tailData.slice(0, completeEnd);
+                            }
+                        }
+                        if (tailData.length) {
+                            if (isOgg && oggHeaders && oggHeaders.length > 0 && !isOggBosPage(tailData)) {
+                                tailData = concatUint8(oggHeaders, tailData);
+                            }
+                            let pcm;
+                            try {
+                                pcm = await ffmpegDecodeChunk(ff, tailData);
+                            } catch (decodeErr) {
+                                if (decodeErr?.code === "FFMPEG_MEMORY_FAULT") {
+                                    try { ff.terminate(); } catch { }
+                                    ff = await ensureIOSFFmpeg();
+                                    pcm = null;
+                                } else {
+                                    throw decodeErr;
+                                }
+                            }
+                            if (pcm && pcm.length > 0) {
+                                if (isLoopbackEnabled()) {
+                                    queueIOSLoopbackPCM(pcm);
+                                }
+                                const filtered = bandpass.process(pcm);
+                                feedDecoderFrames(filtered);
+                            }
+                        }
+                    } catch { }
+                }
+                if (iosDecoderFrameRemainder.length > 0) {
+                    const padded = new Float32Array(IOS_STREAM_FRAME_SIZE);
+                    padded.set(iosDecoderFrameRemainder);
+                    runDecoder(padded);
+                    iosDecoderFrameRemainder = new Float32Array(0);
+                }
+                flushPendingDecodeTail();
+                finalizeActiveSameProduct();
+                iosStreamAbort = null;
+            }
+        })();
+
+        return true;
+    }
+
+    async function stopIOSStreamDecoder() {
+        if (iosStreamAbort) {
+            iosStreamAbort.abort();
+            iosStreamAbort = null;
+        }
+        iosDecoderFrameRemainder = new Float32Array(0);
+        stopIOSLoopback();
+    }
 
     let inputTapNode = null;
     let inputTapSource = null;
@@ -549,6 +1200,21 @@ async function fetchAndStore() {
         if (streamElement) {
             await stopStreamDecode(streamElement.src);
         }
+
+        if (isCapacitorIOS()) {
+            try { decodeContext.suspend(); } catch { }
+            resetDecoderState();
+            const result = await startIOSStreamDecoder(url);
+            if (!result) {
+                addStatus("STREAM ACCESS FAILED!", "red");
+                window.streamUrl = null;
+                setStreamToggleState(false);
+                return null;
+            }
+            document.querySelector('[data-decoder-record-toggle]').disabled = true;
+            return true;
+        }
+
         setMeterSupported(true);
 
         try {
@@ -632,6 +1298,8 @@ async function fetchAndStore() {
         resetDecoderState();
         resetStreamRecovery();
         setMeterSupported(true);
+
+        await stopIOSStreamDecoder();
 
         if (window.isRecording) {
             stopRecording();
@@ -1912,10 +2580,13 @@ async function fetchAndStore() {
     resetEndecDetection();
     let buffer = [];
 
+    let _runDecoderCallCount = 0;
+    let _lastHeaderTimesLog = 0;
     function runDecoder(buf) {
         if (!buf || !buf.length) {
             return;
         }
+        _runDecoderCallCount++;
         let sum = 0;
         for (let i = 0; i < buf.length; i++) {
             const s = buf[i];
@@ -1926,7 +2597,15 @@ async function fetchAndStore() {
         if (mapped > decoderMeterTarget) {
             decoderMeterTarget = mapped;
         }
+
+        if (_runDecoderCallCount <= 5 || _runDecoderCallCount % 500 === 0) {
+        }
+
         afskdemod(buf);
+
+        if (headerTimes !== _lastHeaderTimesLog) {
+            _lastHeaderTimesLog = headerTimes;
+        }
     }
 
     let dcWindow = [];
@@ -1974,7 +2653,10 @@ async function fetchAndStore() {
 
     let dcSum = 0;
 
+    let _afskCallCount = 0;
     function afskdemod(signal) {
+        _afskCallCount++;
+        let discMin = Infinity, discMax = -Infinity, discSum = 0;
         for (var i = 0; i < 128; i++) {
             const sig = signal[i];
             const markI = sig * Math.sin(markIndex);
@@ -2001,11 +2683,18 @@ async function fetchAndStore() {
 
             let s1 = markIInteg * markIInteg + markQInteg * markQInteg;
             let s2 = spaceIInteg * spaceIInteg + spaceQInteg * spaceQInteg;
-            clockdemod(s1 - s2);
+            const disc = s1 - s2;
+            discSum += disc;
+            if (disc < discMin) discMin = disc;
+            if (disc > discMax) discMax = disc;
+            clockdemod(disc);
             clock++;
             if (clock >= bitPeriod) {
                 clock = 0;
             }
+        }
+        if (_afskCallCount <= 5 || _afskCallCount % 500 === 0) {
+            const discAvg = discSum / 128;
         }
     }
 
@@ -2113,6 +2802,10 @@ async function fetchAndStore() {
         terminatorRunByte = -1;
         terminatorRunCount = 0;
         lastPayloadByteSample = 0;
+        _runDecoderCallCount = 0;
+        _lastHeaderTimesLog = 0;
+        _clockdemodByteCount = 0;
+        _afskCallCount = 0;
         if (resetEndec) {
             resetEndecDetection();
         }
@@ -2142,6 +2835,7 @@ async function fetchAndStore() {
         }
     }
 
+    let _clockdemodByteCount = 0;
     function clockdemod(sample) {
         demodSampleCounter++;
         const bit = discriminator(sample);
@@ -2157,6 +2851,9 @@ async function fetchAndStore() {
             }
             bytePos++;
             if (bytePos == 8) {
+                _clockdemodByteCount++;
+                if (_clockdemodByteCount <= 20 || _clockdemodByteCount % 200 === 0) {
+                }
                 const byteSample = demodSampleCounter;
                 if (!decoding) {
                     if (terminatorRunCount > 0) {
@@ -2233,10 +2930,7 @@ async function fetchAndStore() {
                             }
                             const currentChar = String.fromCharCode(currentByte);
                             // If the character is not valid, just skip printing it and continue to the next valid character
-                            if (currentByte >= 32 && currentByte <= 126 && /^[A-Za-z0-9\-\+\/\(\)\\ ]$/.test(currentChar) === false) {
-                                // Skip invalid character
-                            }
-
+                            if (currentByte >= 32 && currentByte <= 126 && /^[A-Za-z0-9\-\+\/\(\)\\ ]$/.test(currentChar) === false) { }
                             else {
                                 container.innerText += currentChar;
                                 currentMsg += currentChar;
@@ -2758,10 +3452,18 @@ async function fetchAndStore() {
     const decoderLoopback = document.getElementById('decoder-loopback');
     if (decoderLoopback) {
         decoderLoopback.addEventListener('change', function () {
-            if (this.checked) {
-                startLoopback();
+            if (isCapacitorIOS() && iosStreamAbort) {
+                if (this.checked) {
+                    startIOSLoopback(window.streamUrl);
+                } else {
+                    stopIOSLoopback();
+                }
             } else {
-                stopLoopback();
+                if (this.checked) {
+                    startLoopback();
+                } else {
+                    stopLoopback();
+                }
             }
         });
     }
