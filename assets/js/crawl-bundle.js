@@ -130,7 +130,7 @@ async function initCrawlEditor() {
             { family: 'Impact', file: 'impact.ttf', description: 'a default Windows font' },
             { family: 'Comic Sans MS', file: 'comic.ttf', description: 'a default Windows font' },
             { family: 'STV5730A', file: 'stv5730a.ttf', description: 'mod of "VCR EAS"/EASyPLUS font' },
-            //  { family: 'VCREAS', file: 'VCREAS.ttf' },                   // Disabled due to being a duplicate of VCREAS_4.5
+            //  { family: 'VCREAS', file: 'VCREAS.ttf' }, // Disabled due to being a duplicate of VCREAS_4.5
             { family: 'Geneva Blue', file: 'GenevaBlueBold.ttf', description: 'small caps font used on VDS crawls' },
             { family: 'Akzidenz', file: 'Akzidenz.ttf', description: 'sans-serif font used on Verizon crawls' },
             { family: 'Helvetica Narrow', file: 'helvn.ttf', description: 'narrower version of Helvetica' },
@@ -142,6 +142,7 @@ async function initCrawlEditor() {
             { family: 'Bitstream Vera Sans', file: 'VeraBd.ttf', description: 'sans-serif font' },
             { family: 'Texscan', file: 'texscan.ttf', description: 'older style of sans-serif crawl font' },
             { family: 'Arial Bold', file: 'arialbd.ttf', description: 'sans-serif font used on Bevelled scrolls' },
+            { family: 'User-Upload', file: 'user-upload.ttf', description: 'upload your own font to use!' }
         ];
 
         const fontSelect = document.getElementById('crawlFontFamily');
@@ -149,11 +150,17 @@ async function initCrawlEditor() {
 
         await Promise.all(
             fontsToLoad.map(({ family, file, description }) => {
-                const font = new FontFace(family, `url(${fontDir}${file})`);
-                return font.load().then((loaded) => {
-                    document.fonts.add(loaded);
+                if (family === 'User-Upload') {
                     fontSelect.appendChild(new Option(`${family} (${description})`, family));
-                });
+                    return Promise.resolve();
+                }
+                else {
+                    const font = new FontFace(family, `url(${fontDir}${file})`);
+                    return font.load().then((loaded) => {
+                        document.fonts.add(loaded);
+                        fontSelect.appendChild(new Option(`${family} (${description})`, family));
+                    });
+                }
             })
         );
 
@@ -182,6 +189,65 @@ async function initCrawlEditor() {
         } catch (err) {
             // font load failures are logged when the loader runs
         }
+    }
+
+    const USER_UPLOAD_FONT_FAMILY = 'User-Upload';
+    let uploadedCrawlFontFace = null;
+    let uploadedCrawlFontObjectUrl = null;
+    let uploadedCrawlFontSignature = '';
+
+    function buildUploadedFontSignature(file) {
+        if (!file) {
+            return '';
+        }
+        return `${file.name}|${file.size}|${file.lastModified}`;
+    }
+
+    function sanitizeUploadedFontName(fileName) {
+        const baseName = typeof fileName === 'string' ? fileName.replace(/\.[^.]+$/, '') : '';
+        const trimmed = baseName.trim();
+        if (!trimmed) {
+            return USER_UPLOAD_FONT_FAMILY;
+        }
+        const cleaned = trimmed.replace(/[^a-zA-Z0-9 _-]/g, ' ').replace(/\s+/g, ' ').trim();
+        return cleaned || USER_UPLOAD_FONT_FAMILY;
+    }
+
+    async function loadAndRenderUserUploadedCrawlFont(file) {
+        if (!file) {
+            throw new Error('No custom font file selected.');
+        }
+
+        const signature = buildUploadedFontSignature(file);
+        if (uploadedCrawlFontFace && uploadedCrawlFontSignature === signature) {
+            return uploadedCrawlFontFace.family || USER_UPLOAD_FONT_FAMILY;
+        }
+
+        if (uploadedCrawlFontFace) {
+            document.fonts.delete(uploadedCrawlFontFace);
+            uploadedCrawlFontFace = null;
+        }
+        if (uploadedCrawlFontObjectUrl) {
+            URL.revokeObjectURL(uploadedCrawlFontObjectUrl);
+            uploadedCrawlFontObjectUrl = null;
+        }
+
+        const family = sanitizeUploadedFontName(file.name);
+        uploadedCrawlFontObjectUrl = URL.createObjectURL(file);
+        const fontFace = new FontFace(family, `url(${uploadedCrawlFontObjectUrl})`);
+        uploadedCrawlFontFace = await fontFace.load();
+        document.fonts.add(uploadedCrawlFontFace);
+        uploadedCrawlFontSignature = signature;
+        return uploadedCrawlFontFace.family || family;
+    }
+
+    async function resolveCrawlFontFamily(selectedFontFamily) {
+        if (selectedFontFamily !== USER_UPLOAD_FONT_FAMILY) {
+            return selectedFontFamily;
+        }
+        const customFontInput = document.getElementById('crawlCustomFontFile');
+        const file = customFontInput && customFontInput.files ? customFontInput.files[0] : null;
+        return loadAndRenderUserUploadedCrawlFont(file);
     }
 
     window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
@@ -3815,8 +3881,18 @@ async function initCrawlEditor() {
             bgColor = 'transparent';
         }
 
+        let resolvedFontFamily = fontFamily;
+        try {
+            resolvedFontFamily = await resolveCrawlFontFamily(fontFamily);
+        } catch (err) {
+            if (fontFamily === USER_UPLOAD_FONT_FAMILY) {
+                alert('Please select a valid custom font file (.ttf or .otf) before starting the crawl.');
+                return;
+            }
+        }
+
         await ensureFontsReady();
-        await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
+        await document.fonts.load(`${fontStyle} ${fontSize}px "${resolvedFontFamily}"`);
 
         const backgroundAssets = await loadCrawlBackgroundAssets(crawlBackgroundMode);
         const isNewGenerator = !window.crawlGenerator;
@@ -3925,7 +4001,7 @@ async function initCrawlEditor() {
         generator.setFontSize(fontSize);
         generator.setTextColor(textColor);
         generator.setBgColor(bgColor === 'transparent' ? 'rgba(0,0,0,0)' : bgColor);
-        generator.setFontFamily(fontFamily);
+        generator.setFontFamily(resolvedFontFamily);
         generator.setFontStyle(fontStyle);
         generator.setOutlineColor(outlineColor);
         generator.setOutlineWidth(outlineWidth);
@@ -4216,6 +4292,20 @@ async function initCrawlEditor() {
         input.addEventListener('change', handler);
     });
 
+    function setCustomFontUploadVisibility(show) {
+        document.querySelectorAll('.customFontUpload').forEach((el) => {
+            el.style.display = show ? 'block' : 'none';
+        });
+    }
+
+    function syncCustomFontUploadVisibility() {
+        const fontFamilyInput = document.getElementById('crawlFontFamily');
+        if (!fontFamilyInput) {
+            return;
+        }
+        setCustomFontUploadVisibility(fontFamilyInput.value === 'User-Upload');
+    }
+
     const CRAWL_SETTING_PREFIXES = ['crawl', 'easyplus', 'vds'];
     const CRAWL_SETTING_EXPLICIT_IDS = new Set(['endecMode']);
     const CRAWL_SETTING_EXCLUDED_IDS = new Set(['crawlUserPreset']);
@@ -4376,7 +4466,11 @@ async function initCrawlEditor() {
         const fontFamilyInput = document.getElementById('crawlFontFamily');
         if (fontFamilyInput && migrated.crawlFontFamily) {
             ensureFontsReady().then(() => {
-                applyValueToCrawlElement(fontFamilyInput, migrated.crawlFontFamily);
+                const savedFontFamily = String(migrated.crawlFontFamily);
+                const optionExists = Array.from(fontFamilyInput.options || []).some((option) => option.value === savedFontFamily);
+                const useUserUpload = savedFontFamily === 'User-Upload' || !optionExists;
+                applyValueToCrawlElement(fontFamilyInput, useUserUpload ? 'User-Upload' : savedFontFamily);
+                setCustomFontUploadVisibility(useUserUpload);
             });
         }
 
@@ -4504,6 +4598,12 @@ async function initCrawlEditor() {
 
     if (!initializeRawHeaderInput() && document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeRawHeaderInput, { once: true });
+    }
+
+    const crawlFontFamilyInput = document.getElementById('crawlFontFamily');
+    if (crawlFontFamilyInput) {
+        crawlFontFamilyInput.addEventListener('change', syncCustomFontUploadVisibility);
+        ensureFontsReady().then(syncCustomFontUploadVisibility);
     }
 
     document.getElementById('crawlBackgroundPremadeSelect').addEventListener('change', (event) => {

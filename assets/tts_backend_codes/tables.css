@@ -1,0 +1,5 @@
+/* Add a border between the table cells and headers */
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+}

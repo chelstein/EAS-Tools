@@ -80,6 +80,8 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
     const staticNoiseLevelInput = panel.querySelector('#static-noise-level');
     const staticNoiseFadeDepthInput = panel.querySelector('#static-noise-fade-depth');
     const staticNoiseFadeRateInput = panel.querySelector('#static-noise-fade-rate');
+    const shouldBitcrushSpeechifyDiv = panel.querySelector('#shouldBitcrushSpeechifyContainer2');
+    const shouldBitcrushSpeechifyCheckbox = panel.querySelector('#shouldBitcrushSpeechify2');
 
     canvas.style.touchAction = 'none';
 
@@ -694,7 +696,7 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
         const durSecs = Math.floor((seg.pcm.length / state.sampleRate) % 60);
         const base = `${idx + 1}. ${seg.label || 'Segment'}`;
         const text = (seg.sourceText || '').trim();
-        const textPart = text ? ` — "${text.length > 48 ? `${text.slice(0, 48)}…` : text}"` : '';
+        const textPart = text ? ` — "${text.length > 48 ? `${text.slice(0, 48)}...` : text}"` : '';
         return `${base}${textPart} — ${durMins}m ${durSecs}s (${seg.pcm.length.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} samples)`;
     };
 
@@ -1805,6 +1807,172 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
         return null;
     };
 
+    const bitcrushSpeechifyPcm = async (pcm, sampleRate) => {
+        if (!(pcm instanceof Float32Array) || pcm.length === 0) {
+            return pcm;
+        }
+
+        const sr = Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 44100;
+
+        const fallbackExciter = () => {
+            const nyquist = sr / 2;
+            if (nyquist < 5000) return pcm;
+
+            const out = new Float32Array(pcm.length);
+            const drive = 3.16;
+            const driven = new Float32Array(pcm.length);
+            for (let i = 0; i < pcm.length; i++) {
+                driven[i] = Math.tanh(pcm[i] * drive);
+            }
+
+            const freq = Math.min(4000, nyquist * 0.8);
+            const w0 = 2 * Math.PI * freq / sr;
+            const cos0 = Math.cos(w0);
+            const alp = Math.sin(w0) / (2 * 0.707);
+            const norm = 1 / (1 + alp);
+            const b0 = ((1 + cos0) / 2) * norm;
+            const b1 = -(1 + cos0) * norm;
+            const b2 = b0;
+            const a1 = (-2 * cos0) * norm;
+            const a2 = (1 - alp) * norm;
+
+            let s1x1 = 0, s1x2 = 0, s1y1 = 0, s1y2 = 0;
+            let s2x1 = 0, s2x2 = 0, s2y1 = 0, s2y2 = 0;
+
+            const hfGain = 1.41;
+            let peak = 0;
+
+            for (let i = 0; i < pcm.length; i++) {
+                const x0 = driven[i];
+                const y0 = b0 * x0 + b1 * s1x1 + b2 * s1x2 - a1 * s1y1 - a2 * s1y2;
+                s1x2 = s1x1; s1x1 = x0;
+                s1y2 = s1y1; s1y1 = y0;
+
+                const y1 = b0 * y0 + b1 * s2x1 + b2 * s2x2 - a1 * s2y1 - a2 * s2y2;
+                s2x2 = s2x1; s2x1 = y0;
+                s2y2 = s2y1; s2y1 = y1;
+
+                out[i] = pcm[i] + y1 * hfGain;
+                const abs = out[i] < 0 ? -out[i] : out[i];
+                if (abs > peak) peak = abs;
+            }
+
+            if (peak > 0.9441) {
+                const g = 0.9441 / peak;
+                for (let i = 0; i < out.length; i++) out[i] *= g;
+            }
+
+            return out;
+        };
+
+        if (typeof window.SOXModule !== "function") {
+            return fallbackExciter();
+        }
+
+        const input16 = new Int16Array(pcm.length);
+        for (let i = 0; i < pcm.length; i++) {
+            let s = pcm[i];
+            if (s > 1) s = 1;
+            else if (s < -1) s = -1;
+            input16[i] = s < 0 ? (s * 0x8000) : (s * 0x7fff);
+        }
+        const inputRaw = new Uint8Array(input16.buffer);
+
+        const runSox = async (args, files) => {
+            const cfg = {
+                arguments: args,
+                preRun(mod) {
+                    const vfs = (mod || cfg).FS;
+                    for (const [name, data] of files) {
+                        vfs.writeFile(name, data);
+                    }
+                },
+                postRun() { }
+            };
+
+            const ret = window.SOXModule(cfg);
+            let inst = cfg;
+            if (ret && typeof ret.then === "function") {
+                inst = await ret;
+            } else if (ret && ret.FS) {
+                inst = ret;
+            }
+
+            const fs = inst.FS || cfg.FS;
+            if (!fs) return null;
+
+            try {
+                const raw = fs.readFile("out.raw", { encoding: "binary" });
+                if (!raw || !raw.length) return null;
+                const safe = new Uint8Array(raw.length);
+                safe.set(raw);
+                return safe;
+            } catch {
+                return null;
+            }
+        };
+
+        const toInt16 = (u8) => {
+            const buf = new ArrayBuffer(u8.byteLength);
+            new Uint8Array(buf).set(u8);
+            return new Int16Array(buf);
+        };
+
+        try {
+            const needsUpsample = sr < 21000;
+            const workRate = needsUpsample ? 44100 : sr;
+            let workData = inputRaw;
+
+            if (needsUpsample) {
+                const upRaw = await runSox([
+                    "-t", "raw", "-r", String(sr), "-L",
+                    "-e", "signed-integer", "-b", "16", "-c", "1", "in.raw",
+                    "-t", "raw", "-r", String(workRate), "-L",
+                    "-e", "signed-integer", "-b", "16", "-c", "1", "out.raw",
+                    "rate", "-v", String(workRate)
+                ], [["in.raw", inputRaw]]);
+
+                if (!upRaw) return fallbackExciter();
+                workData = upRaw;
+            }
+
+            const hfRaw = await runSox([
+                "-t", "raw", "-r", String(workRate), "-L",
+                "-e", "signed-integer", "-b", "16", "-c", "1", "in.raw",
+                "-t", "raw", "-r", String(workRate), "-L",
+                "-e", "signed-integer", "-b", "16", "-c", "1", "out.raw",
+                "overdrive", "10",
+                "sinc", "4k-10.5k",
+                "gain", "3"
+            ], [["in.raw", workData]]);
+
+            if (!hfRaw) return fallbackExciter();
+
+            const orig = toInt16(workData);
+            const hf = toInt16(hfRaw);
+            const mixLen = Math.min(orig.length, hf.length);
+
+            let peak = 0;
+            for (let i = 0; i < mixLen; i++) {
+                const v = orig[i] + hf[i];
+                const a = v < 0 ? -v : v;
+                if (a > peak) peak = a;
+            }
+
+            const ceiling = 30934;
+            const gain = peak > ceiling ? ceiling / peak : 1.0;
+            const inv = 1 / 0x7fff;
+            const result = new Float32Array(mixLen);
+            for (let i = 0; i < mixLen; i++) {
+                result[i] = (orig[i] + hf[i]) * gain * inv;
+            }
+
+            return result;
+        } catch {
+            return fallbackExciter();
+        }
+    };
+
     const fetchRemoteTtsAudio = ({ text, voiceId, overrideTZ }) => {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -1896,11 +2064,18 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
                             ? new Promise((resolveDecode, rejectDecode) => decode(arrayBuffer, resolveDecode, rejectDecode))
                             : decode(arrayBuffer);
 
-                        decodePromise.then((buffer) => {
+                        decodePromise.then(async (buffer) => {
                             if (typeof audioContext.close === "function") {
                                 audioContext.close().catch(() => { });
                             }
-                            resolve({ pcm: buffer.getChannelData(0), sampleRate: buffer.sampleRate });
+
+                            const sourcePcm = buffer.getChannelData(0);
+                            const shouldBitcrushSpeechify = shouldBitcrushSpeechifyCheckbox?.checked === true && /Speechify/i.test(voiceId || "");
+                            const pcm = shouldBitcrushSpeechify
+                                ? await bitcrushSpeechifyPcm(sourcePcm, buffer.sampleRate)
+                                : sourcePcm;
+
+                            resolve({ pcm, sampleRate: buffer.sampleRate });
                         }).catch((error) => {
                             if (typeof audioContext.close === "function") {
                                 audioContext.close().catch(() => { });
@@ -1918,9 +2093,14 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
                     }
                 } else {
                     try {
-                        getAudioFromPage(xhr.response).then((buffer) => {
+                        getAudioFromPage(xhr.response).then(async (buffer) => {
                             if (buffer) {
-                                resolve({ pcm: buffer.getChannelData(0), sampleRate: buffer.sampleRate });
+                                const sourcePcm = buffer.getChannelData(0);
+                                const shouldBitcrushSpeechify = shouldBitcrushSpeechifyCheckbox?.checked === true && /Speechify/i.test(voiceId || "");
+                                const pcm = shouldBitcrushSpeechify
+                                    ? await bitcrushSpeechifyPcm(sourcePcm, buffer.sampleRate)
+                                    : sourcePcm;
+                                resolve({ pcm, sampleRate: buffer.sampleRate });
                             } else {
                                 finishWithError(new Error("No audio found in response"));
                             }
@@ -2276,7 +2456,7 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
                 return;
             }
             ttsButton.disabled = true;
-            if (ttsStatus) ttsStatus.textContent = 'Generating…';
+            if (ttsStatus) ttsStatus.textContent = 'Generating...';
             try {
                 if (normalizedVoice === 'wasm' || normalizedVoice === 'nanotts') {
                     const valid = await validateMarkupAndText(selectedVoiceValue, text);
@@ -2961,6 +3141,12 @@ import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES
     voiceSelect.addEventListener('change', () => {
         const voiceBackend = Object.keys(voiceBackendMap).find(backend => voiceBackendMap[backend].includes(voiceSelect.value));
         const ttsControls = document.getElementById('ttsRatePitchControls2');
+
+        if (/Speechify/i.test(voiceSelect.value)) {
+            shouldBitcrushSpeechifyDiv.style.display = 'block';
+        } else {
+            shouldBitcrushSpeechifyDiv.style.display = 'none';
+        }
 
         if (voiceBackend === 'VT' || voiceBackend === 'BAL') {
             ttsControls.style.display = 'block';

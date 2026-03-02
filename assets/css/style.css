@@ -719,7 +719,7 @@ button[disabled] {
     display: block;
 }
 
-.mobileBreak {
+.mobileBreak,.phonemeCrossMode,.customFontUpload {
     display: none;
 }
 

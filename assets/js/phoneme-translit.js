@@ -8,6 +8,7 @@ export const Backend = Object.freeze({
     VTML: "vtml",
     BAL: "bal",
     DT: "dt",
+    ALL: "all",
 });
 
 export const BAL_SYMBOLS = new Set(["-", "!", "&", ",", ".", "?", "_"]);
@@ -21,6 +22,32 @@ export const BAL_PHONES = new Set([
   "jh","k","l","m","n","ng",
   "ow","oy","p","r","s","sh","t","th",
   "uh","uw","v","w","y","z","zh",
+]);
+
+const VTML_DOC_PHONES = new Set([
+    "AA", "AE", "AH", "AO", "AW", "AY",
+    "B", "CH", "D", "DH",
+    "EH", "ER", "EY",
+    "F", "G", "HH",
+    "IH", "IY",
+    "JH", "K", "L", "M", "N", "NG",
+    "OW", "OY", "P", "Q", "R", "S", "SH", "T", "TH",
+    "UH", "UW", "V", "W", "Y", "Z", "ZH",
+]);
+
+const VTML_SUPPORTED_PHONES = VTML_DOC_PHONES;
+
+const DT_PHONES = new Set([
+    "aa", "ae", "ah", "ao", "ar", "aw", "ax", "ay",
+    "b", "ch", "d", "dh", "dx", "dz",
+    "eh", "el", "en", "ey",
+    "f", "g", "hx",
+    "ih", "ir", "ix", "iy",
+    "jh", "k", "l", "lx", "m", "n", "nx",
+    "or", "ow", "oy", "p", "q", "r", "rr", "rx",
+    "s", "sh", "t", "th", "tx",
+    "uh", "ur", "uw",
+    "v", "w", "yu", "yx", "z", "zh",
 ]);
 
 export const BAL_ALIASES = Object.freeze({
@@ -39,6 +66,18 @@ const DT_SYNTACTIC = new Set(["-", "*", "#", "(", ")", ",", ".", "?", "!", "+"])
 
 const DT_ALIASES = Object.freeze({
   "er": "rr",
+});
+
+const CMU_PARSE_ALIASES = Object.freeze({
+    AXH: "AH",
+    AHR: "AH",
+    AOR: "AO",
+    SAW: "AX",
+    EHR: "EH",
+    IHR: "IH",
+    UHR: "UH",
+    UX: "UW",
+    WH: "W",
 });
 
 function phoneToken(cmu, stress = null) {
@@ -68,22 +107,54 @@ const CMU_TO_BAL = {
   EL:"l", EM:"m", EN:"n",
   IX:"ih",
   AXR:"er",
+  WH:"w",
+  Q:"k",
 };
 
-const BAL_TO_CMU = invertMap(CMU_TO_BAL);
+const BAL_TO_CMU = {
+  aa: "AA", ae: "AE", ah: "AH", ao: "AO", aw: "AW", ax: "AX", ay: "AY",
+  b: "B", ch: "CH", d: "D", dh: "DH",
+  eh: "EH", er: "ER", ey: "EY",
+  f: "F", g: "G", h: "HH",
+  ih: "IH", iy: "IY",
+  jh: "JH", k: "K", l: "L", m: "M", n: "N", ng: "NG",
+  ow: "OW", oy: "OY", p: "P", r: "R", s: "S", sh: "SH", t: "T", th: "TH",
+  uh: "UH", uw: "UW", v: "V", w: "W", y: "Y", z: "Z", zh: "ZH",
+};
 
 const CMU_TO_DT = {
     AA: "aa", AE: "ae", AH: "ah", AO: "ao", AW: "aw", AX: "ax", AY: "ay",
     EH: "eh", ER: "rr", EY: "ey", IH: "ih", IY: "iy", OW: "ow", OY: "oy",
-    UH: "uh", UW: "uw", IX: "ix",
+    UH: "uh", UW: "uw", IX: "ix", AXR: "rr",
 
     B: "b", CH: "ch", D: "d", DH: "dh", F: "f", G: "g",
     HH: "hx", JH: "jh", K: "k", L: "l", M: "m", N: "n", NG: "nx",
     P: "p", R: "r", S: "s", SH: "sh", T: "t", TH: "th",
     V: "v", W: "w", Y: "yx", Z: "z", ZH: "zh",
+    DX: "dx",
+    EL: "el",
+    EM: "m",
+    EN: "en",
+    WH: "w",
+    Q: "q",
 };
 
-const DT_TO_CMU = invertMap(CMU_TO_DT);
+const DT_TO_CMU = {
+    aa: "AA", ae: "AE", ah: "AH", ao: "AO", aw: "AW", ax: "AX", ay: "AY",
+    eh: "EH", rr: "ER", ey: "EY", ih: "IH", iy: "IY", ow: "OW", oy: "OY",
+    uh: "UH", uw: "UW", ix: "IX",
+
+    b: "B", ch: "CH", d: "D", dh: "DH", f: "F", g: "G",
+    hx: "HH", jh: "JH", k: "K", l: "L", m: "M", n: "N", nx: "NG",
+    p: "P", r: "R", s: "S", sh: "SH", t: "T", th: "TH",
+    v: "V", w: "W", yx: "Y", z: "Z", zh: "ZH",
+    dx: "DX", el: "EL", en: "EN",
+
+    // Additional DECtalk tokens; approximated to nearest CMU phones.
+    ar: "AXR", ir: "AXR", or: "AXR", ur: "AXR",
+    rx: "R", lx: "EL", yu: "UW",
+    q: "T", tx: "T", dz: "Z", tz: "S", cz: "CH", df: "D",
+};
 
 const CMU_ORTHO_GUESS = Object.freeze({
     AA: "a", AE: "a", AH: "u", AO: "o", AW: "ow", AX: "a", AXR: "er", AY: "i",
@@ -98,19 +169,52 @@ const CMU_ORTHO_GUESS = Object.freeze({
 
 const _reverseCache = new WeakMap();
 
-function normalizePhSeqFromTokens(tokens, { stripStress = true } = {}) {
+const CMU_NORMALIZE = Object.freeze({
+    AX: "AH",
+    AXR: "ER",
+    IX: "IH",
+    DX: "D",
+    EL: "L",
+    EM: "M",
+    EN: "N",
+});
+
+const CMU_FUZZY_NORMALIZE = Object.freeze({
+    AE: "AH",
+});
+
+function normalizeCmuBase(base) {
+    return CMU_NORMALIZE[base] ?? base;
+}
+
+function normalizeCmuForLookup(base, { fuzzy = false } = {}) {
+    const normalized = normalizeCmuBase(base);
+    if (!fuzzy) return normalized;
+    return CMU_FUZZY_NORMALIZE[normalized] ?? normalized;
+}
+
+function normalizePhSeqFromTokens(tokens, { stripStress = true, fuzzy = false } = {}) {
     return tokens
         .filter(t => t.type === "phone")
-        .map(t => stripStress ? t.cmu : `${t.cmu}${t.stress ?? ""}`)
+        .map(t => {
+            const cmu = normalizeCmuForLookup(t.cmu, { fuzzy });
+            return stripStress ? cmu : `${cmu}${t.stress ?? ""}`;
+        })
         .join(" ")
         .trim();
 }
 
-function normalizePhSeqString(seq, { stripStress = true } = {}) {
+function normalizePhSeqString(seq, { stripStress = true, fuzzy = false } = {}) {
     return seq
         .trim()
         .split(/\s+/)
-        .map(tok => stripStress ? tok.replace(/[012]$/, "") : tok)
+        .map(tok => {
+            const m = tok.match(/^([A-Z]+)([012])?$/);
+            if (!m) return tok;
+            const base = normalizeCmuForLookup(m[1], { fuzzy });
+            if (stripStress) return base;
+            return `${base}${m[2] ?? ""}`;
+        })
         .join(" ");
 }
 
@@ -120,6 +224,7 @@ function getReverseLexicon(lexiconObj) {
 
     const exact = new Map();
     const nostress = new Map();
+    const fuzzy = new Map();
 
     for (const [word, ph] of Object.entries(lexiconObj)) {
         const w = word.toLowerCase();
@@ -128,9 +233,10 @@ function getReverseLexicon(lexiconObj) {
 
         exact.set(normalizePhSeqString(p, { stripStress: false }), w);
         nostress.set(normalizePhSeqString(p, { stripStress: true }), w);
+        fuzzy.set(normalizePhSeqString(p, { stripStress: true, fuzzy: true }), w);
     }
 
-    cached = { exact, nostress };
+    cached = { exact, nostress, fuzzy };
     _reverseCache.set(lexiconObj, cached);
     return cached;
 }
@@ -287,11 +393,105 @@ function invertMap(obj) {
 }
 
 function splitCmuToken(tok) {
-    const m = tok.match(/^([A-Z]+)([012])?$/);
+    const raw = String(tok ?? "").trim().toUpperCase();
+    if (!raw) return null;
+    const m = raw.match(/^([A-Z]+)([012])?$/);
     if (!m) return null;
-    const base = m[1];
+    const base = CMU_PARSE_ALIASES[m[1]] ?? m[1];
     const stress = m[2] != null ? Number(m[2]) : null;
     return { base, stress };
+}
+
+function backendName(backend) {
+    if (backend === Backend.VTML) return "VTML";
+    if (backend === Backend.BAL) return "BAL";
+    if (backend === Backend.DT) return "DT";
+    return String(backend ?? "");
+}
+
+function resolveBalPhone(cmu) {
+    return (
+        CMU_TO_BAL[cmu] ??
+        CMU_TO_BAL[normalizeCmuBase(cmu)] ??
+        CMU_TO_BAL[CMU_PARSE_ALIASES[cmu] ?? cmu] ??
+        null
+    );
+}
+
+function resolveDtPhone(cmu) {
+    return (
+        CMU_TO_DT[cmu] ??
+        CMU_TO_DT[normalizeCmuBase(cmu)] ??
+        CMU_TO_DT[CMU_PARSE_ALIASES[cmu] ?? cmu] ??
+        null
+    );
+}
+
+function resolveVtmlPhone(cmu) {
+    const direct = String(CMU_PARSE_ALIASES[cmu] ?? cmu ?? "").toUpperCase();
+    if (VTML_SUPPORTED_PHONES.has(direct)) return direct;
+
+    const normalized = String(normalizeCmuBase(direct) ?? "").toUpperCase();
+    if (VTML_SUPPORTED_PHONES.has(normalized)) return normalized;
+
+    return null;
+}
+
+function canonicalForBackend(tokens, backend) {
+    if (backend !== Backend.VTML) return tokens;
+
+    return tokens.map(t => {
+        if (t.type !== "phone") return t;
+        const mapped = resolveVtmlPhone(t.cmu);
+        if (!mapped || mapped === t.cmu) return t;
+        return phoneToken(mapped, t.stress);
+    });
+}
+
+function validateCanonicalForBackend(tokens, backend) {
+    const issues = [];
+
+    for (const t of tokens) {
+        if (t.type !== "phone") continue;
+
+        if (backend === Backend.VTML) {
+            const base = resolveVtmlPhone(t.cmu);
+            if (!base) {
+                const raw = String(CMU_PARSE_ALIASES[t.cmu] ?? t.cmu ?? "").toUpperCase();
+                issues.push(`${t.cmu} (unsupported VTML token ${raw})`);
+            }
+            continue;
+        }
+
+        if (backend === Backend.BAL) {
+            const base = resolveBalPhone(t.cmu);
+            if (!base) {
+                issues.push(`${t.cmu} (no BAL mapping)`);
+                continue;
+            }
+            if (!BAL_PHONES.has(base)) {
+                issues.push(`${t.cmu} (maps to unsupported BAL token ${base})`);
+            }
+            continue;
+        }
+
+        if (backend === Backend.DT) {
+            const base = resolveDtPhone(t.cmu);
+            if (!base) {
+                issues.push(`${t.cmu} (no DT mapping)`);
+                continue;
+            }
+            if (!DT_PHONES.has(base)) {
+                issues.push(`${t.cmu} (maps to unsupported DT token ${base})`);
+            }
+        }
+    }
+
+    if (issues.length) {
+        throw new Error(
+            `Unsupported phoneme token(s) for ${backendName(backend)} word output: ${[...new Set(issues)].join(", ")}`
+        );
+    }
 }
 
 export function parseVTML(input) {
@@ -315,7 +515,11 @@ export function parseVTML(input) {
 }
 
 export function parseBalabolka(input) {
-    const tokens = input.trim().split(/\s+/).filter(Boolean);
+    let body = input;
+    const m = input.match(/sym\s*=\s*["']([^"']+)["']/i);
+    if (m) body = m[1];
+
+    const tokens = body.trim().split(/\s+/).filter(Boolean);
     const out = [];
     let pendingStress = null;
 
@@ -326,7 +530,13 @@ export function parseBalabolka(input) {
         }
 
         if (BAL_STRESS.has(raw)) {
-            pendingStress = Number(raw);
+            const stressNum = Number(raw);
+            const prev = out[out.length - 1];
+            if (prev?.type === "phone" && CMU_VOWELS.has(prev.cmu)) {
+                prev.stress = stressNum;
+            } else {
+                pendingStress = stressNum;
+            }
             continue;
         }
 
@@ -418,8 +628,12 @@ export function emitBalabolka(tokens, { stressStyle = "separate" } = {}) {
             out.push(t.value);
             continue;
         }
-        const base = CMU_TO_BAL[t.cmu];
-        if (!base) continue;
+        const base =
+            resolveBalPhone(t.cmu);
+        if (!base) {
+            out.push(String(t.cmu ?? "").toLowerCase());
+            continue;
+        }
 
         if (t.stress != null && t.stress !== 0) {
             if (stressStyle === "suffix") out.push(`${base}${t.stress}`);
@@ -439,8 +653,12 @@ export function emitDectalk(tokens, { wrapBrackets = true } = {}) {
             out.push(t.value);
             continue;
         }
-        const base = CMU_TO_DT[t.cmu];
-        if (!base) continue;
+        const base =
+            resolveDtPhone(t.cmu);
+        if (!base) {
+            out.push(String(t.cmu ?? "").toLowerCase());
+            continue;
+        }
 
         if (t.stress === 1) out.push(`'${base}`);
         else if (t.stress === 2) out.push("`" + base);
@@ -455,7 +673,35 @@ function parseByBackend(input, backend) {
     if (backend === Backend.VTML) return parseVTML(input);
     if (backend === Backend.BAL) return parseBalabolka(input);
     if (backend === Backend.DT) return parseDectalk(input);
+    if (backend === Backend.ALL) {
+        let output = "";
+        try {
+            output += parseVTML(input);
+        } catch {
+            // ignore
+        }
+        try {
+            output += parseBalabolka(input);
+        } catch {
+            // ignore
+        }
+        try {
+            output += parseDectalk(input);
+        } catch {
+            // ignore
+        }
+        return output.trim();
+    }
     throw new Error(`Unknown source backend: ${backend}`);
+}
+
+function normalizeBackend(backend) {
+    const value = String(backend ?? "").trim().toLowerCase();
+    if (value === Backend.VTML || value === "cmu" || value === "x-cmu" || value === "arpabet") return Backend.VTML;
+    if (value === Backend.BAL || value === "balabolka") return Backend.BAL;
+    if (value === Backend.DT || value === "dectalk" || value === "dec-talk") return Backend.DT;
+    if (value === Backend.ALL || value === "*") return Backend.ALL;
+    return value;
 }
 
 const PUNC_KEEP = new Set([",", ".", "?", "!", "-", "&", "_"]);
@@ -482,6 +728,78 @@ function tokenizeText(input) {
     }
 }
 
+function tailMatchesPhones(tokens, bases) {
+    if (tokens.length < bases.length) return false;
+    const start = tokens.length - bases.length;
+    for (let i = 0; i < bases.length; i++) {
+        const tok = tokens[start + i];
+        if (!tok || tok.type !== "phone" || tok.cmu !== bases[i]) return false;
+    }
+    return true;
+}
+
+function fixWordCanonBySpelling(word, tokens) {
+    const lower = String(word ?? "").toLowerCase();
+    if (!tokens?.length) return tokens;
+
+    const out = tokens.map(t => ({ ...t }));
+
+    const replaceTail = (len, replacement) => {
+        out.splice(out.length - len, len, ...replacement);
+    };
+
+    if (lower.endsWith("holic")) {
+        if (tailMatchesPhones(out, ["HH", "OW", "L", "IY", "S", "IY"]) ||
+            tailMatchesPhones(out, ["HH", "AA", "L", "IY", "S", "IY"]) ||
+            tailMatchesPhones(out, ["HH", "AH", "L", "IY", "S", "IY"])) {
+            const suffixVowel = out[out.length - 5];
+            const holicStress = suffixVowel?.stress ?? 0;
+            replaceTail(6, [
+                phoneToken("HH", null),
+                phoneToken("AA", holicStress),
+                phoneToken("L", null),
+                phoneToken("IH", 0),
+                phoneToken("K", null),
+            ]);
+        } else if (tailMatchesPhones(out, ["L", "IY", "S", "IY"])) {
+            const suffixVowel = out[out.length - 3];
+            const licStress = suffixVowel?.stress ?? 0;
+            replaceTail(4, [
+                phoneToken("L", null),
+                phoneToken("IH", licStress),
+                phoneToken("K", null),
+            ]);
+        }
+
+        if (tailMatchesPhones(out, ["HH", "OW", "L", "IH", "K"]) ||
+            tailMatchesPhones(out, ["HH", "AH", "L", "IH", "K"])) {
+            const hhVowel = out[out.length - 4];
+            out[out.length - 4] = phoneToken("AA", hhVowel?.stress ?? 0);
+        }
+    }
+
+    if (lower.endsWith("ic")) {
+        if (tailMatchesPhones(out, ["L", "IY", "S", "IY"])) {
+            const suffixVowel = out[out.length - 3];
+            const licStress = suffixVowel?.stress ?? 0;
+            replaceTail(4, [
+                phoneToken("L", null),
+                phoneToken("IH", licStress),
+                phoneToken("K", null),
+            ]);
+        } else if (tailMatchesPhones(out, ["IY", "S", "IY"])) {
+            const suffixVowel = out[out.length - 3];
+            const icStress = suffixVowel?.stress ?? 0;
+            replaceTail(3, [
+                phoneToken("IH", icStress),
+                phoneToken("K", null),
+            ]);
+        }
+    }
+
+    return out;
+}
+
 function phraseToCanonical(rawText, overrides) {
     const toks = tokenizeText(rawText);
 
@@ -498,7 +816,7 @@ function phraseToCanonical(rawText, overrides) {
                 arpabet = toARPABET(t.value, { stripStress: false });
             }
 
-            const wordCanon = parseVTML(arpabet);
+            const wordCanon = fixWordCanonBySpelling(t.value, parseVTML(arpabet));
             canonical.push(...wordCanon);
             continue;
         }
@@ -513,40 +831,63 @@ function phraseToCanonical(rawText, overrides) {
     return canonical;
 }
 
+// TODO: Implement a better phoneme to word converter. Currently, a lot of cases are just plain wrong. For example, `<pron sym="k ae p t n" />` outputs "apt" instead of "captain". This is because the current implementation just does a beam search over possible letter combinations, without any linguistic rules or a large lexicon. A better implementation would use a more comprehensive lexicon and some rules about English phonotactics to generate more accurate guesses.
+
 export function convertPhonemes(input, {
     lexicon = null,
     beamWidth = 48,
 } = {}) {
     const backends = [Backend.VTML, Backend.BAL, Backend.DT];
 
+    const candidates = [];
     for (const backend of backends) {
         try {
             const tokens = parseByBackend(input, backend);
-
-            if (lexicon) {
-                const rev = getReverseLexicon(lexicon);
-                const withStress = normalizePhSeqFromTokens(tokens, { stripStress: false });
-                const noStress = normalizePhSeqFromTokens(tokens, { stripStress: true });
-
-                const hit =
-                    rev.exact.get(withStress) ??
-                    rev.nostress.get(noStress);
-
-                if (hit) return hit;
-            }
-
-            const phones = tokens
-                .filter(t => t.type === "phone")
-                .map(t => t.cmu);
-
+            const phones = tokens.filter(t => t.type === "phone");
             if (!phones.length) continue;
-
-            const guess = beamSpell(phones, beamWidth);
-            if (guess) return guess;
-
+            candidates.push({
+                backend,
+                tokens,
+                phoneCount: phones.length,
+                tokenCount: tokens.length,
+            });
         } catch {
             // ignore parse errors
         }
+    }
+
+    if (!candidates.length) return "";
+
+    candidates.sort((a, b) => (
+        b.phoneCount - a.phoneCount ||
+        b.tokenCount - a.tokenCount
+    ));
+
+    for (const candidate of candidates) {
+        const tokens = candidate.tokens;
+
+        if (lexicon) {
+            const rev = getReverseLexicon(lexicon);
+            const withStress = normalizePhSeqFromTokens(tokens, { stripStress: false });
+            const noStress = normalizePhSeqFromTokens(tokens, { stripStress: true });
+            const fuzzyNoStress = normalizePhSeqFromTokens(tokens, { stripStress: true, fuzzy: true });
+
+            const hit =
+                rev.exact.get(withStress) ??
+                rev.nostress.get(noStress) ??
+                rev.fuzzy.get(fuzzyNoStress);
+
+            if (hit) return hit;
+        }
+
+        const phones = tokens
+            .filter(t => t.type === "phone")
+            .map(t => normalizeCmuBase(t.cmu));
+
+        if (!phones.length) continue;
+
+        const guess = beamSpell(phones, beamWidth);
+        if (guess) return guess;
     }
 
     return "";
@@ -568,12 +909,127 @@ export function wordToBackend(word, backend, {
         canonical = phraseToCanonical(raw, overrides);
     }
 
-    if (backend === Backend.VTML) return emitVTML(canonical, { wrapTag: true, text: raw, ...emitOpts });
-    if (backend === Backend.BAL) return emitBalabolka(canonical, emitOpts);
-    if (backend === Backend.DT) return emitDectalk(canonical, emitOpts);
+    if (backend === Backend.VTML) {
+        const prepared = canonicalForBackend(canonical, Backend.VTML);
+        validateCanonicalForBackend(prepared, Backend.VTML);
+        return emitVTML(prepared, { wrapTag: true, text: raw, ...emitOpts });
+    }
+    if (backend === Backend.BAL) {
+        validateCanonicalForBackend(canonical, Backend.BAL);
+        return emitBalabolka(canonical, emitOpts);
+    }
+    if (backend === Backend.DT) {
+        validateCanonicalForBackend(canonical, Backend.DT);
+        return emitDectalk(canonical, emitOpts);
+    }
+    if (backend === Backend.ALL) {
+        const lines = [];
+
+        try {
+            const vtmlCanonical = canonicalForBackend(canonical, Backend.VTML);
+            validateCanonicalForBackend(vtmlCanonical, Backend.VTML);
+            lines.push("VTML: " + emitVTML(vtmlCanonical, { wrapTag: true, text: raw, ...emitOpts }));
+        } catch (err) {
+            lines.push(`VTML: [ERROR] ${err.message}`);
+        }
+
+        try {
+            validateCanonicalForBackend(canonical, Backend.BAL);
+            lines.push("BAL:  " + emitBalabolka(canonical, emitOpts));
+        } catch (err) {
+            lines.push(`BAL:  [ERROR] ${err.message}`);
+        }
+
+        try {
+            validateCanonicalForBackend(canonical, Backend.DT);
+            lines.push("DT:   " + emitDectalk(canonical, emitOpts));
+        } catch (err) {
+            lines.push(`DT:   [ERROR] ${err.message}`);
+        }
+
+        return lines.join("\n\n").trim();
+    }
     throw new Error(`Unknown backend: ${backend}`);
 }
 
+export function crossPhonemes(input, fromBackend, toBackend, emitOpts = {}) {
+    const raw = String(input ?? "").trim();
+    if (!raw) return "";
+
+    const from = normalizeBackend(fromBackend);
+    const to = normalizeBackend(toBackend);
+
+    const validBackends = new Set([Backend.VTML, Backend.BAL, Backend.DT]);
+    if (from !== Backend.ALL && !validBackends.has(from)) {
+        throw new Error(`Unknown source backend: ${fromBackend}`);
+    }
+    if (to !== Backend.ALL && !validBackends.has(to)) {
+        throw new Error(`Unknown target backend: ${toBackend}`);
+    }
+
+    const parseCandidates = [];
+    const fromCandidates = from === Backend.ALL
+        ? [Backend.VTML, Backend.BAL, Backend.DT]
+        : [from];
+
+    for (const candidate of fromCandidates) {
+        try {
+            const tokens = parseByBackend(raw, candidate);
+            const phoneCount = tokens.filter(t => t.type === "phone").length;
+            if (phoneCount > 0) {
+                parseCandidates.push({ tokens, phoneCount, tokenCount: tokens.length });
+            }
+        } catch (err) {
+            if (from !== Backend.ALL) throw err;
+        }
+    }
+
+    if (!parseCandidates.length) {
+        throw new Error(`No recognizable phonemes found for source backend: ${fromBackend}`);
+    }
+
+    parseCandidates.sort((a, b) => (
+        b.phoneCount - a.phoneCount ||
+        b.tokenCount - a.tokenCount
+    ));
+    const canonical = parseCandidates[0].tokens;
+
+    function emitTo(backend) {
+        if (backend === Backend.VTML) {
+            const prepared = canonicalForBackend(canonical, Backend.VTML);
+            validateCanonicalForBackend(prepared, Backend.VTML);
+            const wrapTag = emitOpts.wrapTag ?? true;
+            if (!wrapTag) return emitVTML(prepared, emitOpts);
+
+            let text = String(emitOpts.text ?? "").trim();
+            if (!text) {
+                try {
+                    text = convertPhonemes(raw, {
+                        lexicon: emitOpts.lexicon ?? null,
+                        beamWidth: emitOpts.beamWidth ?? 48,
+                    });
+                } catch {
+                    text = "";
+                }
+            }
+
+            return emitVTML(prepared, { ...emitOpts, wrapTag: true, text });
+        }
+        if (backend === Backend.BAL) return emitBalabolka(canonical, emitOpts);
+        if (backend === Backend.DT) return emitDectalk(canonical, emitOpts);
+        throw new Error(`Unknown target backend: ${backend}`);
+    }
+
+    if (to === Backend.ALL) {
+        let output = "";
+        output += "VTML: " + emitTo(Backend.VTML) + "\n\n";
+        output += "BAL:  " + emitTo(Backend.BAL) + "\n\n";
+        output += "DT:   " + emitTo(Backend.DT);
+        return output.trim();
+    }
+
+    return emitTo(to);
+}
 
 function escapeXml(s) {
     return String(s)

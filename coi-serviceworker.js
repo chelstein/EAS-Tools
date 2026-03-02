@@ -23,7 +23,16 @@ if (typeof window === 'undefined') {
 
     self.addEventListener("fetch", function (event) {
         const r = event.request;
-        if (r && (r.destination === "audio" || r.destination === "video")) {
+        if (r && r.method !== "GET" && r.method !== "HEAD") {
+            return;
+        }
+        const accept = r && r.headers ? r.headers.get("accept") : "";
+        if (r && (
+            r.destination === "audio" ||
+            r.destination === "video" ||
+            (r.headers && r.headers.has("range")) ||
+            (accept && (accept.includes("audio/") || accept.includes("video/")))
+        )) {
             return;
         }
         if (r.cache === "only-if-cached" && r.mode !== "same-origin") {
@@ -42,6 +51,14 @@ if (typeof window === 'undefined') {
                         return response;
                     }
                     if (response.status === 0) {
+                        return response;
+                    }
+                    const contentType = response.headers.get("content-type") || "";
+                    if (
+                        response.status === 206 ||
+                        contentType.startsWith("audio/") ||
+                        contentType.startsWith("video/")
+                    ) {
                         return response;
                     }
 
@@ -67,7 +84,7 @@ if (typeof window === 'undefined') {
                         requestMode: r && r.mode ? r.mode : "(unknown)",
                         requestDestination: r && r.destination ? r.destination : "(unknown)"
                     });
-                    throw e;
+                    return fetch(r);
                 })
         );
     });
