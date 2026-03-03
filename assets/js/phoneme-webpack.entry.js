@@ -77,7 +77,6 @@ async function loadCanonicalTranslit() {
     try {
         const mod = await import(/* webpackIgnore: true */ buildCacheBustedUrl(url));
         if (applyCanonicalTranslit(mod, "runtime-import")) {
-            console.info("[PhonemeTools] Applied canonical translit module:", url);
             return;
         }
         console.warn("[PhonemeTools] Loaded canonical translit module, but exports were invalid:", url);

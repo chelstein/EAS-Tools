@@ -26,6 +26,18 @@ if (typeof window === 'undefined') {
         if (r && r.method !== "GET" && r.method !== "HEAD") {
             return;
         }
+        let requestUrl = null;
+        try {
+            requestUrl = r ? new URL(r.url) : null;
+        } catch {
+            requestUrl = null;
+        }
+        if (r && (r.mode === "navigate" || r.destination === "document")) {
+            return;
+        }
+        if (requestUrl && r && r.destination === "script" && requestUrl.hostname === "opml.radiotime.com") {
+            return;
+        }
         const accept = r && r.headers ? r.headers.get("accept") : "";
         if (r && (
             r.destination === "audio" ||
@@ -39,11 +51,16 @@ if (typeof window === 'undefined') {
             return;
         }
 
-        const request = (coepCredentialless && r.mode === "no-cors")
-            ? new Request(r, {
-                credentials: "omit",
-            })
-            : r;
+        let request = r;
+        try {
+            request = (coepCredentialless && r.mode === "no-cors")
+                ? new Request(r, {
+                    credentials: "omit",
+                })
+                : r;
+        } catch {
+            request = r;
+        }
         event.respondWith(
             fetch(request)
                 .then((response) => {

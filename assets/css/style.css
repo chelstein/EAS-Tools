@@ -257,7 +257,7 @@ button[disabled] {
 
 #decoder-panel .level-meter {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     margin: 12px 0 18px;
 }
@@ -268,24 +268,146 @@ button[disabled] {
     text-transform: uppercase;
     color: #9a9a9a;
     min-width: 56px;
+    padding-top: 1px;
+}
+
+#decoder-panel .level-meter__stack {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 #decoder-panel .level-meter__bars {
     position: relative;
-    flex: 1 1 auto;
+    width: 100%;
     height: 10px;
     border-radius: 999px;
     overflow: hidden;
-    background: #141414;
+    background: linear-gradient(90deg,
+            rgba(52, 199, 89, 0.22) 0%,
+            rgba(52, 199, 89, 0.22) 66.666%,
+            rgba(255, 204, 0, 0.22) 66.666%,
+            rgba(255, 204, 0, 0.22) 85%,
+            rgba(255, 69, 58, 0.22) 85%,
+            rgba(255, 69, 58, 0.22) 100%);
     border: 1px solid #232323;
 }
 
 #decoder-panel .level-meter__fill {
     position: absolute;
     inset: 0;
-    width: 0%;
-    background: linear-gradient(90deg, #34c759, #ffcc00 60%, #ff453a 90%);
-    transition: width 80ms linear;
+    width: 100%;
+    background: linear-gradient(90deg,
+            #34c759 0%,
+            #34c759 66.666%,
+            #ffcc00 66.666%,
+            #ffcc00 85%,
+            #ff453a 85%,
+            #ff453a 100%);
+    clip-path: inset(0 100% 0 0);
+    -webkit-clip-path: inset(0 100% 0 0);
+    transition: clip-path 80ms linear, -webkit-clip-path 80ms linear;
+}
+
+#decoder-panel .level-meter__scale {
+    margin-top: 3px;
+    user-select: none;
+}
+
+#decoder-panel .level-meter__tick-lines {
+    --meter-tick-minor: rgba(255, 255, 255, 0.48);
+    --meter-tick-major: rgba(255, 255, 255, 0.82);
+    height: 8px;
+    background-image:
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-major), var(--meter-tick-major)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor)),
+        linear-gradient(var(--meter-tick-minor), var(--meter-tick-minor));
+    background-size:
+        2px 8px,
+        2px 8px,
+        2px 8px,
+        2px 8px,
+        2px 8px,
+        2px 8px,
+        2px 8px,
+        2px 6px,
+        2px 6px,
+        2px 6px,
+        2px 6px,
+        2px 6px,
+        2px 6px;
+    background-position:
+        0% 0,
+        16.666667% 0,
+        33.333333% 0,
+        50% 0,
+        66.666667% 0,
+        83.333333% 0,
+        100% 0,
+        8.333333% 1px,
+        25% 1px,
+        41.666667% 1px,
+        58.333333% 1px,
+        75% 1px,
+        91.666667% 1px;
+    background-repeat: no-repeat;
+}
+
+#decoder-panel .level-meter__tick-labels {
+    margin-top: 2px;
+    position: relative;
+    height: 1em;
+    font-family: "Hack", monospace;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.82);
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
+    line-height: 1;
+}
+
+#decoder-panel .level-meter__tick-labels span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(1) {
+    left: 0%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(2) {
+    left: 16.666667%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(3) {
+    left: 33.333333%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(4) {
+    left: 50%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(5) {
+    left: 66.666667%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(6) {
+    left: 83.333333%;
+}
+
+#decoder-panel .level-meter__tick-labels span:nth-child(7) {
+    left: 100%;
 }
 
 #decoder-panel .modalContainer {
@@ -1090,8 +1212,24 @@ button[disabled] {
     }
 
     #decoder-panel .level-meter__bars {
-        background: var(--color-bg);
+        background: linear-gradient(90deg,
+                rgba(52, 199, 89, 0.25) 0%,
+                rgba(52, 199, 89, 0.25) 66.666%,
+                rgba(255, 204, 0, 0.25) 66.666%,
+                rgba(255, 204, 0, 0.25) 85%,
+                rgba(255, 69, 58, 0.25) 85%,
+                rgba(255, 69, 58, 0.25) 100%);
         border: 1px solid var(--color-border-light);
+    }
+
+    #decoder-panel .level-meter__tick-lines {
+        --meter-tick-minor: rgba(0, 0, 0, 0.42);
+        --meter-tick-major: rgba(0, 0, 0, 0.72);
+    }
+
+    #decoder-panel .level-meter__tick-labels {
+        color: rgba(0, 0, 0, 0.72);
+        text-shadow: none;
     }
 
     #balconTable table, #balconTable th, #balconTable td {

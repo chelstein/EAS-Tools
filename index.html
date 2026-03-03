@@ -78,8 +78,22 @@
                 <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
                     aria-valuenow="0" data-level-meter>
                     <span class="level-meter__label">Level</span>
-                    <div class="level-meter__bars">
-                        <div class="level-meter__fill" data-level-fill></div>
+                    <div class="level-meter__stack">
+                        <div class="level-meter__bars">
+                            <div class="level-meter__fill" data-level-fill></div>
+                        </div>
+                        <div class="level-meter__scale" aria-hidden="true">
+                            <div class="level-meter__tick-lines"></div>
+                            <div class="level-meter__tick-labels">
+                                <span>-60</span>
+                                <span>-50</span>
+                                <span>-40</span>
+                                <span>-30</span>
+                                <span>-20</span>
+                                <span>-10</span>
+                                <span>0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <hr>

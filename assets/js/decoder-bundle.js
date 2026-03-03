@@ -216,6 +216,22 @@ async function fetchAndStore() {
     let streamElement = null;
     let streamSource = null;
     let streamToggleActive = false;
+    const trackedStreamElements = new Set();
+    const streamProbeAbortControllers = new Set();
+    const STREAM_AUTO_GAIN_MIN_RMS = 0.08912509381337455;
+    const STREAM_AUTO_GAIN_NOISE_FLOOR_RMS = 0.01;
+    const STREAM_AUTO_GAIN_NOISE_FLOOR_PEAK = 0.03;
+    const STREAM_AUTO_GAIN_CALIBRATION_TICKS = 16;
+    const STREAM_AUTO_GAIN_MIN_ACTIVE_TICKS = 4;
+    const STREAM_AUTO_GAIN_MAX = 6;
+    const STREAM_AUTO_GAIN_POLL_MS = 220;
+    let streamAutoGainSource = null;
+    let streamAutoGainNode = null;
+    let streamAutoGainAnalyser = null;
+    let streamAutoGainBuffer = null;
+    let streamAutoGainTimer = 0;
+    let streamAutoGainCurrent = 1;
+    let streamAutoGainActiveTicks = 0;
 
     function isCapacitorIOS() {
         try {
@@ -917,6 +933,8 @@ async function fetchAndStore() {
     let meterRunning = false;
     let meterLevel = 0;
     let decoderMeterTarget = 0;
+    const METER_DB_MIN = -60;
+    const METER_DB_MAX = 0;
     let meterHiddenBySupport = false;
     let loopbackDest = null;
     let loopbackSourceNode = null;
@@ -948,6 +966,20 @@ async function fetchAndStore() {
         meterSinkGain.connect(decodeContext.destination);
     }
 
+    function rmsToMeterLevel(rms) {
+        if (!rms || rms <= 0) {
+            return 0;
+        }
+        const db = 20 * Math.log10(rms);
+        if (db <= METER_DB_MIN) {
+            return 0;
+        }
+        if (db >= METER_DB_MAX) {
+            return 1;
+        }
+        return (db - METER_DB_MIN) / (METER_DB_MAX - METER_DB_MIN);
+    }
+
     function setMeterSupported(supported) {
         if (!meterElement) {
             return;
@@ -975,8 +1007,6 @@ async function fetchAndStore() {
             return;
         }
         let target = 0;
-        let rms = 0;
-        let spectral = 0;
         if (levelAnalyser && levelBuffer) {
             levelAnalyser.getByteTimeDomainData(levelBuffer);
             let sum = 0;
@@ -984,22 +1014,8 @@ async function fetchAndStore() {
                 const sample = (levelBuffer[i] - 128) / 128;
                 sum += sample * sample;
             }
-            rms = Math.sqrt(sum / levelBuffer.length);
-            target = Math.min(1, rms * 3);
-            if (target < 0.01 && levelFreqBuffer) {
-                levelAnalyser.getByteFrequencyData(levelFreqBuffer);
-                let peak = 0;
-                for (let i = 0; i < levelFreqBuffer.length; i++) {
-                    const bin = levelFreqBuffer[i];
-                    if (bin > peak) {
-                        peak = bin;
-                    }
-                }
-                spectral = peak / 255;
-                if (spectral > target) {
-                    target = spectral;
-                }
-            }
+            const rms = Math.sqrt(sum / levelBuffer.length);
+            target = rmsToMeterLevel(rms);
         }
         if (decoderMeterTarget > target) {
             target = decoderMeterTarget;
@@ -1013,7 +1029,10 @@ async function fetchAndStore() {
         if (meterLevel < 0.001) {
             meterLevel = 0;
         }
-        meterFill.style.width = (meterLevel * 100).toFixed(1) + "%";
+        meterFill.style.width = "100%";
+        const meterRightInset = (100 - (meterLevel * 100)).toFixed(2) + "%";
+        meterFill.style.clipPath = "inset(0 " + meterRightInset + " 0 0)";
+        meterFill.style.webkitClipPath = "inset(0 " + meterRightInset + " 0 0)";
         if (meterElement) {
             meterElement.setAttribute("aria-valuenow", meterLevel.toFixed(3));
         }
@@ -1036,7 +1055,9 @@ async function fetchAndStore() {
         }
         meterLevel = 0;
         if (meterFill) {
-            meterFill.style.width = "0%";
+            meterFill.style.width = "100%";
+            meterFill.style.clipPath = "inset(0 100% 0 0)";
+            meterFill.style.webkitClipPath = "inset(0 100% 0 0)";
         }
         if (meterElement) {
             meterElement.setAttribute("aria-valuenow", "0");
@@ -1124,6 +1145,146 @@ async function fetchAndStore() {
         inputTapNode = tapNode;
     }
 
+    function stopStreamAutoGain() {
+        if (streamAutoGainTimer) {
+            clearInterval(streamAutoGainTimer);
+            streamAutoGainTimer = 0;
+        }
+        if (streamAutoGainSource && streamAutoGainNode) {
+            try {
+                streamAutoGainSource.disconnect(streamAutoGainNode);
+            } catch (error) {
+                console.warn("Error disconnecting stream source from auto gain:", error);
+            }
+        }
+        if (streamAutoGainSource && streamAutoGainAnalyser) {
+            try {
+                streamAutoGainSource.disconnect(streamAutoGainAnalyser);
+            } catch (error) {
+                console.warn("Error disconnecting stream source from auto gain analyser:", error);
+            }
+        }
+        if (streamAutoGainNode) {
+            try {
+                streamAutoGainNode.disconnect();
+            } catch (error) {
+                console.warn("Error disconnecting stream auto gain node:", error);
+            }
+        }
+        if (streamAutoGainAnalyser) {
+            try {
+                streamAutoGainAnalyser.disconnect();
+            } catch (error) {
+                console.warn("Error disconnecting stream auto gain analyser:", error);
+            }
+        }
+        streamAutoGainSource = null;
+        streamAutoGainNode = null;
+        streamAutoGainAnalyser = null;
+        streamAutoGainBuffer = null;
+        streamAutoGainCurrent = 1;
+        streamAutoGainActiveTicks = 0;
+    }
+
+    function attachStreamInputTap(sourceNode) {
+        if (!sourceNode) {
+            return;
+        }
+        stopStreamAutoGain();
+        const gainNode = decodeContext.createGain();
+        gainNode.gain.value = 1;
+        const analyser = decodeContext.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.75;
+        const analyserBuffer = new Float32Array(analyser.fftSize);
+        try {
+            sourceNode.connect(gainNode);
+            sourceNode.connect(analyser);
+        } catch (error) {
+            console.warn("Unable to create stream auto gain path:", error);
+            attachInputTap(sourceNode);
+            return;
+        }
+        streamAutoGainSource = sourceNode;
+        streamAutoGainNode = gainNode;
+        streamAutoGainAnalyser = analyser;
+        streamAutoGainBuffer = analyserBuffer;
+        streamAutoGainCurrent = 1;
+        streamAutoGainActiveTicks = 0;
+        let calibrationTicks = 0;
+        let observedRms = 0;
+        let observedPeak = 0;
+        streamAutoGainTimer = setInterval(() => {
+            if (!streamAutoGainAnalyser || !streamAutoGainNode || !streamAutoGainBuffer) {
+                return;
+            }
+            streamAutoGainAnalyser.getFloatTimeDomainData(streamAutoGainBuffer);
+            let sumSquares = 0;
+            let peak = 0;
+            for (let i = 0; i < streamAutoGainBuffer.length; i++) {
+                const sample = streamAutoGainBuffer[i];
+                const abs = sample < 0 ? -sample : sample;
+                if (abs > peak) {
+                    peak = abs;
+                }
+                sumSquares += sample * sample;
+            }
+            const rms = Math.sqrt(sumSquares / streamAutoGainBuffer.length);
+            const hasSignal = rms >= STREAM_AUTO_GAIN_NOISE_FLOOR_RMS || peak >= STREAM_AUTO_GAIN_NOISE_FLOOR_PEAK;
+            if (hasSignal) {
+                streamAutoGainActiveTicks++;
+                if (rms > observedRms) {
+                    observedRms = rms;
+                }
+                if (peak > observedPeak) {
+                    observedPeak = peak;
+                }
+            }
+            calibrationTicks++;
+            if (calibrationTicks < STREAM_AUTO_GAIN_CALIBRATION_TICKS) {
+                return;
+            }
+
+            if (streamAutoGainTimer) {
+                clearInterval(streamAutoGainTimer);
+                streamAutoGainTimer = 0;
+            }
+
+            let targetGain = 1;
+            if (streamAutoGainActiveTicks >= STREAM_AUTO_GAIN_MIN_ACTIVE_TICKS && observedRms > 0 && observedPeak > 0 && observedRms <= STREAM_AUTO_GAIN_MIN_RMS) {
+                const rmsGain = STREAM_AUTO_GAIN_MIN_RMS / observedRms;
+                const peakGain = 0.99 / observedPeak;
+                targetGain = Math.min(rmsGain, peakGain);
+                if (targetGain > STREAM_AUTO_GAIN_MAX) {
+                    targetGain = STREAM_AUTO_GAIN_MAX;
+                }
+            }
+            if (targetGain < 1) {
+                targetGain = 1;
+            }
+            streamAutoGainCurrent = targetGain;
+            streamAutoGainNode.gain.setValueAtTime(streamAutoGainCurrent, decodeContext.currentTime);
+
+            if (streamAutoGainSource && streamAutoGainAnalyser) {
+                try {
+                    streamAutoGainSource.disconnect(streamAutoGainAnalyser);
+                } catch (error) {
+                    console.warn("Error disconnecting stream source from auto gain analyser after calibration:", error);
+                }
+            }
+            if (streamAutoGainAnalyser) {
+                try {
+                    streamAutoGainAnalyser.disconnect();
+                } catch (error) {
+                    console.warn("Error disconnecting stream auto gain analyser after calibration:", error);
+                }
+                streamAutoGainAnalyser = null;
+            }
+            streamAutoGainBuffer = null;
+        }, STREAM_AUTO_GAIN_POLL_MS);
+        attachInputTap(gainNode);
+    }
+
     function detachInputTap() {
         if (inputTapSource && inputTapNode) {
             try {
@@ -1142,6 +1303,45 @@ async function fetchAndStore() {
         inputTapSource = null;
         inputTapNode = null;
         meterInputSource = null;
+    }
+
+    function teardownStreamElement(audioElement) {
+        if (!audioElement) {
+            return;
+        }
+        trackedStreamElements.delete(audioElement);
+        try {
+            audioElement.pause();
+        } catch (error) {
+            console.warn("Error pausing stream element:", error);
+        }
+        audioElement.autoplay = false;
+        audioElement.preload = "none";
+        audioElement.muted = true;
+        try {
+            audioElement.srcObject = null;
+        } catch (error) {
+            console.warn("Error clearing stream srcObject:", error);
+        }
+        try {
+            audioElement.removeAttribute("src");
+            audioElement.src = "";
+            if (typeof audioElement.load === "function") {
+                audioElement.load();
+            }
+        } catch (error) {
+            console.warn("Error aborting stream element network request:", error);
+        }
+        audioElement.remove();
+    }
+
+    function abortPendingStreamProbes() {
+        streamProbeAbortControllers.forEach((controller) => {
+            try {
+                controller.abort();
+            } catch { }
+        });
+        streamProbeAbortControllers.clear();
     }
 
     function getCapturedAudioStream(audio) {
@@ -1181,7 +1381,7 @@ async function fetchAndStore() {
         } catch (error) {
             console.warn("Error disconnecting original stream source:", error);
         }
-        attachInputTap(source);
+        attachStreamInputTap(source);
         streamSource = source;
         return true;
     }
@@ -1231,12 +1431,13 @@ async function fetchAndStore() {
             audio.playsInline = true;
             audio.style.display = "none";
             audio.setAttribute("aria-hidden", "true");
-            const loopbackEnabled = isLoopbackEnabled();
-            audio.muted = !loopbackEnabled;
+            audio.setAttribute("data-decoder-stream", "true");
+            audio.muted = false;
             audio.volume = 1;
             document.body.appendChild(audio);
+            trackedStreamElements.add(audio);
             const source = decodeContext.createMediaElementSource(audio);
-            attachInputTap(source);
+            attachStreamInputTap(source);
             resetStreamRecovery();
             audio.addEventListener("playing", () => {
                 if (streamElement === audio) {
@@ -1278,11 +1479,11 @@ async function fetchAndStore() {
                 }
             }
             if (streamElement) {
-                streamElement.pause();
-                streamElement.remove();
+                teardownStreamElement(streamElement);
             }
             streamElement = null;
             streamSource = null;
+            stopStreamAutoGain();
             detachInputTap();
             stopMeter();
             addStatus("STREAM ACCESS FAILED!", "red");
@@ -1297,6 +1498,8 @@ async function fetchAndStore() {
         finalizeActiveSameProduct();
         resetDecoderState();
         resetStreamRecovery();
+        setStreamToggleState(false);
+        abortPendingStreamProbes();
         setMeterSupported(true);
 
         await stopIOSStreamDecoder();
@@ -1304,47 +1507,51 @@ async function fetchAndStore() {
         if (window.isRecording) {
             stopRecording();
         }
-        if (streamSource) {
+        const activeStreamSource = streamSource;
+        if (activeStreamSource) {
             try {
-                streamSource.disconnect();
+                activeStreamSource.disconnect();
             } catch (error) {
                 console.warn("Error disconnecting stream source:", error);
             }
             streamSource = null;
         }
+        stopStreamAutoGain();
         detachInputTap();
         stopMeter();
         if (loopbackSourceNode) {
             stopLoopback();
         }
+        const teardownTargets = new Set();
+        if (streamElement) {
+            teardownTargets.add(streamElement);
+        }
+        if (activeStreamSource && activeStreamSource.mediaElement) {
+            teardownTargets.add(activeStreamSource.mediaElement);
+        }
         let targetElement = streamElement;
+        streamElement = null;
         if (!targetElement && url) {
             const mediaElements = document.getElementsByTagName("audio");
             for (let i = 0; i < mediaElements.length; i++) {
-                if (mediaElements[i].src === url) {
+                if (mediaElements[i].src === url || mediaElements[i].getAttribute("data-decoder-stream") === "true") {
                     targetElement = mediaElements[i];
                     break;
                 }
             }
         }
         if (targetElement) {
-            try {
-                targetElement.pause();
-            } catch (error) {
-                console.warn("Error pausing stream element:", error);
-            }
-            targetElement.srcObject = null;
-            targetElement.remove();
-            if (targetElement === streamElement) {
-                streamElement = null;
-            }
+            teardownTargets.add(targetElement);
         }
+        document.querySelectorAll("audio[data-decoder-stream='true']").forEach((audio) => teardownTargets.add(audio));
+        trackedStreamElements.forEach((audio) => teardownTargets.add(audio));
+        teardownTargets.forEach(teardownStreamElement);
+        trackedStreamElements.clear();
         decodeContext.suspend();
         document.querySelector('[data-decoder-toggle]').disabled = false;
         document.querySelector('[data-decoder-load]').disabled = false;
         document.querySelector('[data-decoder-record-toggle]').disabled = true;
         addStatus("WAITING...", USES_DARK_THEME ? "white" : "black");
-        setStreamToggleState(false);
     }
 
     const RECORD_LABEL_START = "Start Recording (alerts toggle this automatically)";
@@ -1677,6 +1884,7 @@ async function fetchAndStore() {
 
     async function startDecode(stream) {
         setMeterSupported(true);
+        stopStreamAutoGain();
         const source = decodeContext.createMediaStreamSource(stream);
         const micInputNode = createMicInputNode(source);
         micSource = source;
@@ -1732,8 +1940,7 @@ async function fetchAndStore() {
         if (!streamElement) {
             return;
         }
-        const loopbackEnabled = isLoopbackEnabled();
-        streamElement.muted = !loopbackEnabled;
+        streamElement.muted = false;
         streamElement.volume = 1;
     }
 
@@ -2593,7 +2800,7 @@ async function fetchAndStore() {
             sum += s * s;
         }
         const rms = Math.sqrt(sum / buf.length);
-        const mapped = Math.min(1, rms * 3);
+        const mapped = rmsToMeterLevel(rms);
         if (mapped > decoderMeterTarget) {
             decoderMeterTarget = mapped;
         }
@@ -3335,6 +3542,373 @@ async function fetchAndStore() {
         showAlertInfo(parsedHeader);
     }
 
+    async function testAudioStream(url) {
+        const MAX_BYTES = 32768;
+        const FETCH_TIMEOUT_MS = 9000;
+        const WRAPPER_TIMEOUT_MS = 5000;
+
+        function normalizeUrl(input, base) {
+            if (!input || typeof input !== "string") {
+                return null;
+            }
+            try {
+                const parsed = base ? new URL(input, base) : new URL(input);
+                if (parsed.protocol !== "https:") {
+                    return null;
+                }
+                return parsed.href;
+            } catch {
+                return null;
+            }
+        }
+
+        async function fetchBytes(targetUrl, timeoutMs) {
+            const controller = new AbortController();
+            streamProbeAbortControllers.add(controller);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(targetUrl, {
+                    method: "GET",
+                    mode: "cors",
+                    cache: "no-store",
+                    headers: {
+                        Range: `bytes=0-${MAX_BYTES - 1}`
+                    },
+                    signal: controller.signal
+                });
+                if (!response.ok && response.status !== 206) {
+                    return null;
+                }
+                const contentType = (response.headers && response.headers.get("content-type")) ? response.headers.get("content-type").toLowerCase() : "";
+                if (!response.body || typeof response.body.getReader !== "function") {
+                    const buffer = await response.arrayBuffer();
+                    if (!buffer || buffer.byteLength === 0) {
+                        return null;
+                    }
+                    return {
+                        bytes: buffer.slice(0, Math.min(buffer.byteLength, MAX_BYTES)),
+                        contentType
+                    };
+                }
+                const reader = response.body.getReader();
+                const chunks = [];
+                let total = 0;
+                try {
+                    while (total < MAX_BYTES) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+                        if (!value || value.byteLength === 0) {
+                            continue;
+                        }
+                        chunks.push(value);
+                        total += value.byteLength;
+                        if (total >= MAX_BYTES) {
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    const aborted = error && (error.name === "AbortError" || /abort/i.test(error.message || ""));
+                    if (!aborted || total === 0) {
+                        return null;
+                    }
+                } finally {
+                    try {
+                        await reader.cancel();
+                    } catch { }
+                }
+                if (total === 0) {
+                    return null;
+                }
+                const merged = new Uint8Array(Math.min(total, MAX_BYTES));
+                let offset = 0;
+                for (let i = 0; i < chunks.length && offset < merged.length; i++) {
+                    const chunk = chunks[i];
+                    const copyLength = Math.min(chunk.byteLength, merged.length - offset);
+                    merged.set(chunk.subarray(0, copyLength), offset);
+                    offset += copyLength;
+                }
+                return {
+                    bytes: merged.buffer,
+                    contentType
+                };
+            } catch {
+                return null;
+            } finally {
+                clearTimeout(timeoutId);
+                streamProbeAbortControllers.delete(controller);
+            }
+        }
+
+        function looksLikeAudioStream(bytes, contentType, targetUrl) {
+            if (!bytes || bytes.byteLength < 4) {
+                return false;
+            }
+            if (contentType && (
+                contentType.startsWith("audio/") ||
+                contentType.includes("application/ogg") ||
+                contentType.includes("application/x-ogg") ||
+                contentType.includes("application/vnd.apple.mpegurl") ||
+                contentType.includes("application/x-mpegurl")
+            )) {
+                return true;
+            }
+
+            const data = new Uint8Array(bytes);
+            if (
+                data[0] === 0x4f && data[1] === 0x67 && data[2] === 0x67 && data[3] === 0x53 ||
+                data[0] === 0x49 && data[1] === 0x44 && data[2] === 0x33 ||
+                data[0] === 0x66 && data[1] === 0x4c && data[2] === 0x61 && data[3] === 0x43 ||
+                data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46
+            ) {
+                return true;
+            }
+            if ((data[0] === 0xff) && ((data[1] & 0xf0) === 0xf0)) {
+                return true;
+            }
+            const lowerUrl = (targetUrl || "").toLowerCase();
+            return (
+                lowerUrl.includes(".ogg") ||
+                lowerUrl.includes(".mp3") ||
+                lowerUrl.includes(".aac") ||
+                lowerUrl.includes(".m3u8")
+            );
+        }
+
+        async function canDecodeStreamAudio(targetUrl) {
+            const sample = await fetchBytes(targetUrl, FETCH_TIMEOUT_MS);
+            if (!sample || !sample.bytes || sample.bytes.byteLength < 1024) {
+                return false;
+            }
+            try {
+                const probe = sample.bytes.slice(0);
+                const decoded = await decodeContext.decodeAudioData(probe);
+                return !!decoded && decoded.length > 0;
+            } catch {
+                return looksLikeAudioStream(sample.bytes, sample.contentType, targetUrl);
+            }
+        }
+
+        function isLikelyPlaylistUrl(targetUrl) {
+            return /\.(pls|m3u8?|xspf)(?:$|[?#])/i.test(targetUrl) || /playerservices\.streamtheworld\.com\/pls\//i.test(targetUrl);
+        }
+
+        async function fetchText(targetUrl, timeoutMs) {
+            const controller = new AbortController();
+            streamProbeAbortControllers.add(controller);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(targetUrl, {
+                    method: "GET",
+                    mode: "cors",
+                    cache: "no-store",
+                    signal: controller.signal
+                });
+                if (!response.ok) {
+                    return "";
+                }
+                return await response.text();
+            } catch {
+                return "";
+            } finally {
+                clearTimeout(timeoutId);
+                streamProbeAbortControllers.delete(controller);
+            }
+        }
+
+        function extractHttpUrls(text, baseUrl) {
+            if (!text) {
+                return [];
+            }
+            const output = [];
+            const seen = new Set();
+            const matches = text.match(/https?:\/\/[^\s"'<>]+/ig) || [];
+            for (let i = 0; i < matches.length; i++) {
+                const candidate = matches[i].replace(/[),.;]+$/, "");
+                const normalized = normalizeUrl(candidate, baseUrl);
+                if (normalized && !seen.has(normalized)) {
+                    seen.add(normalized);
+                    output.push(normalized);
+                }
+            }
+            return output;
+        }
+
+        async function expandPlaylistCandidates(targetUrl) {
+            if (!isLikelyPlaylistUrl(targetUrl)) {
+                return [];
+            }
+            const text = await fetchText(targetUrl, WRAPPER_TIMEOUT_MS);
+            return extractHttpUrls(text, targetUrl);
+        }
+
+        async function fetchJsonp(jsonpUrl, timeoutMs) {
+            return await new Promise((resolve, reject) => {
+                const callbackName = "__easToolsJsonp" + Math.random().toString(36).slice(2);
+                const joiner = jsonpUrl.includes("?") ? "&" : "?";
+                const script = document.createElement("script");
+                let timeoutId = null;
+
+                const cleanup = () => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                    if (script.parentNode) {
+                        script.parentNode.removeChild(script);
+                    }
+                    try {
+                        delete window[callbackName];
+                    } catch {
+                        window[callbackName] = undefined;
+                    }
+                };
+
+                window[callbackName] = (data) => {
+                    cleanup();
+                    resolve(data);
+                };
+
+                script.async = true;
+                script.src = `${jsonpUrl}${joiner}callback=${callbackName}`;
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("JSONP request failed"));
+                };
+
+                timeoutId = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("JSONP request timed out"));
+                }, timeoutMs);
+
+                document.head.appendChild(script);
+            });
+        }
+
+        async function resolveTuneInCandidates(targetUrl) {
+            const stationByPath = targetUrl.match(/-s(\d+)(?:[/?#]|$)/i);
+            const stationById = targetUrl.match(/[?&]id=s?(\d+)(?:[&#]|$)/i);
+            const stationRaw = stationByPath ? stationByPath[1] : (stationById ? stationById[1] : null);
+            if (!stationRaw) {
+                return [];
+            }
+            const stationId = `s${stationRaw}`;
+            const candidates = [];
+            try {
+                const endpoint = `https://opml.radiotime.com/Tune.ashx?id=${encodeURIComponent(stationId)}&render=json`;
+                const payload = await fetchJsonp(endpoint, WRAPPER_TIMEOUT_MS);
+                if (payload && Array.isArray(payload.body)) {
+                    for (let i = 0; i < payload.body.length; i++) {
+                        const item = payload.body[i];
+                        if (!item || typeof item.url !== "string") {
+                            continue;
+                        }
+                        const normalized = normalizeUrl(item.url);
+                        if (normalized) {
+                            candidates.push(normalized);
+                        }
+                        if (item.url.includes("playerservices.streamtheworld.com/pls/")) {
+                            const direct = item.url.match(/\/pls\/([^/?#]+)\.pls/i);
+                            if (direct && direct[1]) {
+                                candidates.push(`https://playerservices.streamtheworld.com/api/livestream-redirect/${direct[1]}`);
+                            }
+                        }
+                    }
+                }
+            } catch { }
+
+            const output = [];
+            const seen = new Set();
+            for (let i = 0; i < candidates.length; i++) {
+                const normalized = normalizeUrl(candidates[i]);
+                if (normalized && !seen.has(normalized)) {
+                    seen.add(normalized);
+                    output.push(normalized);
+                }
+            }
+            return output;
+        }
+
+        function resolveBroadcastifyCandidates(targetUrl) {
+            const candidates = [];
+            const directMatch = targetUrl.match(/https:\/\/broadcastify\.cdnstream[^\s"'<>]+/i);
+            if (directMatch && directMatch[0]) {
+                candidates.push(directMatch[0]);
+            }
+            const feedMatch = targetUrl.match(/\/feed\/(\d+)(?:[/?#]|$)/i);
+            if (feedMatch && feedMatch[1]) {
+                const feedId = feedMatch[1];
+                for (let i = 1; i <= 6; i++) {
+                    candidates.push(`https://broadcastify.cdnstream${i}.com/${feedId}`);
+                }
+                candidates.push(`https://broadcastify.cdnstream.com/${feedId}`);
+            }
+            return candidates;
+        }
+
+        const normalizedInput = normalizeUrl((url || "").trim());
+        if (!normalizedInput) {
+            return false;
+        }
+
+        const seen = new Set();
+        const queue = [];
+        const skipProbe = new Set();
+        const expandedPlaylists = new Set();
+        const pushCandidate = (candidate) => {
+            const normalized = normalizeUrl(candidate);
+            if (!normalized || seen.has(normalized)) {
+                return;
+            }
+            seen.add(normalized);
+            queue.push(normalized);
+        };
+
+        pushCandidate(normalizedInput);
+
+        try {
+            const parsed = new URL(normalizedInput);
+            const host = parsed.hostname.toLowerCase();
+            if (host.includes("broadcastify.com")) {
+                skipProbe.add(normalizedInput);
+                const broadcastifyCandidates = resolveBroadcastifyCandidates(normalizedInput);
+                for (let i = 0; i < broadcastifyCandidates.length; i++) {
+                    pushCandidate(broadcastifyCandidates[i]);
+                }
+            } else if (host.includes("tunein.com")) {
+                skipProbe.add(normalizedInput);
+                const tuneInCandidates = await resolveTuneInCandidates(normalizedInput);
+                for (let i = 0; i < tuneInCandidates.length; i++) {
+                    pushCandidate(tuneInCandidates[i]);
+                }
+            }
+        } catch {
+            return false;
+        }
+
+        for (let i = 0; i < queue.length; i++) {
+            const candidate = queue[i];
+            if (skipProbe.has(candidate)) {
+                continue;
+            }
+            if (!expandedPlaylists.has(candidate) && isLikelyPlaylistUrl(candidate)) {
+                expandedPlaylists.add(candidate);
+                const playlistCandidates = await expandPlaylistCandidates(candidate);
+                for (let j = 0; j < playlistCandidates.length; j++) {
+                    pushCandidate(playlistCandidates[j]);
+                }
+            }
+            const ok = await canDecodeStreamAudio(candidate);
+            if (ok) {
+                window.streamUrl = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // END decode/alertinfo.js
     const decoderToggle = document.querySelector('[data-decoder-toggle]');
     if (decoderToggle) {
@@ -3358,6 +3932,12 @@ async function fetchAndStore() {
                         return;
                     }
                     window.streamUrl = trimmed;
+                }
+                const isStreamPlayable = await testAudioStream(window.streamUrl);
+                if (!isStreamPlayable) {
+                    alert("The provided stream URL is not playable by EAS Tools. This is not a problem with EAS Tools, it simply means the stream is not direct audio, and will remain unsupported. Please try a different stream URL.");
+                    window.streamUrl = null;
+                    return;
                 }
                 await runStreamDecoder(window.streamUrl);
             } else {
