@@ -1381,8 +1381,11 @@ async function fetchAndStore() {
         } catch (error) {
             console.warn("Error disconnecting original stream source:", error);
         }
-        attachStreamInputTap(source);
+        const promotedInputNode = createMicInputNode(source);
+        attachStreamInputTap(promotedInputNode);
         streamSource = source;
+        updateSampleRate(decodeContext.sampleRate);
+        updateSync(false);
         return true;
     }
 
@@ -1437,7 +1440,10 @@ async function fetchAndStore() {
             document.body.appendChild(audio);
             trackedStreamElements.add(audio);
             const source = decodeContext.createMediaElementSource(audio);
-            attachStreamInputTap(source);
+            const streamInputNode = createMicInputNode(source);
+            attachStreamInputTap(streamInputNode);
+            updateSampleRate(decodeContext.sampleRate);
+            updateSync(false);
             resetStreamRecovery();
             audio.addEventListener("playing", () => {
                 if (streamElement === audio) {
@@ -1461,9 +1467,7 @@ async function fetchAndStore() {
             streamElement = audio;
             streamSource = source;
             await audio.play();
-            if (isCapacitorIOS()) {
-                tryPromoteStreamSourceToCapture(audio);
-            }
+            tryPromoteStreamSourceToCapture(audio);
             document.querySelector('[data-decoder-record-toggle]').disabled = false;
             addStatus("STREAMING...", "green");
             setStreamToggleState(true);
