@@ -1817,20 +1817,28 @@ async function fetchAndStore() {
     var regionselect = document.getElementById("rgselect");
     var fipsinput = document.getElementById("fipsinput");
     var rawinput = document.getElementById("cheader");
+
     const EVENT_GROUP_KEYS = ["weather", "non_weather", "administrative", "national", "unimplemented", "nws_misc"];
+
     const WEATHER_EVENT_KEYWORDS = [
         "BLIZZARD", "COASTAL FLOOD", "DUST STORM", "EXTREME WIND", "FLASH FLOOD", "FLOOD",
         "HIGH WIND", "HURRICANE", "SEVERE THUNDERSTORM", "SEVERE WEATHER", "SNOW SQUALL",
         "SPECIAL MARINE", "SPECIAL WEATHER", "STORM SURGE", "TORNADO", "TROPICAL STORM", "TSUNAMI", "WINTER STORM"
     ];
+
     const NON_WEATHER_EVENT_KEYWORDS = [
         "AVALANCHE", "BLUE ALERT", "CHILD ABDUCTION", "CIVIL DANGER", "CIVIL EMERGENCY",
         "EARTHQUAKE", "IMMEDIATE EVACUATION", "FIRE WARNING", "HAZARDOUS MATERIALS",
         "LAW ENFORCEMENT", "LOCAL AREA EMERGENCY", "MISSING AND ENDANGERED",
         "911 TELEPHONE OUTAGE", "NUCLEAR PLANT", "RADIOLOGICAL HAZARD", "SHELTER IN PLACE", "VOLCANO WARNING"
     ];
-    const ADMIN_EVENT_KEYWORDS = ["ADMINISTRATIVE MESSAGE", "PRACTICE/DEMO", "REQUIRED WEEKLY TEST", "REQUIRED MONTHLY TEST"];
+
+    const ADMIN_EVENT_KEYWORDS = ["ADMINISTRATIVE MESSAGE", "PRACTICE/DEMO", "REQUIRED WEEKLY TEST", "REQUIRED MONTHLY TEST", "NETWORK MESSAGE"];
+
     const NATIONAL_EVENT_KEYWORDS = ["EMERGENCY ACTION", "NATIONAL ", "INFORMATION CENTER"];
+
+    const UNIMPLEMENTED_EVENT_KEYWORDS = ["INDUSTRIAL FIRE", "WILD FIRE WARNING", "DUST STORM WATCH", "CIVIL DANGER WATCH", "RADIOLOGICAL HAZARD WATCH", "HAZARDOUS MATERIALS WATCH", "EARTHQUAKE WATCH", "NUCLEAR PLANT TEST", "IMMEDIATE EVACUATION WARNING"];
+
     saveb.addEventListener("click", saveToWav);
 
     function hasAnyEventKeyword(labelUpper, keywords) {
@@ -1851,6 +1859,9 @@ async function fetchAndStore() {
     function getEventGroupKey(code, labelUpper) {
         if ((code || '').startsWith('TX') || labelUpper.includes('TRANSMITTER')) {
             return "nws_misc";
+        }
+        if (hasAnyEventKeyword(labelUpper, UNIMPLEMENTED_EVENT_KEYWORDS)) {
+            return "unimplemented";
         }
         if (hasAnyEventKeyword(labelUpper, NATIONAL_EVENT_KEYWORDS)) {
             return "national";

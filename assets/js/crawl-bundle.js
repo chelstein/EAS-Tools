@@ -111,6 +111,7 @@ async function initCrawlEditor() {
         'easyplus_gray_2plus': { topLeft: { x: 0, y: 820 } },
         'dasdec': { topLeft: { x: 9999, y: 9999 } }
     });
+    const DASDEC_RENDER_DIMENSIONS = Object.freeze({ width: 640, height: 480 });
     const ALLOWED_CRAWL_BACKGROUND_MODES = new Set(['solid', 'transparent', 'image', 'premade']);
 
     function normalizeCrawlBackgroundMode(value) {
@@ -3239,10 +3240,11 @@ async function initCrawlEditor() {
         } else {
             initialTopLeft = getPremadeTopLeft(descriptor.source);
         }
+
         if (descriptor.source === 'dasdec') {
             updateCrawlControlsFromAsset({
-                width: 640,
-                height: 480,
+                width: DASDEC_RENDER_DIMENSIONS.width,
+                height: DASDEC_RENDER_DIMENSIONS.height,
                 topLeft: initialTopLeft
             });
             return;
@@ -3516,10 +3518,10 @@ async function initCrawlEditor() {
                 }
             }
 
-            const fipscodes = dasdecFips.trim().replace(/ County/gi, '');
+            const fipscodes = dasdecFips.trim().replace(/ County/gi, '').replace("All of The United States", "United States");
 
             fullText = (
-                `${orgText} has issued ${eas.evntText.toUpperCase().replace(/EVACUATION/, 'EVACUATION NOTICE')} for the following counties or areas:\n${fipscodes}\nat ${eas.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}\non ${eas.startTime.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase()}\n Effective until ${eas.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${msgFrom}`
+                `${orgText} has issued ${eas.evntText.toUpperCase().replace(/EVACUATION/, 'EVACUATION NOTICE')} for the following counties or areas:\n${fipscodes}\nat ${eas.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}\non ${eas.startTime.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}\n Effective until ${eas.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${msgFrom}`
             );
         }
 
@@ -3533,18 +3535,19 @@ async function initCrawlEditor() {
 
     async function generateDasdecScreenImage(headerText) {
         const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
+        canvas.width = DASDEC_RENDER_DIMENSIONS.width;
+        canvas.height = DASDEC_RENDER_DIMENSIONS.height;
         const ctx = canvas.getContext('2d');
 
         ctx.fillStyle = '#4b4569';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#7a2f4c';
-        ctx.lineWidth = 10;
+        const verticalScale = canvas.height / 480;
+        ctx.lineWidth = Math.max(1, Math.round(10 * verticalScale));
         ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-        const fontSize = 28;
+        const fontSize = Math.max(8, Math.round(28 * verticalScale));
         const fontStyle = 'normal';
         const fontFamily = 'Luxi Mono';
         const sanitizedFontFamily = /[^a-zA-Z0-9_-]/.test(fontFamily)
@@ -3560,17 +3563,13 @@ async function initCrawlEditor() {
         ctx.textAlign = 'center';
 
         const lines = headerText.flat();
-        const lineHeight = fontSize + 4;
-        let y = 10;
+        const lineHeight = fontSize + Math.max(1, Math.round(4 * verticalScale));
+        let y = Math.max(0, Math.round(10 * verticalScale));
 
         const centerX = canvas.width / 2;
-        const horizontalScale = 0.75;
         lines.forEach((line) => {
             const textY = y + lineHeight / 2;
-            ctx.save();
-            ctx.scale(horizontalScale, 1);
-            ctx.fillText(line, centerX / horizontalScale, textY);
-            ctx.restore();
+            ctx.fillText(line, centerX, textY);
             y += lineHeight;
         });
 
@@ -3683,8 +3682,12 @@ async function initCrawlEditor() {
                             const repetitions = Math.max(1, Math.min(10, Math.round(rawRepetitionInput || 1)));
                             const totalDisplays = repetitions * renderedPages.length;
                             const baseMedia = renderedPages[0];
-                            const baseWidth = baseMedia ? (baseMedia.naturalWidth || baseMedia.width || 640) : 640;
-                            const baseHeight = baseMedia ? (baseMedia.naturalHeight || baseMedia.height || 480) : 480;
+                            const baseWidth = baseMedia
+                                ? (baseMedia.naturalWidth || baseMedia.width || DASDEC_RENDER_DIMENSIONS.width)
+                                : DASDEC_RENDER_DIMENSIONS.width;
+                            const baseHeight = baseMedia
+                                ? (baseMedia.naturalHeight || baseMedia.height || DASDEC_RENDER_DIMENSIONS.height)
+                                : DASDEC_RENDER_DIMENSIONS.height;
                             const rotatingImage = new Image();
                             const waitForImageLoad = (image) => new Promise((resolve) => {
                                 if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
