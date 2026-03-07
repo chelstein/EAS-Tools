@@ -134,7 +134,7 @@ async function fetchAndStore() {
         }
     }
 
-    const response = await fetch('assets/E2T/same-us.json');
+    const response = await fetch('assets/E2T/include/same-us.json');
     const data = await response.json();
     processSameCodes(data);
 }

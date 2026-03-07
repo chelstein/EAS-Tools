@@ -98,7 +98,7 @@ What you’ll see:
   * **Time until expiration**: "EXPIRED" if expired, or relative time of expiration
   * **Sender ID**: 8 character sender identifier (e.g., "KOAX/NWS")
   * **ENDEC Used**: The EAS ENDEC profile that the alert matches (e.g., "SAGE", "DIGITAL", "TRILITHIC", etc., best guess based on the header structure and content)
-  * **Human-Readable Alert Text**: The message associated with the alert, parsed using a JS port of [EAS2Text](https://github.com/Newton-Communications/E2T/)
+  * **Human-Readable Alert Text**: The message associated with the alert, parsed using the JS version of [E2T-NG](https://github.com/wagwan-piffting-blud/E2T-NG) (based on the Python E2T originally by Newton Communications) to convert the SAME header into readable text, including proper handling of timezones and ENDEC‑specific phrasing
   * **Open in SAME Encoder**: Button to copy the header into the Encoder tool form for easy regeneration of the same exact alert
   * **Color-coding** of the alert modal for quick visual identification of severity (e.g., red border for "Warning" or "Emergency" alerts that are not tests or demos)
 
@@ -174,7 +174,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 * gif.js: **gif.js** (bundled in `assets/js/gif.js`)
 * WebAssembly TTS voice: **piper.tts.js** (bundled in `assets/piper-tts/piper-tts-bundle.js` and `assets/piper-tts/`) and **nanotts.js** (bundled in `assets/js/nanotts.js` and `assets/nanotts/`)
 * CodeMirror: **CodeMirror** (bundled in `assets/js/codemirror.js` and related CSS files in `assets/css/`)
-* EAS2Text: **EAS2Text** JS port by wagwan-piffting-blud (originally by Newton Communications)
+* E2T-NG: **E2T-NG** JS by wagwan-piffting-blud (originally by Newton Communications)
 * SoX-EMScripten: **sox-emscripten** (bundled in `assets/js/sox.js` and `assets/js/sox.wasm`)
 * coi-serviceworker.js: **coi-serviceworker.js** (bundled in `coi-serviceworker.js`, MUST be hosted at root of site to work!)
 * canvas-capture.js: **canvas-capture.js** (bundled in `assets/js/canvas-capture.js`)
@@ -192,6 +192,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
   * [gif.js](https://github.com/jnordberg/gif.js)
   * [codemirror.js](https://codemirror.net/)
   * [EAS2Text](https://github.com/Newton-Communications/E2T/)
+  * [E2T-NG](https://github.com/wagwan-piffting-blud/E2T-NG)
   * [sox-emscripten](https://github.com/rameshvarun/sox-emscripten)
   * [coi-serviceworker.js](https://github.com/gzuidhof/coi-serviceworker)
   * [canvas-capture.js](https://github.com/amandaghassaei/canvas-capture)

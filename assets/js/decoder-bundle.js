@@ -9,9 +9,7 @@ import {
     USES_DARK_THEME
 } from './common-functions.js';
 
-window.EAS2TextModulePromise = window.EAS2TextModulePromise || new Promise((resolve) => {
-    window.addEventListener('EAS2TextModuleReady', (event) => resolve(event.detail), { once: true });
-});
+import { E2T } from '../E2T/EAS2Text-NG.js';
 
 async function fetchAndStore() {
     function processSameCodes(usCodes, caCodes) {
@@ -169,8 +167,8 @@ async function fetchAndStore() {
         }
     }
 
-    const response = await fetch('assets/E2T/same-us.json');
-    const response2 = await fetch('assets/E2T/same-ca.json');
+    const response = await fetch('assets/E2T/include/same-us.json');
+    const response2 = await fetch('assets/E2T/include/same-ca.json');
     const dataUS = await response.json();
     const dataCA = await response2.json();
     processSameCodes(dataUS, dataCA);
@@ -938,10 +936,13 @@ async function fetchAndStore() {
     let meterHiddenBySupport = false;
     let loopbackDest = null;
     let loopbackSourceNode = null;
+    let streamMonitorGain = null;
+    let streamMonitorSourceNode = null;
     const STREAM_RECOVERY_DELAY = 2000;
     const STREAM_RECOVERY_MAX_ATTEMPTS = 5;
     let streamRecoveryTimer = null;
     let streamRecoveryAttempts = 0;
+    let streamHasStartedPlayback = false;
     let recordingNode = null;
     let recordingSinkGain = null;
     let recordingSourceNode = null;
@@ -1090,14 +1091,22 @@ async function fetchAndStore() {
     const MOBILE_MIC_GAIN = 7; // works well on native webview on android, unsure about iOS
     const shouldApplyMobileInputGain = typeof navigator !== "undefined" && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || "");
 
-    function createMicInputNode(sourceNode) {
-        if (!shouldApplyMobileInputGain) {
+    function createInputNode(sourceNode, applyMobileGain) {
+        if (!applyMobileGain) {
             return sourceNode;
         }
         const gainNode = decodeContext.createGain();
         gainNode.gain.value = MOBILE_MIC_GAIN;
         sourceNode.connect(gainNode);
         return gainNode;
+    }
+
+    function createMicInputNode(sourceNode) {
+        return createInputNode(sourceNode, shouldApplyMobileInputGain);
+    }
+
+    function createStreamInputNode(sourceNode) {
+        return createInputNode(sourceNode, false);
     }
 
     const sel = document.querySelector("#device");
@@ -1150,18 +1159,11 @@ async function fetchAndStore() {
             clearInterval(streamAutoGainTimer);
             streamAutoGainTimer = 0;
         }
-        if (streamAutoGainSource && streamAutoGainNode) {
+        if (streamAutoGainSource) {
             try {
-                streamAutoGainSource.disconnect(streamAutoGainNode);
+                streamAutoGainSource.disconnect();
             } catch (error) {
-                console.warn("Error disconnecting stream source from auto gain:", error);
-            }
-        }
-        if (streamAutoGainSource && streamAutoGainAnalyser) {
-            try {
-                streamAutoGainSource.disconnect(streamAutoGainAnalyser);
-            } catch (error) {
-                console.warn("Error disconnecting stream source from auto gain analyser:", error);
+                console.warn("Error disconnecting stream source from auto gain path:", error);
             }
         }
         if (streamAutoGainNode) {
@@ -1286,9 +1288,9 @@ async function fetchAndStore() {
     }
 
     function detachInputTap() {
-        if (inputTapSource && inputTapNode) {
+        if (inputTapSource) {
             try {
-                inputTapSource.disconnect(inputTapNode);
+                inputTapSource.disconnect();
             } catch (error) {
                 console.warn("Error disconnecting source from input tap:", error);
             }
@@ -1303,6 +1305,7 @@ async function fetchAndStore() {
         inputTapSource = null;
         inputTapNode = null;
         meterInputSource = null;
+        disconnectStreamMonitorSource();
     }
 
     function teardownStreamElement(audioElement) {
@@ -1381,7 +1384,7 @@ async function fetchAndStore() {
         } catch (error) {
             console.warn("Error disconnecting original stream source:", error);
         }
-        const promotedInputNode = createMicInputNode(source);
+        const promotedInputNode = createStreamInputNode(source);
         attachStreamInputTap(promotedInputNode);
         streamSource = source;
         updateSampleRate(decodeContext.sampleRate);
@@ -1419,6 +1422,7 @@ async function fetchAndStore() {
         }
 
         setMeterSupported(true);
+        streamHasStartedPlayback = false;
 
         try {
             const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
@@ -1440,19 +1444,20 @@ async function fetchAndStore() {
             document.body.appendChild(audio);
             trackedStreamElements.add(audio);
             const source = decodeContext.createMediaElementSource(audio);
-            const streamInputNode = createMicInputNode(source);
+            const streamInputNode = createStreamInputNode(source);
             attachStreamInputTap(streamInputNode);
             updateSampleRate(decodeContext.sampleRate);
             updateSync(false);
             resetStreamRecovery();
             audio.addEventListener("playing", () => {
                 if (streamElement === audio) {
+                    streamHasStartedPlayback = true;
                     resetStreamRecovery();
                     addStatus("STREAMING...", "green");
                 }
             });
             audio.addEventListener("error", (event) => {
-                if (streamElement !== audio) {
+                if (streamElement !== audio || !streamToggleActive) {
                     return;
                 }
                 const mediaError = audio.error;
@@ -1466,11 +1471,13 @@ async function fetchAndStore() {
             });
             streamElement = audio;
             streamSource = source;
-            await audio.play();
-            tryPromoteStreamSourceToCapture(audio);
+            setStreamToggleState(true);
+            await playStreamElementWithFallback(audio);
+            if (isCapacitorIOS()) {
+                tryPromoteStreamSourceToCapture(audio);
+            }
             document.querySelector('[data-decoder-record-toggle]').disabled = false;
             addStatus("STREAMING...", "green");
-            setStreamToggleState(true);
             refreshLoopback();
             return audio;
         } catch (error) {
@@ -1493,6 +1500,7 @@ async function fetchAndStore() {
             addStatus("STREAM ACCESS FAILED!", "red");
             window.streamUrl = null;
             setStreamToggleState(false);
+            streamHasStartedPlayback = false;
             return null;
         }
     }
@@ -1512,6 +1520,10 @@ async function fetchAndStore() {
             stopRecording();
         }
         const activeStreamSource = streamSource;
+        stopStreamAutoGain();
+        if (loopbackSourceNode) {
+            stopLoopback();
+        }
         if (activeStreamSource) {
             try {
                 activeStreamSource.disconnect();
@@ -1520,12 +1532,8 @@ async function fetchAndStore() {
             }
             streamSource = null;
         }
-        stopStreamAutoGain();
         detachInputTap();
         stopMeter();
-        if (loopbackSourceNode) {
-            stopLoopback();
-        }
         const teardownTargets = new Set();
         if (streamElement) {
             teardownTargets.add(streamElement);
@@ -1551,6 +1559,7 @@ async function fetchAndStore() {
         trackedStreamElements.forEach((audio) => teardownTargets.add(audio));
         teardownTargets.forEach(teardownStreamElement);
         trackedStreamElements.clear();
+        streamHasStartedPlayback = false;
         decodeContext.suspend();
         document.querySelector('[data-decoder-toggle]').disabled = false;
         document.querySelector('[data-decoder-load]').disabled = false;
@@ -1653,7 +1662,7 @@ async function fetchAndStore() {
         return true;
     }
 
-    async function stopRecording() {
+    async function stopRecording(shouldPatchBoundaries = false) {
         if (!window.isRecording) {
             return false;
         }
@@ -1682,10 +1691,14 @@ async function fetchAndStore() {
             recordingLength = 0;
             return true;
         }
-        const pcmData = mergeRecordingChunks(recordingChunks, recordingLength);
+        let pcmData = mergeRecordingChunks(recordingChunks, recordingLength);
         recordingChunks = [];
         recordingLength = 0;
-        const wavBuffer = encodeWavBuffer(pcmData, recordingSampleRate || sampleRate);
+        const outputSampleRate = recordingSampleRate || sampleRate;
+        if (shouldPatchBoundaries) {
+            pcmData = patchAutoRecordingPcmBoundaries(pcmData, outputSampleRate);
+        }
+        const wavBuffer = encodeWavBuffer(pcmData, outputSampleRate);
         recordingSampleRate = 0;
         triggerRecordingDownload(wavBuffer);
         resetAutoRecordingState();
@@ -1735,12 +1748,12 @@ async function fetchAndStore() {
         });
     }
 
-    function stopAutoRecording() {
+    function stopAutoRecording(shouldPatchBoundaries = false) {
         const wasEngaged = autoRecordingEngaged;
         resetAutoRecordingState();
         autoRecordingTriggered = false;
         if (wasEngaged && window.isRecording) {
-            stopRecording();
+            stopRecording(shouldPatchBoundaries);
         }
     }
 
@@ -1907,6 +1920,9 @@ async function fetchAndStore() {
             stopRecording();
         }
         if (!micSource) {
+            if (loopbackSourceNode) {
+                stopLoopback();
+            }
             detachInputTap();
             stopMeter();
             decodeContext.suspend();
@@ -1920,11 +1936,11 @@ async function fetchAndStore() {
             console.warn("Error disconnecting microphone source:", error);
         }
         micSource = null;
-        detachInputTap();
-        stopMeter();
         if (loopbackSourceNode) {
             stopLoopback();
         }
+        detachInputTap();
+        stopMeter();
         decodeContext.suspend();
         const streamToggleButton = document.querySelector('[data-decoder-stream-toggle]');
         if (streamToggleButton) {
@@ -1940,17 +1956,98 @@ async function fetchAndStore() {
         return !!(loopbackToggle && loopbackToggle.checked);
     }
 
-    function syncStreamElementLoopbackState() {
-        if (!streamElement) {
+    function ensureStreamMonitorGain() {
+        if (streamMonitorGain) {
+            return streamMonitorGain;
+        }
+        streamMonitorGain = decodeContext.createGain();
+        streamMonitorGain.gain.value = 0;
+        streamMonitorGain.connect(decodeContext.destination);
+        return streamMonitorGain;
+    }
+
+    function connectStreamMonitorSource(sourceNode = inputTapNode) {
+        if (!sourceNode) {
             return;
         }
-        streamElement.muted = false;
-        streamElement.volume = 1;
+        const monitorGain = ensureStreamMonitorGain();
+        if (streamMonitorSourceNode === sourceNode) {
+            return;
+        }
+        if (streamMonitorSourceNode) {
+            try {
+                streamMonitorSourceNode.disconnect(monitorGain);
+            } catch (error) {
+                console.warn("Error disconnecting previous stream monitor source:", error);
+            }
+        }
+        try {
+            sourceNode.connect(monitorGain);
+            streamMonitorSourceNode = sourceNode;
+        } catch (error) {
+            console.warn("Unable to connect stream monitor source:", error);
+        }
+    }
+
+    function disconnectStreamMonitorSource() {
+        if (streamMonitorSourceNode && streamMonitorGain) {
+            try {
+                streamMonitorSourceNode.disconnect(streamMonitorGain);
+            } catch (error) {
+                console.warn("Error disconnecting stream monitor source:", error);
+            }
+        }
+        streamMonitorSourceNode = null;
+        if (streamMonitorGain) {
+            streamMonitorGain.gain.setValueAtTime(0, decodeContext.currentTime);
+        }
+    }
+
+    function setStreamMonitorEnabled(enabled) {
+        if (streamElement && !micSource) {
+            connectStreamMonitorSource(inputTapNode);
+            if (streamMonitorGain) {
+                streamMonitorGain.gain.setValueAtTime(enabled ? 1 : 0, decodeContext.currentTime);
+            }
+            return;
+        }
+        disconnectStreamMonitorSource();
+    }
+
+    function syncStreamElementLoopbackState(targetElement = streamElement) {
+        if (!targetElement) {
+            return;
+        }
+        if (streamElement && !micSource) {
+            // In this WebView path, lowering stream volume can starve decode input.
+            targetElement.muted = false;
+            targetElement.volume = 1;
+            if (targetElement.paused && streamToggleActive && typeof targetElement.play === "function") {
+                const playPromise = targetElement.play();
+                if (playPromise && typeof playPromise.catch === "function") {
+                    playPromise.catch(() => { });
+                }
+            }
+            return;
+        }
+        targetElement.muted = false;
+        targetElement.volume = 1;
     }
 
     function refreshLoopback() {
         syncStreamElementLoopbackState();
+        if (streamElement && !micSource) {
+            if (loopbackSourceNode) {
+                stopLoopback();
+            }
+            setStreamMonitorEnabled(isLoopbackEnabled());
+            return;
+        }
+        setStreamMonitorEnabled(false);
         if (!isLoopbackEnabled()) {
+            if (loopbackSourceNode) {
+                stopLoopback();
+            }
             return;
         }
         startLoopback();
@@ -2012,13 +2109,49 @@ async function fetchAndStore() {
         streamRecoveryAttempts = 0;
     }
 
+    function isAutoplayBlockError(error) {
+        const name = String(error?.name || "");
+        if (name === "NotAllowedError") {
+            return true;
+        }
+        const message = String(error?.message || "").toLowerCase();
+        return message.includes("notallowederror")
+            || message.includes("gesture")
+            || message.includes("user activation")
+            || message.includes("autoplay");
+    }
+
+    async function playStreamElementWithFallback(audioElement) {
+        if (!audioElement || typeof audioElement.play !== "function") {
+            return;
+        }
+        syncStreamElementLoopbackState(audioElement);
+        try {
+            await audioElement.play();
+            return;
+        } catch (error) {
+            if (!isAutoplayBlockError(error)) {
+                throw error;
+            }
+            audioElement.muted = true;
+            audioElement.volume = 0;
+            await audioElement.play();
+            syncStreamElementLoopbackState(audioElement);
+        }
+    }
+
     function isRecoverableStreamError(mediaError) {
         if (!mediaError) {
             return true;
         }
         const abortedCode = typeof MediaError !== "undefined" && MediaError.MEDIA_ERR_ABORTED ? MediaError.MEDIA_ERR_ABORTED : 1;
         const networkCode = typeof MediaError !== "undefined" && MediaError.MEDIA_ERR_NETWORK ? MediaError.MEDIA_ERR_NETWORK : 2;
-        return mediaError.code === abortedCode || mediaError.code === networkCode;
+        if (mediaError.code === abortedCode || mediaError.code === networkCode) {
+            return true;
+        }
+        const decodeCode = typeof MediaError !== "undefined" && MediaError.MEDIA_ERR_DECODE ? MediaError.MEDIA_ERR_DECODE : 3;
+        const srcNotSupportedCode = typeof MediaError !== "undefined" && MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ? MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED : 4;
+        return streamHasStartedPlayback && (mediaError.code === decodeCode || mediaError.code === srcNotSupportedCode);
     }
 
     function scheduleStreamRecovery(audioElement) {
@@ -2039,7 +2172,7 @@ async function fetchAndStore() {
             }
             try {
                 audioElement.load();
-                await audioElement.play();
+                await playStreamElementWithFallback(audioElement);
                 addStatus("STREAMING...", "green");
                 resetStreamRecovery();
             } catch (retryError) {
@@ -2160,6 +2293,13 @@ async function fetchAndStore() {
             return next;
         }
         return product;
+    }
+
+    function clearSameProductState() {
+        activeSameProduct = null;
+        sameProductSequence = 0;
+        sameProductResults.clear();
+        eomCount = 0;
     }
 
     function diffCounterObjects(current, baseline) {
@@ -3180,6 +3320,178 @@ async function fetchAndStore() {
         prevbit = bit;
     }
 
+    function samplesFromMsAtRate(ms, rate) {
+        return Math.max(0, Math.round(rate * (ms / 1000)));
+    }
+
+    function synthesizeAfskTxStrings(txStrings, rate, betweenSilenceSamples = 0, finalSilenceSamples = 0) {
+        if (!Array.isArray(txStrings) || !txStrings.length || !Number.isFinite(rate) || rate <= 0) {
+            return new Float32Array(0);
+        }
+        const validTxStrings = txStrings.filter((s) => typeof s === "string" && s.length > 0);
+        if (!validTxStrings.length) {
+            return new Float32Array(0);
+        }
+
+        const bitSamples = Math.max(1, Math.ceil(rate * 0.00192));
+        const amplitude = 0.79;
+        const markStep = (2 * Math.PI * 2083.3) / rate;
+        const spaceStep = (2 * Math.PI * 1562.5) / rate;
+        const markBit = new Float32Array(bitSamples);
+        const spaceBit = new Float32Array(bitSamples);
+        for (let i = 0; i < bitSamples; i++) {
+            markBit[i] = Math.sin(i * markStep) * amplitude;
+            spaceBit[i] = Math.sin(i * spaceStep) * amplitude;
+        }
+
+        let totalSamples = (finalSilenceSamples > 0) ? finalSilenceSamples : 0;
+        for (let i = 0; i < validTxStrings.length; i++) {
+            totalSamples += validTxStrings[i].length * 8 * bitSamples;
+        }
+        if (betweenSilenceSamples > 0 && validTxStrings.length > 1) {
+            totalSamples += betweenSilenceSamples * (validTxStrings.length - 1);
+        }
+        if (!totalSamples) {
+            return new Float32Array(0);
+        }
+
+        const out = new Float32Array(totalSamples);
+        let offset = 0;
+        for (let i = 0; i < validTxStrings.length; i++) {
+            const tx = validTxStrings[i];
+            for (let charIndex = 0; charIndex < tx.length; charIndex++) {
+                const byteValue = tx.charCodeAt(charIndex) & 0xFF;
+                for (let bitIndex = 0; bitIndex < 8; bitIndex++) {
+                    out.set(((byteValue >> bitIndex) & 1) ? markBit : spaceBit, offset);
+                    offset += bitSamples;
+                }
+            }
+
+            const isLast = (i === validTxStrings.length - 1);
+            if (!isLast && betweenSilenceSamples > 0) {
+                offset += betweenSilenceSamples;
+            } else if (isLast && finalSilenceSamples > 0) {
+                offset += finalSilenceSamples;
+            }
+        }
+
+        return out;
+    }
+
+    function getAutoRecordingHeaderForPatch() {
+        const activeHeader = (activeSameProduct && typeof activeSameProduct.headerKey === "string")
+            ? activeSameProduct.headerKey.trim().toUpperCase()
+            : "";
+        if (activeHeader.startsWith("ZCZC-")) {
+            return activeHeader;
+        }
+
+        const liveHeader = (typeof currentMsg === "string") ? currentMsg.trim().toUpperCase() : "";
+        if (liveHeader.startsWith("ZCZC-")) {
+            return liveHeader;
+        }
+
+        return "";
+    }
+
+    function trimFirstCapturedHeaderBurst(pcmData, rate, expectedGapSamples) {
+        if (!(pcmData instanceof Float32Array) || !pcmData.length) {
+            return pcmData;
+        }
+        const safeRate = (Number.isFinite(rate) && rate > 0) ? rate : sampleRate;
+        const minGapSamples = Math.max(1, Math.floor(expectedGapSamples * 0.45));
+        if (minGapSamples <= 0 || pcmData.length <= minGapSamples) {
+            return pcmData;
+        }
+
+        let peak = 0;
+        for (let i = 0; i < pcmData.length; i++) {
+            const v = Math.abs(pcmData[i]);
+            if (v > peak) {
+                peak = v;
+            }
+        }
+        if (!peak) {
+            return pcmData;
+        }
+
+        const silenceThreshold = Math.max(0.005, Math.min(0.08, peak * 0.16));
+        const windowSize = Math.max(1, Math.round(safeRate * 0.004));
+        const consecutiveWindows = Math.max(1, Math.ceil(minGapSamples / windowSize));
+        const maxScanSample = Math.min(pcmData.length - windowSize, Math.round(safeRate * 8));
+
+        let lowWindowRun = 0;
+        for (let start = 0; start <= maxScanSample; start += windowSize) {
+            let sumAbs = 0;
+            const end = Math.min(start + windowSize, pcmData.length);
+            for (let i = start; i < end; i++) {
+                sumAbs += Math.abs(pcmData[i]);
+            }
+            const avgAbs = sumAbs / (end - start);
+            if (avgAbs <= silenceThreshold) {
+                lowWindowRun++;
+                if (lowWindowRun >= consecutiveWindows) {
+                    const gapEndSample = Math.min(pcmData.length, end);
+                    if (gapEndSample > 0 && gapEndSample < pcmData.length) {
+                        return pcmData.subarray(gapEndSample);
+                    }
+                    break;
+                }
+            } else {
+                lowWindowRun = 0;
+            }
+        }
+
+        return pcmData;
+    }
+
+    function patchAutoRecordingPcmBoundaries(pcmData, rate) {
+        if (!(pcmData instanceof Float32Array) || !pcmData.length) {
+            return pcmData;
+        }
+
+        const safeRate = (Number.isFinite(rate) && rate > 0) ? rate : sampleRate;
+        const mode = getOverallEndecMode();
+        const profile = getEndecModeProfile(mode);
+        const betweenGapSamples = samplesFromMsAtRate((profile && Number.isFinite(profile.betweenGapMs)) ? profile.betweenGapMs : 1000, safeRate);
+        const oneSecondSamples = samplesFromMsAtRate(1000, safeRate);
+
+        let headerLeadIn = new Float32Array(0);
+        const headerForPatch = getAutoRecordingHeaderForPatch();
+        let trimmedPcmData = pcmData;
+        if (hasCompleteSameHeaderTail(headerForPatch)) {
+            const cleanHeader = stripLeadingPreamble16(headerForPatch);
+            const headerBurst = SAME_PREAMBLE + cleanHeader;
+            headerLeadIn = synthesizeAfskTxStrings([headerBurst], safeRate, 0, oneSecondSamples);
+            trimmedPcmData = trimFirstCapturedHeaderBurst(pcmData, safeRate, betweenGapSamples);
+        }
+
+        const eomBurst = SAME_PREAMBLE + "NNNN";
+        let eomTail = synthesizeAfskTxStrings([eomBurst, eomBurst], safeRate, betweenGapSamples, oneSecondSamples);
+        if (eomTail.length && betweenGapSamples > 0) {
+            const withLeadGap = new Float32Array(betweenGapSamples + eomTail.length);
+            withLeadGap.set(eomTail, betweenGapSamples);
+            eomTail = withLeadGap;
+        }
+
+        if (!headerLeadIn.length && !eomTail.length) {
+            return trimmedPcmData;
+        }
+
+        const merged = new Float32Array(headerLeadIn.length + trimmedPcmData.length + eomTail.length);
+        let offset = 0;
+        if (headerLeadIn.length) {
+            merged.set(headerLeadIn, offset);
+            offset += headerLeadIn.length;
+        }
+        merged.set(trimmedPcmData, offset);
+        offset += trimmedPcmData.length;
+        if (eomTail.length) {
+            merged.set(eomTail, offset);
+        }
+        return merged;
+    }
+
     function handleAutoRecordingTriggers() {
         if (!autoRecordingTriggered && currentMsg.length >= 4) {
             const prefix = currentMsg.slice(0, 4).toUpperCase();
@@ -3191,7 +3503,7 @@ async function fetchAndStore() {
         if (autoRecordingTriggered && currentMsg.length >= 4) {
             const tailWindow = currentMsg.slice(-8).toUpperCase();
             if (tailWindow.includes("NNNN")) {
-                stopAutoRecording();
+                stopAutoRecording(true);
             }
         }
     }
@@ -3374,11 +3686,6 @@ async function fetchAndStore() {
 
     async function showAlertInfo(header) {
         const requestToken = ++modalRequestToken;
-        const e2tReady = window.EAS2TextModulePromise;
-        const resourcePromise = e2tReady.then(({ loadAllResources }) =>
-            loadAllResources({ fallbackBase: 'assets/E2T/' })
-        );
-        const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
         if (requestToken !== modalRequestToken) {
             return;
         }
@@ -3402,16 +3709,11 @@ async function fetchAndStore() {
             }
         }
         const cleanHeader = header.rawHeader.trim().replace(regex, 'ZCZC-$1-$2-$3+$4-$5-$6-');
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        let eas = await EAS2Text.fromUSMessage(cleanHeader, { resources, mode: 'NONE', useLocaleTimezone: true }).catch((e) => {
-            console.error("Error parsing EAS to text:", e);
-            return null;
-        });
-        if (!eas) {
-            eas = { EASText: "Error generating EAS text." };
-        }
+        let eas = E2T(cleanHeader, null, false, userTimezone);
         const encodedHeader = encodeURIComponent(header.rawHeader);
-        const easText = eas.EASText.replace(/\n/g, "<br>");
+        const easText = eas.replace(/\n/g, "<br>");
         const openInEncoderButton = `<button id="openInEncoderButton${requestToken}">Open in SAME Encoder</button>`;
 
         if (easText.match(/(Warning|Emergency|Immediate)/i) && !easText.match(/(Demo)/i)) {
@@ -3537,10 +3839,6 @@ async function fetchAndStore() {
         return infoElem;
     }
 
-    function clearInfo() {
-        infoContainer.innerHTML = "";
-    }
-
     function showModal(parsedHeader) {
         modalContainer.style.display = "flex";
         showAlertInfo(parsedHeader);
@@ -3557,7 +3855,7 @@ async function fetchAndStore() {
             }
             try {
                 const parsed = base ? new URL(input, base) : new URL(input);
-                if (parsed.protocol !== "https:") {
+                if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
                     return null;
                 }
                 return parsed.href;
@@ -3931,8 +4229,8 @@ async function fetchAndStore() {
                         return;
                     }
                     const trimmed = streamUrl.trim();
-                    if (!trimmed.match(/^https:\/\/.+/i)) {
-                        alert("Invalid URL. Please enter a valid https://... URL.");
+                    if (!trimmed.match(/^https?:\/\/.+/i)) {
+                        alert("Invalid URL. Please enter a valid http:// or https://... URL.");
                         return;
                     }
                     window.streamUrl = trimmed;
@@ -3956,6 +4254,7 @@ async function fetchAndStore() {
             const output = document.getElementById('output');
             if (output) {
                 output.innerHTML = "";
+                clearSameProductState();
                 decoderClear.disabled = true;
             }
         });
@@ -4043,11 +4342,7 @@ async function fetchAndStore() {
                     stopIOSLoopback();
                 }
             } else {
-                if (this.checked) {
-                    startLoopback();
-                } else {
-                    stopLoopback();
-                }
+                refreshLoopback();
             }
         });
     }

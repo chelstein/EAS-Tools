@@ -1,4 +1,5 @@
 import { saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME, USES_DARK_THEME } from './common-functions.js';
+import { E2T, allEndecModes } from '../E2T/EAS2Text-NG.js';
 
 async function initCrawlEditor() {
     let crawlTextEditor = null;
@@ -3043,26 +3044,19 @@ async function initCrawlEditor() {
         }
     }
 
-    const e2tReady = window.EAS2TextModulePromise;
-    const resourcePromise = e2tReady.then(({ loadAllResources }) =>
-        loadAllResources({ fallbackBase: 'assets/E2T/' })
-    );
-
     async function header_to_readable(rawHeader, tzLocal, tzName, endecMode) {
         const regex = window.EASREGEX;
 
         if (!regex.test(rawHeader.trim())) return null;
 
-        const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
-
         if (tzLocal && tzName == '') {
-            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', useLocaleTimezone: tzLocal, mode: endecMode });
-            return eas.EASText;
+            const eas = E2T(rawHeader, endecMode, false, tzLocal);
+            return eas;
         }
 
         else {
-            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: tzName, mode: endecMode });
-            return eas.EASText;
+            const eas = E2T(rawHeader, endecMode, false, tzName);
+            return eas;
         }
     }
 
@@ -3483,46 +3477,28 @@ async function initCrawlEditor() {
         let fullText = '';
 
         if (e2tMode === true) {
-            const [{ EAS2Text }, resources] = await Promise.all([e2tReady, resourcePromise]);
-            const eas = await EAS2Text.fromUSMessage(rawHeader, { resources, mode: 'NONE', timeZoneName: document.getElementById('crawlUseOverrideTZ').value, useLocaleTimezone: document.getElementById('crawlUseLocalTZ').checked });
+            const overrideTzInput = document.getElementById('crawlUseOverrideTZ');
+            const timezoneOverride = overrideTzInput && overrideTzInput.value ? overrideTzInput.value : null;
+            const formatted = E2T(rawHeader, 'DAS2PLUS', false, timezoneOverride);
+            const formattedText = typeof formatted === 'string' ? formatted : String(formatted ?? '');
+            const normalized = formattedText.replace(/\s+/g, ' ').trim();
+            const dasdecMatch = normalized.match(/^(.*?)\s+has issued\s+(.*?)\s+for the following counties or areas:\s*([\s\S]*?)\s+at\s+(\d{1,2}:\d{2}\s*[AP]M)\s+on\s+([A-Za-z]{3}\s+\d{1,2},\s+\d{4})\s+Effective until\s+(\d{1,2}:\d{2}\s*[AP]M)(?:\s+[A-Za-z]{3}\s+\d{1,2},\s+\d{4})?\.\s*Message from\s+([^.\n]+)\.?$/i);
 
-            const orgText = eas.orgText.replace(/An EAS Participant/gi, 'A broadcast or cable system').replace(/Civil Authority/, 'civil authority').replace(/A Primary Entry Point System/gi, 'THE PRIMARY ENTRY POINT EAS SYSTEM');
-            const msgFrom = eas.callsign ? `.\nMessage from ${eas.callsign}.\n` : '.\n';
+            if (dasdecMatch) {
+                const originator = (dasdecMatch[1] || '').trim().toUpperCase();
+                const rawEvent = (dasdecMatch[2] || '').trim().replace(/^(?:A|AN)\s+/i, '');
+                const event = rawEvent.toUpperCase();
+                const article = /^[AEIOU]/.test(event) ? 'AN' : 'A';
+                const fips = (dasdecMatch[3] || '').trim().replace(/\s*;\s*/g, '; ').replace(/\s+/g, ' ');
+                const startTime = (dasdecMatch[4] || '').trim().toUpperCase();
+                const date = (dasdecMatch[5] || '').trim().toUpperCase();
+                const endTime = (dasdecMatch[6] || '').trim().toUpperCase();
+                const sender = (dasdecMatch[7] || '').trim().toUpperCase();
 
-            const fipsParts = [...eas.FIPSText];
-            let dasdecFips = '';
-
-            for (let i = 0; i < fipsParts.length; i++) {
-                const part = fipsParts[i];
-                const stateMatch = part.match(/\b([A-Z]{2})$/);
-                let countyName = part;
-                let stateAbbr = null;
-
-                if (stateMatch) {
-                    stateAbbr = stateMatch[1];
-                    countyName = part.slice(0, part.length - 4).trim();
-                }
-
-                dasdecFips += countyName;
-
-                const nextPart = fipsParts[i + 1];
-                const nextStateMatch = nextPart ? nextPart.match(/\b([A-Z]{2})$/) : null;
-                const nextStateAbbr = nextStateMatch ? nextStateMatch[1] : null;
-
-                if (stateAbbr && nextStateAbbr !== stateAbbr) {
-                    dasdecFips += `, ${stateAbbr};\n`;
-                } else if (stateAbbr && !nextStateAbbr) {
-                    dasdecFips += `, ${stateAbbr};\n`;
-                } else {
-                    dasdecFips += ';\n';
-                }
+                fullText = `${originator}\nhas issued ${article} ${event}\nfor the following counties or areas:\n${fips}\nat ${startTime}\non ${date}\nEffective until ${endTime}.\nMessage from ${sender}.`;
+            } else {
+                fullText = formattedText;
             }
-
-            const fipscodes = dasdecFips.trim().replace(/ County/gi, '').replace("All of The United States", "United States");
-
-            fullText = (
-                `${orgText} has issued ${eas.evntText.toUpperCase().replace(/EVACUATION/, 'EVACUATION NOTICE')} for the following counties or areas:\n${fipscodes}\nat ${eas.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}\non ${eas.startTime.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}\n Effective until ${eas.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${msgFrom}`
-            );
         }
 
         else {
@@ -3539,7 +3515,7 @@ async function initCrawlEditor() {
         canvas.height = DASDEC_RENDER_DIMENSIONS.height;
         const ctx = canvas.getContext('2d');
 
-        ctx.fillStyle = '#4b4569';
+        ctx.fillStyle = '#2e3251';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#7a2f4c';
@@ -3970,15 +3946,7 @@ async function initCrawlEditor() {
             let readable = await header_to_readable(rawHeader, useLocalTZ, useOverrideTZ, endecMode);
 
             if (readable !== null) {
-                if (document.getElementById('endecMode').value === "EASY") {
-                    readable = readable.replace(/for All of The United States/gi, 'for the United States').replace(/a national emergency/gi, 'an Emergency').replace(/Washington DC/gi, 'District of Columbia DC');
-
-                    generator.setText(readable);
-                }
-
-                else {
-                    generator.setText(readable);
-                }
+                generator.setText(readable);
             }
             else {
                 alert('Invalid EAS Header Format. Please check your input.');
@@ -4607,6 +4575,19 @@ async function initCrawlEditor() {
     if (crawlFontFamilyInput) {
         crawlFontFamilyInput.addEventListener('change', syncCustomFontUploadVisibility);
         ensureFontsReady().then(syncCustomFontUploadVisibility);
+    }
+
+    const endecModeSelect = document.getElementById('endecMode');
+    if (endecModeSelect) {
+        const currentValue = endecModeSelect.value;
+        const modes = allEndecModes();
+        endecModeSelect.length = 0;
+        endecModeSelect.add(new Option('None (Default)', ''));
+        for (let i = 0; i < modes.length; i++) {
+            const mode = modes[i];
+            endecModeSelect.add(new Option(mode, mode));
+        }
+        endecModeSelect.value = modes.includes(currentValue) ? currentValue : '';
     }
 
     document.getElementById('crawlBackgroundPremadeSelect').addEventListener('change', (event) => {

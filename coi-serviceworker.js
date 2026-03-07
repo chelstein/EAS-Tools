@@ -32,9 +32,6 @@ if (typeof window === 'undefined') {
         } catch {
             requestUrl = null;
         }
-        if (r && (r.mode === "navigate" || r.destination === "document")) {
-            return;
-        }
         if (requestUrl && r && r.destination === "script" && requestUrl.hostname === "opml.radiotime.com") {
             return;
         }

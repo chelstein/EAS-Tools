@@ -377,15 +377,7 @@
                     <label for="endecMode">ENDEC Emulation Mode:</label>
                     <select id="endecMode">
                         <option value="" selected>None (Default)</option>
-                        <option value="SAGE">SAGE 1822/ANALOG</option>
-                        <option value="SAGEDIGITAL">SAGE 3644/DIGITAL</option>
-                        <option value="TFT">TFT EAS 911</option>
-                        <option value="EASY">Trilithic EASyPLUS</option>
-                        <option value="BURK">BURK EAS</option>
-                        <option value="DASDEC">Monroe Electronics One-Net/DASDEC</option>
-                        <option value="DASDECV3">Monroe Electronics One-Net/DASDEC V3</option>
-                        <option value="HOLLYANNE">Holly Anne</option>
-                        <option value="EAS1CG">Gorman Redlich</option>
+                        <!-- should get filled in by js -->
                     </select>
                     <hr class="shorter-hr">
                 </div>
@@ -748,7 +740,7 @@
         <script src="assets/js/footer.js"></script>
         <script src="assets/js/sox.js"></script>
         <script src="assets/js/canvas-capture.js"></script>
-        <script type="module" src="assets/E2T/EAS2Text.js"></script>
+        <script type="module" src="assets/E2T/EAS2Text-NG.js"></script>
         <script>
             window.EASREGEX = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{1,8}?)-$/m;
 
@@ -838,45 +830,17 @@
 
                 const muxerContainer = document.getElementById('muxer-container');
                 let muxerIframe;
-                let muxerSrcdocPromise;
-
-                const ensureMuxerSrcdoc = () => {
-                    if (!muxerSrcdocPromise) {
-                        const baseHref = new URL('./', window.location.href).href;
-                        const muxerUrl = new URL('muxer.html', window.location.href).href;
-                        const historyShim = `<script>(function(){try{const target=${JSON.stringify(muxerUrl)};if(window.location.href!==target){window.history.replaceState(null,'',target);}}catch(err){console.warn('Muxer iframe history shim failed',err);}})();<\/script>`;
-                        muxerSrcdocPromise = fetch('muxer.html')
-                            .then((response) => response.text())
-                            .then((html) => {
-                                let transformed = html;
-                                if (!/<base\s/i.test(transformed)) {
-                                    transformed = transformed.replace('<head>', `<head><base href="${baseHref}">`);
-                                }
-                                transformed = transformed.replace('<head>', `<head>${historyShim}`);
-                                return transformed;
-                            })
-                            .catch((error) => {
-                                console.error('Failed to load muxer iframe source:', error);
-                                return '<p>Unable to load muxer.</p>';
-                            });
-                    }
-                    return muxerSrcdocPromise;
-                };
 
                 const ensureMuxerIframe = () => {
                     if (muxerIframe || !muxerContainer) return;
-                    ensureMuxerSrcdoc().then((srcdoc) => {
-                        if (muxerIframe) return;
-                        muxerIframe = document.createElement('iframe');
-                        muxerIframe.title = 'Video/Audio Muxer';
-                        muxerIframe.allow = 'cross-origin-isolated';
-                        muxerIframe.loading = 'lazy';
-                        muxerIframe.style.width = '100%';
-                        muxerIframe.style.minHeight = '1080px';
-                        muxerIframe.style.border = '0';
-                        muxerIframe.srcdoc = srcdoc;
-                        muxerContainer.appendChild(muxerIframe);
-                    });
+                    muxerIframe = document.createElement('iframe');
+                    muxerIframe.title = 'Video/Audio Muxer';
+                    muxerIframe.loading = 'lazy';
+                    muxerIframe.style.width = '100%';
+                    muxerIframe.style.minHeight = '1080px';
+                    muxerIframe.style.border = '0';
+                    muxerIframe.src = 'muxer.html';
+                    muxerContainer.appendChild(muxerIframe);
                 };
 
                 const requestEditorRefresh = (target) => {
