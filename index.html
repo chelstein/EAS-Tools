@@ -236,11 +236,7 @@
                 <label for="overallEndecMode">ENDEC Mode:</label>
                 <select id="overallEndecMode">
                     <option value="DEFAULT" selected>None (Default)</option>
-                    <option value="NWS">National Weather Service</option>
-                    <option value="DIGITAL">SAGE 3644/DIGITAL</option>
-                    <option value="SAGE">SAGE 1822/ANALOG</option>
-                    <option value="TRILITHIC">Trilithic EASyPLUS</option>
-                    <option value="TRILITHIC_POP">Trilithic EASyPLUS with Pop</option>
+                    <!-- will be populated by js -->
                 </select>
                 <br>
                 <br>
@@ -376,8 +372,7 @@
                     <br>
                     <label for="endecMode">ENDEC Emulation Mode:</label>
                     <select id="endecMode">
-                        <option value="" selected>None (Default)</option>
-                        <!-- should get filled in by js -->
+                        <!-- will be populated by js -->
                     </select>
                     <hr class="shorter-hr">
                 </div>
@@ -399,7 +394,7 @@
                     <br>
                     <label for="crawlFontFamily">Font Family:</label>
                     <select id="crawlFontFamily">
-                        <!-- will be populated by fontLoader in crawl-bundle.js -->
+                        <!-- will be populated by js -->
                     </select>
                     <br class="customFontUpload">
                     <label for="crawlCustomFontFile" class="customFontUpload">Upload your own font (must be .ttf or .otf format, you can convert other formats to these formats online):</label>

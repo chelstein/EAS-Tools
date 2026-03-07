@@ -1,4 +1,4 @@
-import { getEndecModeProfile, normalizeEndecMode, saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
+import { ENDEC_MODE_OPTIONS, getEndecModeProfile, normalizeEndecMode, saveFile, CODEMIRROR_DARK_THEME_NAME, CODEMIRROR_LIGHT_THEME_NAME } from './common-functions.js';
 
 if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
@@ -748,46 +748,30 @@ async function fetchAndStore() {
             return;
         }
 
-        const options = modeSelect.options;
-        let digitalOption = null;
-        let legacyOption = null;
-        let insertBeforeOption = null;
+        const selectedValue = getOverallEndecMode();
+        const optionsByValue = new Map();
 
-        for (let i = 0; i < options.length; i++) {
-            const option = options[i];
-            const value = (typeof option.value === "string") ? option.value.trim().toUpperCase() : "";
-
-            if (value === "DIGITAL" || value === "SAGE_DIGITAL_3644") {
-                digitalOption = option;
-                continue;
-            }
-
-            if (value === LEGACY_DIGITAL_MODE) {
-                legacyOption = option;
-                continue;
-            }
-
-            if (!insertBeforeOption && (value === "SAGE" || value === "SAGE_ANALOG_1822" || value === "TRILITHIC")) {
-                insertBeforeOption = option;
-            }
+        for (let i = 0; i < ENDEC_MODE_OPTIONS.length; i++) {
+            const mode = ENDEC_MODE_OPTIONS[i];
+            optionsByValue.set(mode.value, mode.label);
         }
 
-        if (digitalOption) {
-            digitalOption.textContent = "SAGE 3644/DIGITAL (Improved)";
-        }
+        optionsByValue.set(LEGACY_DIGITAL_MODE, LEGACY_DIGITAL_LABEL);
 
-        if (!legacyOption) {
-            legacyOption = document.createElement("option");
-            legacyOption.value = LEGACY_DIGITAL_MODE;
-            legacyOption.textContent = LEGACY_DIGITAL_LABEL;
-            if (insertBeforeOption) {
-                modeSelect.insertBefore(legacyOption, insertBeforeOption);
-            } else {
-                modeSelect.appendChild(legacyOption);
-            }
+        const fragment = document.createDocumentFragment();
+        optionsByValue.forEach((label, value) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            fragment.appendChild(option);
+        });
+
+        modeSelect.replaceChildren(fragment);
+
+        if (optionsByValue.has(selectedValue)) {
+            modeSelect.value = selectedValue;
         } else {
-            legacyOption.value = LEGACY_DIGITAL_MODE;
-            legacyOption.textContent = LEGACY_DIGITAL_LABEL;
+            modeSelect.value = "DEFAULT";
         }
     }
 

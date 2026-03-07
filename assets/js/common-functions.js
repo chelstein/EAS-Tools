@@ -25,6 +25,7 @@ function freezeBurstList(list) {
 
 const ENDEC_MODE_PROFILE_SOURCE = {
     DEFAULT: {
+        label: "None (Default)/DASDEC",
         signature: { tail: "none", lead: "none", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
@@ -32,13 +33,31 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         eomBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }]
     },
     NWS: {
+        label: "National Weather Service (Legacy/EAS.js)",
         signature: { tail: "00 00", lead: "none", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
         headerBursts: [{ prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }],
         eomBursts: [{ prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }, { prefix: "", suffix: "\x00\x00" }]
     },
+    NWS_CRS: {
+        label: "National Weather Service - Console Replacement System (CRS, 1998-2016)",
+        signature: { tail: "00", lead: "none", burstGapMs: 1000 },
+        betweenGapMs: 1000,
+        afterGapMs: 1000,
+        headerBursts: [{ prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }],
+        eomBursts: [{ prefix: "\x00", suffix: "\x00" }, { prefix: "\x00", suffix: "\x00" }, { prefix: "\x00", suffix: "\x00" }]
+    },
+    NWS_BMH: {
+        label: "National Weather Service - Broadcast Message Handler (BMH, 2016-present)",
+        signature: { tail: "00 00 00", lead: "none", burstGapMs: 1000 },
+        betweenGapMs: 1000,
+        afterGapMs: 1000,
+        headerBursts: [{ prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }],
+        eomBursts: [{ prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }, { prefix: "", suffix: "\x00\x00\x00" }]
+    },
     SAGE_DIGITAL_3644: {
+        label: "SAGE 3644/DIGITAL",
         signature: { tail: "FF FF FF", lead: "00 on first burst", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
@@ -46,6 +65,7 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         eomBursts: [{ prefix: "\x00", suffix: "\xFF\xFF\xFF" }, { prefix: "", suffix: "\xFF\xFF\xFF" }, { prefix: "", suffix: "\xFF\xFF\xFF" }]
     },
     SAGE_ANALOG_1822: {
+        label: "SAGE 1822/ANALOG",
         signature: { tail: "FF", lead: "none", burstGapMs: 1000 },
         betweenGapMs: 1000,
         afterGapMs: 1000,
@@ -53,6 +73,7 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         eomBursts: [{ prefix: "", suffix: "\xFF" }, { prefix: "", suffix: "\xFF" }, { prefix: "", suffix: "\xFF" }]
     },
     TRILITHIC: {
+        label: "Trilithic EASyPLUS",
         signature: { tail: "none", lead: "none", burstGapMs: 868 },
         betweenGapMs: 868,
         afterGapMs: 1118,
@@ -63,6 +84,7 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         eomBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }]
     },
     TRILITHIC_POP: {
+        label: "Trilithic EASyPLUS with Pop",
         signature: { tail: "none", lead: "none", burstGapMs: 868 },
         betweenGapMs: 868,
         afterGapMs: 1118,
@@ -75,6 +97,13 @@ const ENDEC_MODE_PROFILE_SOURCE = {
         eomBursts: [{ prefix: "", suffix: "" }, { prefix: "", suffix: "" }, { prefix: "", suffix: "" }]
     }
 };
+
+export const ENDEC_MODE_OPTIONS = Object.freeze(
+    Object.entries(ENDEC_MODE_PROFILE_SOURCE).map(([mode, profile]) => Object.freeze({
+        value: mode,
+        label: profile.label
+    }))
+);
 
 export const ENDEC_MODE_PROFILES = Object.freeze(
     Object.fromEntries(
