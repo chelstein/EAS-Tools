@@ -3,6 +3,7 @@ const footer = document.querySelector('footer');
 footer.innerHTML = `
 <ul class="footer-links">
     <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
+    <li><p id="donate-link"><a href="donations.html">Donate</a></p></li>
     <li><p id="terms-of-service-link"><a href="terms.html">Terms of Service</a></p></li>
     <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
     <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
