@@ -4580,7 +4580,7 @@ async function initCrawlEditor() {
     const endecModeSelect = document.getElementById('endecMode');
     if (endecModeSelect) {
         const currentValue = endecModeSelect.value;
-        const modes = allEndecModes();
+        const modes = allEndecModes().filter((mode) => mode.toLowerCase() !== 'json');
         endecModeSelect.length = 0;
         endecModeSelect.add(new Option('None (Default)', ''));
         for (let i = 0; i < modes.length; i++) {

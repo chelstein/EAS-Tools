@@ -116,10 +116,22 @@ async function fetchAndStore() {
             window.rgn[code] = name;
         }
 
+        const usStateAbbrSet = new Set(
+            Object.values(window.abbrvs).filter((abbrv) => typeof abbrv === 'string' && abbrv.length === 2 && abbrv !== 'US')
+        );
         for (const code in sameCodes['SAME']) {
             let stcode = code.slice(0, 2);
             let countycode = code.slice(2);
             const name = sameCodes['SAME'][code];
+
+            const expectedStateAbbr = window.state[stcode];
+            if (countycode !== '000' && usStateAbbrSet.has(expectedStateAbbr)) {
+                const suffixMatch = name.match(/,\s*([A-Z]{2})$/);
+                if (suffixMatch && suffixMatch[1] !== expectedStateAbbr) {
+                    continue;
+                }
+            }
+
             window.county[stcode] = window.county[stcode] || {};
             window.county[stcode][countycode] = name;
             if (countycode === '000') {
