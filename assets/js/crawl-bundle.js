@@ -1147,7 +1147,7 @@ async function initCrawlEditor() {
             return;
         }
 
-        addStatus('Exporting crawl as WebM... Please wait.');
+        addStatus('Exporting crawl as video... Please wait.');
         const startTime = performance.now();
 
         const generator = window.crawlGenerator;
@@ -1745,19 +1745,36 @@ async function initCrawlEditor() {
             });
 
             try {
-                const supportedTypes = (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function')
+                let supportedTypes = (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function')
                     ? getSupportedMimeTypes('video', ['webm'], ['vp9', 'vp8'])
                     : [];
-                const recorderOptions = {};
-                if (supportedTypes.length) {
-                    recorderOptions.mimeType = supportedTypes[0];
-                }
-                if (Number.isFinite(videoBitsPerSecond)) {
-                    recorderOptions.videoBitsPerSecond = videoBitsPerSecond;
+                // Fallback to MP4 (Safari/WKWebView support)
+                if (!supportedTypes.length && typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+                    supportedTypes = getSupportedMimeTypes('video', ['mp4'], ['avc1', 'h264']);
                 }
 
                 stream = captureCanvas.captureStream(captureFps);
-                recorder = new MediaRecorder(stream, recorderOptions);
+
+                // Try creating recorder with detected type, then explicit mp4, then defaults
+                const mimeTypesToTry = supportedTypes.length
+                    ? [supportedTypes[0]]
+                    : ['video/mp4', undefined];
+                let recorderCreated = false;
+                for (const tryMime of mimeTypesToTry) {
+                    try {
+                        const opts = {};
+                        if (tryMime) opts.mimeType = tryMime;
+                        if (Number.isFinite(videoBitsPerSecond)) opts.videoBitsPerSecond = videoBitsPerSecond;
+                        recorder = new MediaRecorder(stream, opts);
+                        recorderCreated = true;
+                        break;
+                    } catch (e) {
+                        // try next option
+                    }
+                }
+                if (!recorderCreated) {
+                    throw new Error('Could not create MediaRecorder with any supported format');
+                }
 
                 recorder.ondataavailable = (event) => {
                     if (event.data && event.data.size) {
@@ -1832,19 +1849,26 @@ async function initCrawlEditor() {
                     return true;
                 }
 
-                const mimeType = recorder.mimeType || (supportedTypes[0] || 'video/webm');
+                // Detect actual format: check recorder, then blob type, then platform
+                let mimeType = recorder.mimeType || (supportedTypes[0] || '');
+                if (!mimeType) {
+                    const isApple = /Apple|Safari/i.test(navigator.userAgent) && !/Chrome|CriOS/i.test(navigator.userAgent);
+                    mimeType = isApple ? 'video/mp4' : 'video/webm';
+                }
+                const isMp4 = mimeType.includes('mp4');
                 const exportedBlob = chunks.length ? new Blob(chunks, { type: mimeType }) : null;
 
                 if (!exportedBlob) {
                     crawlExportController.clear(webmCancelToken);
-                    addStatus('No frames recorded for WebM export.', 'WARN');
+                    addStatus('No frames recorded for video export.', 'WARN');
                     return true;
                 }
 
-                reportProgress = createExportProgressReporter('WebM save');
+                reportProgress = createExportProgressReporter('Video save');
                 reportProgress(0);
 
-                await saveFile(filename || `${downloadName}.webm`, exportedBlob, mimeType, {
+                const ext = isMp4 ? '.mp4' : '.webm';
+                await saveFile(filename || `${downloadName}${ext}`, exportedBlob, mimeType, {
                     onProgress: (ratio) => reportProgress(ratio),
                     isCancelled: () => crawlExportController.isCancelled(webmCancelToken),
                 });
@@ -1863,9 +1887,9 @@ async function initCrawlEditor() {
                     addStatus('WebM export canceled.', 'WARN');
                     return true;
                 }
-                console.error('MediaRecorder WebM export failed:', error);
+                console.error('MediaRecorder export failed:', error);
                 crawlExportController.clear(webmCancelToken);
-                addStatus(`WebM export failed: ${error?.message || error}`, 'ERROR');
+                addStatus(`Video export failed: ${error?.message || error}`, 'ERROR');
                 return true;
             } finally {
                 if (!stopped && recorder && recorder.state === 'recording') {
@@ -1898,8 +1922,16 @@ async function initCrawlEditor() {
             return;
         }
 
+        // Try MediaRecorder first (works on Safari/WKWebView with MP4, Chrome with WebM)
+        if (typeof MediaRecorder === 'function' && typeof captureCanvas.captureStream === 'function') {
+            const handled = await exportWithMediaRecorder();
+            if (handled) {
+                return;
+            }
+        }
+
         if (typeof CCapture !== 'function') {
-            addStatus('WebM export unavailable: missing CCapture dependency.', 'ERROR');
+            addStatus('Video export unavailable: no supported recording method found.', 'ERROR');
             tearDownCaptureCanvas();
             return;
         }
@@ -4030,7 +4062,7 @@ async function initCrawlEditor() {
 
     document.getElementById('exportCrawlVideo').addEventListener('click', () => {
         if (window.crawlGenerator) {
-            exportAsWebM(window.crawlGenerator.canvas, 'text_crawl.webm');
+            exportAsWebM(window.crawlGenerator.canvas, null);
         }
         else {
             alert('Please start the crawl before exporting.');
@@ -4738,7 +4770,7 @@ async function initCrawlEditor() {
                 if (format === 'gif') {
                     exportAsGIF(window.crawlGenerator.canvas, 'text_crawl.gif');
                 } else {
-                    exportAsWebM(window.crawlGenerator.canvas, 'text_crawl.webm');
+                    exportAsWebM(window.crawlGenerator.canvas, null);
                 }
             } catch (err) {
                 console.error('[EASBridge] crawl:export error:', err);
@@ -4751,6 +4783,15 @@ async function initCrawlEditor() {
             // activeToken.cancel() which is private inside the IIFE
             const btn = document.getElementById('cancelCrawlExport');
             if (btn && !btn.disabled) btn.click();
+        });
+
+        window.EASBridge.on('crawl:requestData', () => {
+            try {
+                const modes = allEndecModes().filter((mode) => mode.toLowerCase() !== 'json');
+                const modeList = [{ value: '', label: 'None (Default)' }];
+                modes.forEach(m => modeList.push({ value: m, label: m }));
+                window.EASBridge.send('crawl:endecModes', { modes: modeList });
+            } catch (e) { console.error('[EASBridge] crawl requestData error:', e); }
         });
 
         console.log('[EASBridge] Crawl bridge handlers registered');

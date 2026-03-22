@@ -189,6 +189,10 @@ async function fetchAndStore() {
     const events = window.events || {};
     const canadaCounty = window.canadaCounty || {};
 
+    const CSS_COLOR_TO_HEX = {
+        red: '#F44336', green: '#4CAF50', yellow: '#FFEB3B', white: '#FFFFFF',
+        black: '#000000', orange: '#FF9800', blue: '#2196F3'
+    };
     function addStatus(stat, color = null) {
         const statuselem = document.getElementById("sync");
         statuselem.innerHTML = "STATUS: " + stat;
@@ -196,7 +200,8 @@ async function fetchAndStore() {
             statuselem.style.color = color;
         }
         if (window.EASBridge) {
-            window.EASBridge.send('decoder:status', { text: stat, color: color || '#FFFFFF' });
+            const hexColor = (color && color.startsWith('#')) ? color : (CSS_COLOR_TO_HEX[color] || '#FFFFFF');
+            window.EASBridge.send('decoder:status', { text: stat, color: hexColor });
         }
     }
 
@@ -259,7 +264,6 @@ async function fetchAndStore() {
     const IOS_STREAM_DECODE_SR = 44100;
     const IOS_STREAM_CHUNK_BYTES = 24576;
     const IOS_STREAM_FRAME_SIZE = 128;
-    const IOS_LOOPBACK_CROSSFADE_SEC = 0.01;
     let iosDecoderFrameRemainder = new Float32Array(0);
 
     class MiniFFmpeg {
@@ -356,110 +360,99 @@ async function fetchAndStore() {
     let iosFFmpeg = null;
     let iosStreamAbort = null;
     let iosBandpass = null;
-    let iosLoopbackContext = null;
-    let iosLoopbackQueueTime = 0;
-    let iosLoopbackHasQueuedAudio = false;
+    let nativeStreamActive = false;
+    let iosLoopbackCtx = null;
+    let iosLoopbackNode = null;
+    let iosLoopbackRing = null;
 
-    function startIOSLoopback(url) {
-        if (iosLoopbackContext && iosLoopbackContext.state !== "closed") {
-            if (iosLoopbackContext.state === "suspended") {
-                iosLoopbackContext.resume().catch((e) => {
-                    console.warn("[iOS loopback] resume() rejected:", e);
-                });
+    // Pull-based ring buffer for loopback audio.
+    // ScriptProcessorNode pulls samples at a constant rate — no scheduling
+    // gaps or overlaps, and the ring buffer absorbs FFmpeg decode jitter.
+    class LoopbackRing {
+        constructor(capacity) {
+            this.buf = new Float32Array(capacity);
+            this.w = 0;
+            this.r = 0;
+            this.len = 0;
+            this.cap = capacity;
+        }
+        push(samples) {
+            for (let i = 0; i < samples.length; i++) {
+                this.buf[this.w] = samples[i];
+                this.w = (this.w + 1) % this.cap;
+                if (this.len < this.cap) {
+                    this.len++;
+                } else {
+                    this.r = (this.r + 1) % this.cap;
+                }
+            }
+        }
+        pull(output) {
+            const n = Math.min(output.length, this.len);
+            for (let i = 0; i < n; i++) {
+                output[i] = this.buf[this.r];
+                this.r = (this.r + 1) % this.cap;
+            }
+            this.len -= n;
+            for (let i = n; i < output.length; i++) output[i] = 0;
+        }
+    }
+
+    function startIOSLoopback() {
+        if (iosLoopbackCtx && iosLoopbackCtx.state !== "closed") {
+            if (iosLoopbackCtx.state === "suspended") {
+                iosLoopbackCtx.resume().catch(() => {});
             }
             return;
         }
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) {
-            console.warn("[iOS loopback] AudioContext unavailable");
-            return;
-        }
-        iosLoopbackContext = new Ctx({ sampleRate: IOS_STREAM_DECODE_SR });
-        iosLoopbackQueueTime = iosLoopbackContext.currentTime + 0.05;
-        iosLoopbackHasQueuedAudio = false;
-        if (iosLoopbackContext.state === "suspended") {
-            iosLoopbackContext.resume().catch((e) => {
-                console.warn("[iOS loopback] resume() rejected:", e);
-            });
+        if (!Ctx) return;
+
+        iosLoopbackCtx = new Ctx({ sampleRate: IOS_STREAM_DECODE_SR });
+        // 2 seconds of ring buffer — absorbs any FFmpeg decode jitter
+        iosLoopbackRing = new LoopbackRing(IOS_STREAM_DECODE_SR * 2);
+
+        // ScriptProcessorNode: audio system pulls samples at constant rate.
+        // Buffer size 4096 = ~93ms at 44100Hz — smooth, low-latency playback.
+        iosLoopbackNode = iosLoopbackCtx.createScriptProcessor(4096, 0, 1);
+        iosLoopbackNode.onaudioprocess = (e) => {
+            iosLoopbackRing.pull(e.outputBuffer.getChannelData(0));
+        };
+        iosLoopbackNode.connect(iosLoopbackCtx.destination);
+
+        if (iosLoopbackCtx.state === "suspended") {
+            iosLoopbackCtx.resume().catch(() => {});
         }
     }
 
     function stopIOSLoopback() {
-        if (!iosLoopbackContext) {
-            return;
+        if (iosLoopbackNode) {
+            try { iosLoopbackNode.disconnect(); } catch {}
+            iosLoopbackNode = null;
         }
-        const ctx = iosLoopbackContext;
-        iosLoopbackContext = null;
-        iosLoopbackQueueTime = 0;
-        iosLoopbackHasQueuedAudio = false;
-        ctx.close().catch(() => { });
+        if (iosLoopbackCtx) {
+            iosLoopbackCtx.close().catch(() => {});
+            iosLoopbackCtx = null;
+        }
+        iosLoopbackRing = null;
     }
 
     function queueIOSLoopbackPCM(pcm) {
-        const ctx = iosLoopbackContext;
-        if (!ctx || !pcm || !pcm.length || ctx.state === "closed") {
-            return;
+        if (iosLoopbackRing && pcm && pcm.length) {
+            iosLoopbackRing.push(pcm);
         }
-        const now = ctx.currentTime;
-        if (iosLoopbackQueueTime < now + 0.02) {
-            iosLoopbackQueueTime = now + 0.02;
-        }
-        if (iosLoopbackQueueTime > now + 3) {
-            iosLoopbackQueueTime = now + 0.05;
-        }
-        const playback = new Float32Array(pcm.length);
-        playback.set(pcm);
-        const audioBuffer = ctx.createBuffer(1, playback.length, IOS_STREAM_DECODE_SR);
-        audioBuffer.copyToChannel(playback, 0);
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        const gain = ctx.createGain();
-        source.connect(gain);
-        gain.connect(ctx.destination);
-
-        const clipDuration = audioBuffer.duration;
-        const fadeSec = Math.min(IOS_LOOPBACK_CROSSFADE_SEC, clipDuration * 0.25);
-        const shouldCrossfade = iosLoopbackHasQueuedAudio && fadeSec > 0;
-        let startAt = iosLoopbackQueueTime;
-        if (shouldCrossfade) {
-            startAt -= fadeSec;
-        }
-        if (startAt < now + 0.02) {
-            startAt = now + 0.02;
-        }
-        const endAt = startAt + clipDuration;
-
-        gain.gain.cancelScheduledValues(startAt);
-        if (shouldCrossfade) {
-            gain.gain.setValueAtTime(0, startAt);
-            gain.gain.linearRampToValueAtTime(1, startAt + fadeSec);
-            gain.gain.setValueAtTime(1, endAt - fadeSec);
-            gain.gain.linearRampToValueAtTime(0, endAt);
-        } else {
-            gain.gain.setValueAtTime(1, startAt);
-        }
-
-        source.start(startAt);
-        iosLoopbackQueueTime = endAt;
-        iosLoopbackHasQueuedAudio = true;
-        source.onended = () => {
-            try {
-                source.disconnect();
-                gain.disconnect();
-            } catch { }
-        };
     }
 
     async function ensureIOSFFmpeg() {
         if (iosFFmpeg && iosFFmpeg.loaded) return iosFFmpeg;
-        if (iosFFmpeg) { iosFFmpeg.terminate(); }
+        if (iosFFmpeg) iosFFmpeg.terminate();
         iosFFmpeg = new MiniFFmpeg();
         await iosFFmpeg.load();
         return iosFFmpeg;
     }
 
-    function isFfmpegMemoryFault(errorLike) {
-        const msg = String(errorLike?.message || errorLike || "");
+    function isFfmpegMemoryFault(err) {
+        const msg = String(err?.message || err || "");
         return msg.includes("Out of bounds memory access")
             || msg.includes("_malloc")
             || msg.includes("_ffmpeg");
@@ -472,104 +465,60 @@ async function fetchAndStore() {
         return iosBandpass;
     }
 
-    let _iosChunkSeq = 0;
     async function ffmpegDecodeChunk(ff, rawBytes) {
-        const seq = ++_iosChunkSeq;
-        const inName = "ios_in.dat";
-        const outName = "ios_out.raw";
+        const inFile = "ios_in.dat";
+        const outFile = "ios_out.raw";
 
         ff.drainLogs();
-        await ff.writeFile(inName, rawBytes);
+        await ff.writeFile(inFile, rawBytes);
 
         try {
             await ff.exec([
-                "-hide_banner", "-loglevel", "info",
-                "-i", inName,
-                "-vn",
-                "-f", "f32le",
-                "-acodec", "pcm_f32le",
-                "-ar", String(IOS_STREAM_DECODE_SR),
-                "-ac", "1",
-                outName
+                "-hide_banner", "-loglevel", "error",
+                "-i", inFile,
+                "-vn", "-f", "f32le", "-acodec", "pcm_f32le",
+                "-ar", String(IOS_STREAM_DECODE_SR), "-ac", "1",
+                outFile
             ]);
         } catch (e) {
-            console.warn(`[iOS stream chunk #${seq}] ffmpeg exec threw:`, e?.message || e);
+            ff.deleteFile(inFile).catch(() => {});
+            ff.deleteFile(outFile).catch(() => {});
             if (isFfmpegMemoryFault(e)) {
-                try { await ff.deleteFile(inName); } catch { }
-                try { await ff.deleteFile(outName); } catch { }
-                const memErr = new Error("FFMPEG_MEMORY_FAULT");
-                memErr.code = "FFMPEG_MEMORY_FAULT";
-                throw memErr;
+                const err = new Error("FFMPEG_MEMORY_FAULT");
+                err.code = "FFMPEG_MEMORY_FAULT";
+                throw err;
             }
+            return null;
         }
 
         ff.drainLogs();
 
         let pcmBytes;
         try {
-            pcmBytes = await ff.readFile(outName);
-        } catch (readErr) {
-            console.warn(`[iOS stream chunk #${seq}] readFile failed (no output produced):`, readErr?.message || readErr);
-            try { await ff.deleteFile(inName); } catch { }
+            pcmBytes = await ff.readFile(outFile);
+        } catch {
+            ff.deleteFile(inFile).catch(() => {});
             return null;
         }
-        try { await ff.deleteFile(inName); } catch { }
-        try { await ff.deleteFile(outName); } catch { }
+        ff.deleteFile(inFile).catch(() => {});
+        ff.deleteFile(outFile).catch(() => {});
 
-
-        if (!pcmBytes || pcmBytes.length < 4) {
-            console.warn(`[iOS stream chunk #${seq}] PCM output too small, skipping`);
-            return null;
-        }
+        if (!pcmBytes || pcmBytes.length < 4) return null;
 
         const alignedLen = pcmBytes.length - (pcmBytes.length % 4);
         const aligned = new Uint8Array(alignedLen);
         aligned.set(pcmBytes.subarray(0, alignedLen));
-        const f32 = new Float32Array(aligned.buffer);
-
-        let rms = 0, peak = 0, min = Infinity, max = -Infinity;
-        for (let i = 0; i < f32.length; i++) {
-            const s = f32[i];
-            rms += s * s;
-            const abs = s < 0 ? -s : s;
-            if (abs > peak) peak = abs;
-            if (s < min) min = s;
-            if (s > max) max = s;
-        }
-        rms = Math.sqrt(rms / f32.length);
-        const durationMs = ((f32.length / IOS_STREAM_DECODE_SR) * 1000).toFixed(1);
-
-        const preview = Array.from(f32.slice(0, 20)).map(s => s.toFixed(5));
-
-        return f32;
+        return new Float32Array(aligned.buffer);
     }
 
-    let _iosFeedSeq = 0;
     function feedDecoderFrames(filtered) {
-        const seq = ++_iosFeedSeq;
         const combined = concatFloat32(iosDecoderFrameRemainder, filtered);
-        const totalFrames = Math.floor(combined.length / IOS_STREAM_FRAME_SIZE);
-
-        let fRms = 0, fPeak = 0;
-        for (let i = 0; i < filtered.length; i++) {
-            const s = filtered[i];
-            fRms += s * s;
-            const abs = s < 0 ? -s : s;
-            if (abs > fPeak) fPeak = abs;
+        let i = 0;
+        for (; i + IOS_STREAM_FRAME_SIZE <= combined.length; i += IOS_STREAM_FRAME_SIZE) {
+            runDecoder(combined.subarray(i, i + IOS_STREAM_FRAME_SIZE));
         }
-        fRms = Math.sqrt(fRms / filtered.length);
-
-        const preview = Array.from(filtered.slice(0, 20)).map(s => s.toFixed(6));
-
-        let frameCount = 0;
-        for (let i = 0; i + IOS_STREAM_FRAME_SIZE <= combined.length; i += IOS_STREAM_FRAME_SIZE) {
-            const frame = combined.subarray(i, i + IOS_STREAM_FRAME_SIZE);
-            runDecoder(frame);
-            frameCount++;
-        }
-        const remainder = combined.length - (frameCount * IOS_STREAM_FRAME_SIZE);
-        iosDecoderFrameRemainder = remainder > 0
-            ? combined.slice(combined.length - remainder)
+        iosDecoderFrameRemainder = i < combined.length
+            ? combined.slice(i)
             : new Float32Array(0);
     }
 
@@ -714,12 +663,24 @@ async function fetchAndStore() {
         return split;
     }
 
+    // Flatten a list of Uint8Array chunks into a single buffer.
+    // Called once per decode cycle — avoids O(n²) concat-per-read.
+    function flattenChunks(list) {
+        if (list.length === 1) return list[0];
+        let total = 0;
+        for (let i = 0; i < list.length; i++) total += list[i].length;
+        const out = new Uint8Array(total);
+        let off = 0;
+        for (let i = 0; i < list.length; i++) {
+            out.set(list[i], off);
+            off += list[i].length;
+        }
+        return out;
+    }
+
     async function startIOSStreamDecoder(url) {
         await stopIOSStreamDecoder();
-        _iosChunkSeq = 0;
-        _iosFeedSeq = 0;
         iosDecoderFrameRemainder = new Float32Array(0);
-
 
         addStatus("LOADING FFMPEG...", "yellow");
 
@@ -727,7 +688,7 @@ async function fetchAndStore() {
         try {
             ff = await ensureIOSFFmpeg();
         } catch (e) {
-            console.error("[iOS stream] Failed to load FFmpeg WASM:", e);
+            console.error("[iOS stream] FFmpeg load failed:", e);
             addStatus("FFMPEG LOAD FAILED!", "red");
             return null;
         }
@@ -750,153 +711,153 @@ async function fetchAndStore() {
         }
 
         if (!response.ok || !response.body) {
-            console.error("[iOS stream] Bad response:", response.status);
             addStatus("STREAM RESPONSE ERROR!", "red");
             return null;
         }
 
-        const reader = response.body.getReader();
-        let accum = new Uint8Array(0);
-        let totalBytesRead = 0;
-        let readCount = 0;
-        let oggHeaders = null;
-        let isOgg = false;
-        let headerExtracted = false;
-
         addStatus("STREAMING...", "green");
         setStreamToggleState(true);
 
-        const clearStreamURLButton = document.querySelector('[data-decoder-clear-stream-url]');
-        if (clearStreamURLButton) {
-            clearStreamURLButton.style.display = "inline-block";
-        }
+        const clearBtn = document.querySelector('[data-decoder-clear-stream-url]');
+        if (clearBtn) clearBtn.style.display = "inline-block";
 
         setMeterSupported(false);
 
-        if (isLoopbackEnabled()) {
-            startIOSLoopback(url);
-        }
+        if (isLoopbackEnabled()) startIOSLoopback();
 
+        // Process decoded PCM: loopback → bandpass filter → SAME decoder
+        const processPCM = (pcm) => {
+            if (!pcm || pcm.length === 0) return;
+            if (isLoopbackEnabled()) queueIOSLoopbackPCM(pcm);
+            feedDecoderFrames(bandpass.process(pcm));
+        };
+
+        // Main streaming loop — runs in background
         (async () => {
+            const reader = response.body.getReader();
+            const accumChunks = [];
+            let accumBytes = 0;
+            let oggHeaders = null;
+            let isOgg = false;
+            let headerExtracted = false;
+            let pendingDecode = null;
+
+            // Await previous FFmpeg decode; recover from memory faults
+            const awaitPending = async () => {
+                if (!pendingDecode) return null;
+                try {
+                    const pcm = await pendingDecode;
+                    pendingDecode = null;
+                    return pcm;
+                } catch (e) {
+                    pendingDecode = null;
+                    if (e?.code === "FFMPEG_MEMORY_FAULT") {
+                        try { ff.terminate(); } catch {}
+                        ff = await ensureIOSFFmpeg();
+                    }
+                    return null;
+                }
+            };
+
             try {
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) {
-                        break;
-                    }
-                    readCount++;
-                    totalBytesRead += value.length;
-                    accum = concatUint8(accum, value);
+                    if (done) break;
 
-                    if (readCount <= 5 || readCount % 50 === 0) {
-                        const hexPreview = Array.from(value.slice(0, 16)).map(b => b.toString(16).padStart(2, "0")).join(" ");
-                    }
+                    accumChunks.push(value);
+                    accumBytes += value.length;
 
-                    if (accum.length < IOS_STREAM_CHUNK_BYTES) continue;
+                    if (accumBytes < IOS_STREAM_CHUNK_BYTES) continue;
 
+                    // Flatten once per decode cycle
+                    let accum = flattenChunks(accumChunks);
+                    accumChunks.length = 0;
+                    accumBytes = 0;
+
+                    // Extract OGG headers on first decode-ready chunk
                     if (!headerExtracted) {
                         if (isOggStream(accum)) {
                             isOgg = true;
                             oggHeaders = extractOggHeaderPages(accum);
                             if (!oggHeaders || oggHeaders.length === 0) {
+                                accumChunks.push(accum);
+                                accumBytes = accum.length;
                                 continue;
                             }
-                            headerExtracted = true;
-                        } else {
-                            headerExtracted = true;
                         }
+                        headerExtracted = true;
                     }
 
-
+                    // For OGG: split at page boundary to avoid mid-packet cuts
                     let raw;
                     if (isOgg) {
-                        const safeSplitEnd = getLastSafeOggSplit(accum, IOS_STREAM_CHUNK_BYTES);
-                        if (safeSplitEnd <= 0) {
+                        const splitEnd = getLastSafeOggSplit(accum, IOS_STREAM_CHUNK_BYTES);
+                        if (splitEnd <= 0) {
+                            accumChunks.push(accum);
+                            accumBytes = accum.length;
                             continue;
                         }
-                        if (safeSplitEnd < accum.length) {
-                            raw = accum.slice(0, safeSplitEnd);
-                            accum = accum.slice(safeSplitEnd);
+                        if (splitEnd < accum.length) {
+                            raw = accum.slice(0, splitEnd);
+                            const remainder = accum.slice(splitEnd);
+                            accumChunks.push(remainder);
+                            accumBytes = remainder.length;
                         } else {
                             raw = accum;
-                            accum = new Uint8Array(0);
                         }
                     } else {
                         raw = accum;
-                        accum = new Uint8Array(0);
                     }
 
+                    // Prepend OGG headers so FFmpeg can decode each chunk independently
                     if (isOgg && oggHeaders && oggHeaders.length > 0 && !isOggBosPage(raw)) {
                         raw = concatUint8(oggHeaders, raw);
                     }
 
-                    let pcm;
-                    try {
-                        pcm = await ffmpegDecodeChunk(ff, raw);
-                    } catch (decodeErr) {
-                        if (decodeErr?.code === "FFMPEG_MEMORY_FAULT") {
-                            try { ff.terminate(); } catch { }
-                            ff = await ensureIOSFFmpeg();
-                            continue;
-                        }
-                        throw decodeErr;
-                    }
-                    if (!pcm || pcm.length === 0) {
-                        console.warn("[iOS stream] ffmpegDecodeChunk returned null/empty — skipping");
-                        continue;
-                    }
-                    if (isLoopbackEnabled()) {
-                        queueIOSLoopbackPCM(pcm);
-                    }
-
-                    const filtered = bandpass.process(pcm);
-                    feedDecoderFrames(filtered);
+                    // Pipeline: await previous, start new, process previous
+                    const prevPCM = await awaitPending();
+                    pendingDecode = ffmpegDecodeChunk(ff, raw);
+                    processPCM(prevPCM);
                 }
+
+                // Drain final pending decode
+                const finalPCM = await awaitPending();
+                processPCM(finalPCM);
+
                 addStatus("STREAM ENDED", "yellow");
             } catch (e) {
-                if (e.name === "AbortError") {
-                } else {
-                    console.error("[iOS stream] Stream read error:", e);
+                if (e.name !== "AbortError") {
+                    console.error("[iOS stream] Read error:", e);
                     addStatus("STREAM ERROR!", "red");
                 }
             } finally {
-                if (accum.length > 0) {
+                // Drain any in-flight decode
+                try { processPCM(await awaitPending()); } catch {}
+
+                // Process leftover accumulated bytes
+                if (accumChunks.length > 0) {
                     try {
-                        let tailData = accum;
+                        let tail = flattenChunks(accumChunks);
+                        accumChunks.length = 0;
                         if (isOgg) {
-                            const completeEnd = getLastCompleteOggPageEnd(tailData);
-                            if (completeEnd <= 0) {
-                                tailData = new Uint8Array(0);
-                            } else if (completeEnd < tailData.length) {
-                                tailData = tailData.slice(0, completeEnd);
-                            }
+                            const end = getLastCompleteOggPageEnd(tail);
+                            tail = end > 0 ? tail.slice(0, end) : new Uint8Array(0);
                         }
-                        if (tailData.length) {
-                            if (isOgg && oggHeaders && oggHeaders.length > 0 && !isOggBosPage(tailData)) {
-                                tailData = concatUint8(oggHeaders, tailData);
+                        if (tail.length > 0) {
+                            if (isOgg && oggHeaders && oggHeaders.length > 0 && !isOggBosPage(tail)) {
+                                tail = concatUint8(oggHeaders, tail);
                             }
-                            let pcm;
-                            try {
-                                pcm = await ffmpegDecodeChunk(ff, tailData);
-                            } catch (decodeErr) {
-                                if (decodeErr?.code === "FFMPEG_MEMORY_FAULT") {
-                                    try { ff.terminate(); } catch { }
-                                    ff = await ensureIOSFFmpeg();
-                                    pcm = null;
-                                } else {
-                                    throw decodeErr;
-                                }
-                            }
-                            if (pcm && pcm.length > 0) {
-                                if (isLoopbackEnabled()) {
-                                    queueIOSLoopbackPCM(pcm);
-                                }
-                                const filtered = bandpass.process(pcm);
-                                feedDecoderFrames(filtered);
-                            }
+                            const pcm = await ffmpegDecodeChunk(ff, tail);
+                            processPCM(pcm);
                         }
-                    } catch { }
+                    } catch (e) {
+                        if (e?.code === "FFMPEG_MEMORY_FAULT") {
+                            try { ff.terminate(); } catch {}
+                        }
+                    }
                 }
+
+                // Flush remainder frames
                 if (iosDecoderFrameRemainder.length > 0) {
                     const padded = new Float32Array(IOS_STREAM_FRAME_SIZE);
                     padded.set(iosDecoderFrameRemainder);
@@ -1072,6 +1033,7 @@ async function fetchAndStore() {
         workletModulePromise = decodeContext.audioWorklet.addModule("assets/js/processor.js").then(() => {
             const decodeNode = new AudioWorkletNode(decodeContext, "eas-processor");
             decodeNode.port.onmessage = function (event) {
+                if (nativeStreamActive) return;
                 const channels = event.data;
                 if (!channels || !channels[0]) {
                     return;
@@ -1578,6 +1540,15 @@ async function fetchAndStore() {
         if (window.isRecording) {
             return true;
         }
+        if (nativeStreamActive) {
+            recordingSampleRate = sampleRate;
+            recordingChunks = [];
+            recordingLength = 0;
+            window.isRecording = true;
+            if (window.EASBridge) window.EASBridge.send('decoder:recordingState', { active: true, auto: false });
+            updateRecordButtonLabel(true);
+            return true;
+        }
         const activeSource = inputTapNode;
         if (!inputTapNode) {
             addStatus("NO AUDIO SOURCE TO RECORD!", "red");
@@ -1730,7 +1701,7 @@ async function fetchAndStore() {
     }
 
     function startAutoRecording() {
-        if (autoRecordingEngaged || window.isRecording || !inputTapNode) {
+        if (autoRecordingEngaged || window.isRecording || (!inputTapNode && !nativeStreamActive)) {
             return;
         }
         autoRecordingEngaged = true;
@@ -3070,7 +3041,6 @@ async function fetchAndStore() {
             }
         }
         if (_afskCallCount <= 5 || _afskCallCount % 500 === 0) {
-            const discAvg = discSum / 128;
         }
     }
 
@@ -3146,7 +3116,7 @@ async function fetchAndStore() {
                     processHeader(currentMsg, container, segmentMeta);
                 }
             } catch (e) {
-                console.error("Error finalizing alert:", e);
+                console.error("Error finalizing alert:", e?.message || e);
             }
         }
         container = null;
@@ -4417,7 +4387,7 @@ async function fetchAndStore() {
         decoderLoopback.addEventListener('change', function () {
             if (isCapacitorIOS() && iosStreamAbort) {
                 if (this.checked) {
-                    startIOSLoopback(window.streamUrl);
+                    startIOSLoopback();
                 } else {
                     stopIOSLoopback();
                 }
@@ -4609,8 +4579,54 @@ async function fetchAndStore() {
             const loopbackToggle = document.getElementById("decoder-loopback");
             if (loopbackToggle) {
                 loopbackToggle.checked = !!params?.enabled;
-                refreshLoopback();
+                // Mirror the DOM change handler's iOS-specific loopback path
+                if (isCapacitorIOS() && iosStreamAbort) {
+                    if (params?.enabled) {
+                        startIOSLoopback();
+                    } else {
+                        stopIOSLoopback();
+                    }
+                } else {
+                    refreshLoopback();
+                }
             }
+        });
+
+        // Native stream PCM handlers (iOS native OGG/Vorbis decoder)
+        window.EASBridge.on('decoder:nativeStreamStart', (params) => {
+            const sr = params?.sampleRate || 44100;
+            nativeStreamActive = true;
+            updateSampleRate(sr);
+            iosBandpass = new SoftwareBandpass(sr, 1822.9, 3);
+            iosDecoderFrameRemainder = new Float32Array(0);
+            resetDecoderState();
+        });
+
+        window.EASBridge.on('decoder:nativePCM', (params) => {
+            if (!params?.pcm) return;
+            const binary = atob(params.pcm);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const pcm = new Float32Array(bytes.buffer);
+            if (window.isRecording && nativeStreamActive) {
+                recordingChunks.push(pcm.slice());
+                recordingLength += pcm.length;
+            }
+            const bp = ensureIOSBandpass();
+            feedDecoderFrames(bp.process(pcm));
+        });
+
+        window.EASBridge.on('decoder:nativeStreamEnd', () => {
+            if (iosDecoderFrameRemainder.length > 0) {
+                const padded = new Float32Array(IOS_STREAM_FRAME_SIZE);
+                padded.set(iosDecoderFrameRemainder);
+                runDecoder(padded);
+                iosDecoderFrameRemainder = new Float32Array(0);
+            }
+            flushPendingDecodeTail();
+            finalizeActiveSameProduct();
+            if (window.isRecording) stopRecording(true);
+            nativeStreamActive = false;
         });
 
         window.EASBridge.on('decoder:clearOutput', () => {
