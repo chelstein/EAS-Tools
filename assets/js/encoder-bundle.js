@@ -2899,6 +2899,21 @@ async function fetchAndStore() {
             }
         };
 
+        // Resolve FIPS codes to human-readable names using same-us.json data
+        window.EASBridge.on('encoder:resolveFips', (params) => {
+            const codes = params?.codes;
+            if (!Array.isArray(codes)) return;
+            const results = codes.map((fips) => {
+                // FIPS format: PSSCCC (P=region, SS=state, CCC=county)
+                const stateCode = fips.slice(1, 3);
+                const countyCode = fips.slice(3, 6);
+                const countyName = window.county?.[stateCode]?.[countyCode] || '';
+                const stateAbbr = window.state?.[stateCode] || '';
+                return { code: fips, county: countyName, state: stateAbbr };
+            });
+            window.EASBridge.send('encoder:fipsResolved', { results: results });
+        });
+
         // Send data proactively on load (native listeners may already be waiting)
         sendEncoderData();
 
