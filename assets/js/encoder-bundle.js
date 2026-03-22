@@ -2718,4 +2718,190 @@ async function fetchAndStore() {
     };
 
     window.noaaProductToFips = noaaProductToFips;
+
+    if (window.EASBridge) {
+        function sendEncoderData() {
+            // Events — read from populated #events select with optgroups
+            const eventsArr = [];
+            const eventsEl = document.getElementById('events');
+            if (eventsEl) {
+                for (const og of eventsEl.querySelectorAll('optgroup')) {
+                    const group = og.getAttribute('data-event-group') || og.label || '';
+                    for (const opt of og.querySelectorAll('option')) {
+                        eventsArr.push({ code: opt.value, label: opt.textContent, group: group });
+                    }
+                }
+            }
+            window.EASBridge.send('encoder:eventsData', { events: eventsArr });
+
+            // States
+            const statesArr = [];
+            if (window.state) {
+                for (const [code, abbr] of Object.entries(window.state)) {
+                    statesArr.push({ code: code, name: abbr });
+                }
+                statesArr.sort((a, b) => a.code.localeCompare(b.code));
+            }
+            window.EASBridge.send('encoder:statesData', { states: statesArr });
+
+            // Voices — read from populated #ttsVoice select
+            const voicesArr = [];
+            const voiceEl = document.getElementById('ttsVoice');
+            if (voiceEl) {
+                for (const opt of voiceEl.options) {
+                    voicesArr.push({ id: opt.value, label: opt.textContent });
+                }
+            }
+            window.EASBridge.send('encoder:voicesData', { voices: voicesArr });
+
+            // Endec modes — read from populated #overallEndecMode select
+            const modesArr = [];
+            const modeEl = document.getElementById('overallEndecMode');
+            if (modeEl) {
+                for (const opt of modeEl.options) {
+                    modesArr.push({ value: opt.value, label: opt.textContent });
+                }
+            }
+            window.EASBridge.send('encoder:endecModesData', { modes: modesArr });
+        }
+
+        // Respond to data requests from native
+        window.EASBridge.on('encoder:requestData', () => {
+            sendEncoderData();
+        });
+
+        // Respond to county requests for a specific state
+        window.EASBridge.on('encoder:requestCounties', (params) => {
+            const stateCode = params?.state;
+            if (!stateCode || !window.county || !window.county[stateCode]) {
+                window.EASBridge.send('encoder:countiesData', { counties: [] });
+                return;
+            }
+            const countiesArr = [];
+            for (const [code, name] of Object.entries(window.county[stateCode])) {
+                countiesArr.push({ code: code, name: name });
+            }
+            countiesArr.sort((a, b) => a.code.localeCompare(b.code));
+            window.EASBridge.send('encoder:countiesData', { counties: countiesArr });
+        });
+
+        // Generate — set DOM values from native payload, then call generateEas()
+        window.EASBridge.on('encoder:generate', async (params) => {
+            try {
+                window.EASBridge.send('encoder:generateState', { active: true });
+
+                // Set form values from native payload
+                const el = (id) => document.getElementById(id);
+                if (params.originator && el('originators')) el('originators').value = params.originator;
+                if (params.event && el('events')) el('events').value = params.event;
+                if (params.hours != null && el('hr')) { el('hr').value = params.hours; el('hr').dispatchEvent(new Event('change')); }
+                if (params.minutes != null && el('min')) el('min').value = params.minutes;
+                if (params.sender && el('par')) el('par').value = params.sender;
+                if (params.attentionTone != null && el('att')) { el('att').value = params.attentionTone.toString(); el('att').dispatchEvent(new Event('change')); }
+                if (params.toneDuration != null && el('tlen')) el('tlen').value = params.toneDuration.toString();
+                if (params.endecMode && el('overallEndecMode')) el('overallEndecMode').value = params.endecMode;
+                if (params.clip != null && el('clip')) el('clip').checked = params.clip;
+                if (params.announcementType && el('announcementType')) { el('announcementType').value = params.announcementType; el('announcementType').dispatchEvent(new Event('change')); }
+                if (params.ttsText != null) { window.ttsText = params.ttsText; if (el('ttsText')) el('ttsText').value = params.ttsText; }
+                if (params.ttsVoice) { window.ttsVoice = params.ttsVoice; if (el('ttsVoice')) { el('ttsVoice').value = params.ttsVoice; el('ttsVoice').dispatchEvent(new Event('change')); } }
+                if (params.ttsRate != null && el('ttsRate')) { el('ttsRate').value = params.ttsRate.toString(); el('ttsRate').dispatchEvent(new Event('input')); }
+                if (params.ttsPitch != null && el('ttsPitch')) { el('ttsPitch').value = params.ttsPitch.toString(); el('ttsPitch').dispatchEvent(new Event('input')); }
+                if (params.bitcrushSpeechify != null && el('shouldBitcrushSpeechify')) el('shouldBitcrushSpeechify').checked = params.bitcrushSpeechify;
+
+                // Set locations
+                if (Array.isArray(params.locations)) {
+                    window.locations.length = 0;
+                    params.locations.forEach(loc => window.locations.push(loc));
+                    updateTable();
+                }
+
+                // Set encoder mode to builder
+                if (el('encoderMode')) { el('encoderMode').value = 'builder'; el('encoderMode').dispatchEvent(new Event('change')); }
+
+                // Set time to now
+                stime();
+
+                await generateEas();
+                window.EASBridge.send('encoder:generateState', { active: false, success: true });
+            } catch (err) {
+                console.error('[EASBridge] Generate error:', err);
+                window.EASBridge.send('encoder:status', { text: 'ERROR: ' + err.message });
+                window.EASBridge.send('encoder:generateState', { active: false, success: false });
+            }
+        });
+
+        // Playback controls
+        window.EASBridge.on('encoder:togglePlayback', () => {
+            const el = document.getElementById('audioPlayback');
+            if (!el || !el.src) return;
+            if (el.paused) {
+                el.play();
+            } else {
+                el.pause();
+            }
+        });
+
+        window.EASBridge.on('encoder:stopPlayback', () => {
+            const el = document.getElementById('audioPlayback');
+            if (!el) return;
+            el.pause();
+            el.currentTime = 0;
+        });
+
+        window.EASBridge.on('encoder:seekPlayback', (params) => {
+            const el = document.getElementById('audioPlayback');
+            if (!el || !el.duration) return;
+            el.currentTime = (params?.fraction || 0) * el.duration;
+        });
+
+        // Report playback state updates
+        const _setupPlaybackReporting = () => {
+            const el = document.getElementById('audioPlayback');
+            if (!el) return;
+            const send = () => {
+                window.EASBridge.send('encoder:playbackState', {
+                    playing: !el.paused,
+                    currentTime: el.currentTime || 0,
+                    duration: el.duration || 0,
+                });
+            };
+            el.addEventListener('play', send);
+            el.addEventListener('pause', send);
+            el.addEventListener('ended', () => { el.currentTime = 0; send(); });
+            el.addEventListener('timeupdate', send);
+        };
+        _setupPlaybackReporting();
+        // Re-attach if audio element is recreated
+        new MutationObserver(() => _setupPlaybackReporting())
+            .observe(document.querySelector('.control-panel') || document.body, { childList: true, subtree: true });
+
+        // Save generated audio
+        window.EASBridge.on('encoder:save', async () => {
+            try {
+                await saveToWav();
+            } catch (err) {
+                console.error('[EASBridge] Save error:', err);
+            }
+        });
+
+        // Set time to now
+        window.EASBridge.on('encoder:setTimeToNow', () => {
+            stime();
+        });
+
+        // Status hook — forward addStatus calls to native
+        const _origAddStatus = addStatus;
+        addStatus = function(stat, type) {
+            _origAddStatus(stat, type);
+            if (window.EASBridge) {
+                const plainText = stat.replace(/<[^>]*>/g, '');
+                window.EASBridge.send('encoder:status', { text: '[' + (type || 'LOG') + '] ' + plainText });
+            }
+        };
+
+        // Send data proactively on load (native listeners may already be waiting)
+        sendEncoderData();
+
+        console.log('[EASBridge] Encoder bridge handlers registered');
+    }
 })();

@@ -195,6 +195,9 @@ async function fetchAndStore() {
         if (color) {
             statuselem.style.color = color;
         }
+        if (window.EASBridge) {
+            window.EASBridge.send('decoder:status', { text: stat, color: color || '#FFFFFF' });
+        }
     }
 
     window.modalShown = false;
@@ -1565,6 +1568,7 @@ async function fetchAndStore() {
         document.querySelector('[data-decoder-load]').disabled = false;
         document.querySelector('[data-decoder-record-toggle]').disabled = true;
         addStatus("WAITING...", USES_DARK_THEME ? "white" : "black");
+        if (window.EASBridge) window.EASBridge.send('decoder:streamState', { active: false });
     }
 
     const RECORD_LABEL_START = "Start Recording (alerts toggle this automatically)";
@@ -1658,6 +1662,7 @@ async function fetchAndStore() {
             return false;
         }
         window.isRecording = true;
+        if (window.EASBridge) window.EASBridge.send('decoder:recordingState', { active: true, auto: false });
         updateRecordButtonLabel(true);
         return true;
     }
@@ -1667,6 +1672,7 @@ async function fetchAndStore() {
             return false;
         }
         window.isRecording = false;
+        if (window.EASBridge) window.EASBridge.send('decoder:recordingState', { active: false, auto: false });
         autoRecordingTriggered = false;
         if (recordingSourceNode && recordingNode) {
             try {
@@ -1741,6 +1747,7 @@ async function fetchAndStore() {
                 return;
             }
             scheduleAutoRecordingTimeout();
+            if (window.EASBridge) window.EASBridge.send('decoder:recordingState', { active: true, auto: true });
         }).catch((error) => {
             console.error("Auto recording failed to start:", error);
             resetAutoRecordingState();
@@ -1834,6 +1841,7 @@ async function fetchAndStore() {
             uploadFileButton.disabled = false;
             await stopDecode();
             button.innerText = "Start Microphone Decoder";
+            if (window.EASBridge) window.EASBridge.send('decoder:micState', { active: false });
         } else {
             uploadFileButton.disabled = true;
             resetDecoderState();
@@ -1847,6 +1855,7 @@ async function fetchAndStore() {
             streamStartStopButton.disabled = true;
             recordButton.disabled = false;
             button.innerText = "Stop Microphone Decoder";
+            if (window.EASBridge) window.EASBridge.send('decoder:micState', { active: true });
         }
     }
 
@@ -1882,6 +1891,7 @@ async function fetchAndStore() {
         }
 
         setStreamToggleState(true);
+        if (window.EASBridge) window.EASBridge.send('decoder:streamState', { active: true });
     }
 
     async function populateMicrophones() {
@@ -1897,6 +1907,10 @@ async function fetchAndStore() {
             micContainer.hidden = mics.length === 0;
         }
         sel.disabled = mics.length === 0;
+        if (window.EASBridge) {
+            const deviceList = mics.map(mic => ({ deviceId: mic.deviceId, label: mic.label || 'Microphone' }));
+            window.EASBridge.send('decoder:devices', { devices: deviceList });
+        }
     }
 
     async function startDecode(stream) {
@@ -2933,6 +2947,8 @@ async function fetchAndStore() {
 
     let _runDecoderCallCount = 0;
     let _lastHeaderTimesLog = 0;
+    let _bridgeLevelChunkCount = 0;
+    let _bridgeLevelPeak = 0;
     function runDecoder(buf) {
         if (!buf || !buf.length) {
             return;
@@ -2947,6 +2963,15 @@ async function fetchAndStore() {
         const mapped = rmsToMeterLevel(rms);
         if (mapped > decoderMeterTarget) {
             decoderMeterTarget = mapped;
+        }
+        if (window.EASBridge) {
+            if (mapped > _bridgeLevelPeak) _bridgeLevelPeak = mapped;
+            if (++_bridgeLevelChunkCount >= 10) {
+                const db = _bridgeLevelPeak > 0 ? (METER_DB_MIN + _bridgeLevelPeak * (METER_DB_MAX - METER_DB_MIN)) : METER_DB_MIN;
+                window.EASBridge.send('decoder:level', { db: db });
+                _bridgeLevelPeak = 0;
+                _bridgeLevelChunkCount = 0;
+            }
         }
 
         if (_runDecoderCallCount <= 5 || _runDecoderCallCount % 500 === 0) {
@@ -3292,6 +3317,33 @@ async function fetchAndStore() {
                                     const parsedHeader = parseHeader(currentMsg, product.id);
                                     if (parsedHeader && !parsedHeader.eom) {
                                         product.alerts.push(parsedHeader);
+                                        if (window.EASBridge) {
+                                            const alertName = events[parsedHeader.event] || parsedHeader.event || '';
+                                            const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                                            const cleanHeader = parsedHeader.rawHeader.trim().replace(window.EASREGEX, 'ZCZC-$1-$2-$3+$4-$5-$6-');
+                                            let easText = '';
+                                            try { easText = E2T(cleanHeader, null, false, userTimezone); } catch(e) {}
+                                            let severity = 'Information';
+                                            if (easText.match(/(Warning|Emergency|Immediate)/i) && !easText.match(/(Demo)/i)) severity = 'Warning';
+                                            else if (easText.match(/(Watch)/i)) severity = 'Watch';
+                                            else if (easText.match(/(Advisory)/i)) severity = 'Advisory';
+                                            else if (easText.match(/(Statement)/i)) severity = 'Statement';
+                                            else if (easText.match(/(Information|Test|Demo)/i)) severity = 'Information';
+                                            const issueTime = parsedHeader.issueTime;
+                                            const expirationTime = typeof getExpirationTime === 'function' ? getExpirationTime(issueTime, parsedHeader.alertTime) : null;
+                                            window.EASBridge.send('decoder:header', {
+                                                raw: parsedHeader.rawHeader || '',
+                                                summary: easText.split('\n')[0] || '',
+                                                details: easText || '',
+                                                severity: severity,
+                                                eventType: alertName,
+                                                areas: typeof locationsToReadable === 'function' ? locationsToReadable(parsedHeader.locationCodes) : '',
+                                                issueTime: issueTime && typeof dateToReadable === 'function' ? dateToReadable(issueTime, false) : '',
+                                                expireTime: expirationTime && typeof dateToReadable === 'function' ? dateToReadable(expirationTime, false) : '',
+                                                sender: parsedHeader.sender || '',
+                                                originator: entryNames[parsedHeader.originator] || parsedHeader.originator || '',
+                                            });
+                                        }
                                         const view = document.createElement("button");
                                         view.addEventListener("click", () => {
                                             showModal(parsedHeader);
@@ -3652,6 +3704,34 @@ async function fetchAndStore() {
         }
 
         product.alerts.push(parsedHeader);
+
+        if (window.EASBridge) {
+            const alertName = events[parsedHeader.event] || parsedHeader.event || '';
+            const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const cleanHeader = parsedHeader.rawHeader.trim().replace(window.EASREGEX, 'ZCZC-$1-$2-$3+$4-$5-$6-');
+            let easText = '';
+            try { easText = E2T(cleanHeader, null, false, userTimezone); } catch(e) {}
+            let severity = 'Information';
+            if (easText.match(/(Warning|Emergency|Immediate)/i) && !easText.match(/(Demo)/i)) severity = 'Warning';
+            else if (easText.match(/(Watch)/i)) severity = 'Watch';
+            else if (easText.match(/(Advisory)/i)) severity = 'Advisory';
+            else if (easText.match(/(Statement)/i)) severity = 'Statement';
+            else if (easText.match(/(Information|Test|Demo)/i)) severity = 'Information';
+            const issueTime = parsedHeader.issueTime;
+            const expirationTime = typeof getExpirationTime === 'function' ? getExpirationTime(issueTime, parsedHeader.alertTime) : null;
+            window.EASBridge.send('decoder:header', {
+                raw: parsedHeader.rawHeader || '',
+                summary: easText.split('\n')[0] || '',
+                details: easText || '',
+                severity: severity,
+                eventType: alertName,
+                areas: typeof locationsToReadable === 'function' ? locationsToReadable(parsedHeader.locationCodes) : '',
+                issueTime: issueTime && typeof dateToReadable === 'function' ? dateToReadable(issueTime, false) : '',
+                expireTime: expirationTime && typeof dateToReadable === 'function' ? dateToReadable(expirationTime, false) : '',
+                sender: parsedHeader.sender || '',
+                originator: entryNames[parsedHeader.originator] || parsedHeader.originator || '',
+            });
+        }
 
         view.addEventListener("click", () => {
             showModal(parsedHeader);
@@ -4434,4 +4514,110 @@ async function fetchAndStore() {
     });
 
     mutationObserver.observe(document.getElementById('output'), { childList: true, subtree: true });
+
+    if (window.EASBridge) {
+        window.EASBridge.on('decoder:requestDevices', async () => {
+            await populateMicrophones();
+        });
+
+        window.EASBridge.on('decoder:startMic', async (params) => {
+            const deviceId = params?.deviceId || sel?.value || '';
+            if (sel && deviceId) sel.value = deviceId;
+            const btn = document.querySelector('[data-decoder-toggle]');
+            if (btn && !micSource) await runDecode(btn);
+        });
+
+        window.EASBridge.on('decoder:stopMic', async () => {
+            const btn = document.querySelector('[data-decoder-toggle]');
+            if (btn && micSource) await runDecode(btn);
+        });
+
+        window.EASBridge.on('decoder:startStream', async (params) => {
+            const url = params?.url;
+            if (url) await runStreamDecoder(url);
+        });
+
+        window.EASBridge.on('decoder:stopStream', async () => {
+            if (window.streamUrl) await stopStreamDecode(window.streamUrl);
+        });
+
+        window.EASBridge.on('decoder:loadFileData', async (params) => {
+            const b64 = params?.base64;
+            if (!b64) return;
+            try {
+                const binaryStr = atob(b64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                const arrayBuffer = bytes.buffer;
+                addStatus("PROCESSING...", "yellow");
+                const audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
+                resetDecoderState();
+                updateSampleRate(audioBuffer.sampleRate);
+                const channelData = audioBuffer.getChannelData(0);
+                let sumSquares = 0, peak = 0;
+                for (let i = 0; i < channelData.length; i++) {
+                    const s = channelData[i];
+                    const abs = s < 0 ? -s : s;
+                    if (abs > peak) peak = abs;
+                    sumSquares += s * s;
+                }
+                if (peak > 0 && channelData.length > 0) {
+                    const rms = Math.sqrt(sumSquares / channelData.length);
+                    const minRms = 0.08912509381337455;
+                    if (rms > 0 && rms <= minRms) {
+                        const gain = 0.99 / peak;
+                        if (gain > 1) {
+                            for (let i = 0; i < channelData.length; i++) channelData[i] *= gain;
+                        }
+                    }
+                }
+                const chunkSize = 128;
+                for (let i = 0; i < channelData.length; i += chunkSize) {
+                    runDecoder(channelData.subarray(i, i + chunkSize));
+                }
+                stopDecode(false);
+            } catch (err) {
+                console.error('[EASBridge] loadFileData error:', err);
+                addStatus("FILE ERROR: " + err.message, "red");
+            }
+        });
+
+        window.EASBridge.on('decoder:loadRawHeader', (params) => {
+            const header = params?.header;
+            if (!header) return;
+            const regex = window.EASREGEX;
+            if (!regex || !regex.test(header)) {
+                if (window.EASBridge) window.EASBridge.send('decoder:status', { text: 'INVALID HEADER FORMAT', color: 'red' });
+                return;
+            }
+            const container = document.createElement("div");
+            container.className = "alert";
+            document.querySelector("#output").appendChild(container);
+            container.innerText = header;
+            processHeader({ rawHeader: header }, container);
+        });
+
+        window.EASBridge.on('decoder:startRecording', async () => {
+            if (!window.isRecording) await startRecording();
+        });
+
+        window.EASBridge.on('decoder:stopRecording', () => {
+            if (window.isRecording) stopRecording();
+        });
+
+        window.EASBridge.on('decoder:setLoopback', (params) => {
+            const loopbackToggle = document.getElementById("decoder-loopback");
+            if (loopbackToggle) {
+                loopbackToggle.checked = !!params?.enabled;
+                refreshLoopback();
+            }
+        });
+
+        window.EASBridge.on('decoder:clearOutput', () => {
+            const output = document.querySelector("#output");
+            if (output) output.innerHTML = "";
+        });
+
+        console.log('[EASBridge] Decoder bridge handlers registered');
+    }
 })();

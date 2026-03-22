@@ -216,4 +216,30 @@ const { Backend, wordToBackend, convertPhonemes, crossPhonemes } = window.Phonem
             alert("Failed to copy to clipboard: " + err);
         }
     };
+
+    // === Native Bridge ===
+    if (window.EASBridge) {
+        window.EASBridge.on('phoneme:convert', (params) => {
+            const text = params?.text;
+            if (!text) {
+                window.EASBridge.send('phoneme:result', { text: '' });
+                return;
+            }
+            try {
+                let modeVal = params.mode || 'word';
+                let result;
+                if (modeVal === 'cross') {
+                    result = crossPhonemes(text, params.crossFrom || 'vtml', params.crossTo || 'bal', { lexicon: overrides });
+                } else if (modeVal === 'phoneme') {
+                    result = convertPhonemes(text, { lexicon: overrides });
+                } else {
+                    result = wordToBackend(text, params.outBackend || 'all', { overrides });
+                }
+                window.EASBridge.send('phoneme:result', { text: result || '' });
+            } catch (err) {
+                window.EASBridge.send('phoneme:result', { text: '[ERROR] ' + (err?.message || String(err)) });
+            }
+        });
+        console.log('[EASBridge] Phoneme bridge handlers registered');
+    }
 })();

@@ -1378,8 +1378,8 @@ async function initCrawlEditor() {
         const estimatedBitrate = Math.floor(captureCanvas.width * captureCanvas.height * captureFps * 0.3);
         const videoBitsPerSecond = Math.max(2_000_000, Math.min(25_000_000, estimatedBitrate));
         const normalizedQuality = Math.max(0, Math.min(1, (videoBitsPerSecond - 2_000_000) / 23_000_000));
-        const MIN_CAPTURE_QUALITY = 0.3;
-        const MAX_CAPTURE_QUALITY = 0.6;
+        const MIN_CAPTURE_QUALITY = 0.6;
+        const MAX_CAPTURE_QUALITY = 0.95;
         const captureQuality = Math.max(
             MIN_CAPTURE_QUALITY,
             Math.min(MAX_CAPTURE_QUALITY, MIN_CAPTURE_QUALITY + normalizedQuality * (MAX_CAPTURE_QUALITY - MIN_CAPTURE_QUALITY))
@@ -4627,4 +4627,132 @@ async function initCrawlEditor() {
             await initCrawlEditor();
         }
     });
+
+    // === Native Bridge ===
+    if (window.EASBridge) {
+        // Send E2T endec emulation modes to native
+        try {
+            const modes = allEndecModes().filter((mode) => mode.toLowerCase() !== 'json');
+            const modeList = [{ value: '', label: 'None (Default)' }];
+            modes.forEach(m => modeList.push({ value: m, label: m }));
+            window.EASBridge.send('crawl:endecModes', { modes: modeList });
+        } catch (e) { console.error('[EASBridge] crawl endec modes error:', e); }
+
+        window.EASBridge.on('crawl:convertHeader', async (params) => {
+            const rawHeader = params?.header;
+            if (!rawHeader) return;
+            try {
+                const endecMode = params?.endecMode || null;
+                const text = await header_to_readable(rawHeader, false, '', endecMode);
+                window.EASBridge.send('crawl:headerConverted', { text: text || '' });
+
+                // Also send DASDEC-formatted version if available
+                try {
+                    const dasdecPages = await formatDasdec(rawHeader, true);
+                    if (dasdecPages && dasdecPages.length) {
+                        // Send the raw formatted text so native can page it identically
+                        const flatText = dasdecPages.map(page => {
+                            // Drop the page indicator (last line) from each page
+                            return page.slice(0, -1).filter(l => l !== '').join('\n');
+                        }).join('\n');
+                        window.EASBridge.send('crawl:dasdecFormatted', { text: flatText });
+                    }
+                } catch (e) { /* DASDEC formatting optional */ }
+            } catch (err) {
+                console.error('[EASBridge] crawl:convertHeader error:', err);
+                window.EASBridge.send('crawl:headerConverted', { text: '' });
+            }
+        });
+        // Export: set all DOM values, start crawl, then export
+        window.EASBridge.on('crawl:export', async (params) => {
+            try {
+                const format = params?.format || 'gif';
+
+                // Set DOM values from native payload
+                const el = (id) => document.getElementById(id);
+                const setVal = (id, val) => { if (el(id) && val != null) el(id).value = val; };
+                const setChk = (id, val) => { if (el(id) && val != null) el(id).checked = val; };
+
+                setVal('crawlText', params.text || '');
+                setVal('crawlSpeed', params.speed);
+                setVal('crawlFontSize', params.fontSize);
+                setVal('crawlTextColor', params.textColor);
+                setVal('crawlBgColor', params.bgColor);
+                setVal('crawlFontFamily', params.fontFamily);
+                setVal('crawlFontStyle', params.fontStyle);
+                setVal('crawlWidth', params.width);
+                setVal('crawlHeight', params.height);
+                setVal('crawlInset', params.inset);
+                setVal('crawlOutlineColor', params.outlineColor);
+                setVal('crawlOutlineWidth', params.outlineWidth);
+                setVal('crawlRestartDelay', params.restartDelay);
+                setVal('crawlBackgroundMode', params.bgMode || 'solid');
+                setChk('crawlUseVDSMode', params.vdsMode);
+                setVal('vdsFrameDelay', params.vdsFrameDelay);
+                setVal('crawlMode', 'custom');
+                setVal('crawlRepetitions', params.repetitions);
+
+                // Trigger Start Crawl
+                const startBtn = el('startCrawl');
+                if (startBtn) {
+                    startBtn.click();
+                    // Wait for generator to be created and fonts to load
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+                if (!window.crawlGenerator) {
+                    window.EASBridge.send('crawl:exportComplete', {});
+                    return;
+                }
+
+                // Force 60fps frame timing for export quality
+                window.crawlGenerator.msPerFrame = 1000 / 60;
+
+                // Monitor progress bar for updates → send to native
+                const progressBar = document.getElementById('crawlExportProgress');
+                const progressLabel = document.getElementById('crawlExportProgressLabel');
+                let progressObserver = null;
+                if (progressBar) {
+                    progressObserver = new MutationObserver(() => {
+                        const val = parseFloat(progressBar.value) || 0;
+                        const max = parseFloat(progressBar.max) || 1;
+                        window.EASBridge.send('crawl:exportProgress', { progress: val / max });
+                    });
+                    progressObserver.observe(progressBar, { attributes: true });
+                }
+
+                // Monitor for export completion (progress div hides when done)
+                const progressDiv = document.getElementById('crawlExportProgressDiv');
+                let doneObserver = null;
+                if (progressDiv) {
+                    doneObserver = new MutationObserver(() => {
+                        if (progressDiv.style.display === 'none' || progressDiv.style.display === '') {
+                            window.EASBridge.send('crawl:exportComplete', {});
+                            if (progressObserver) progressObserver.disconnect();
+                            if (doneObserver) doneObserver.disconnect();
+                        }
+                    });
+                    doneObserver.observe(progressDiv, { attributes: true, attributeFilter: ['style'] });
+                }
+
+                if (format === 'gif') {
+                    exportAsGIF(window.crawlGenerator.canvas, 'text_crawl.gif');
+                } else {
+                    exportAsWebM(window.crawlGenerator.canvas, 'text_crawl.webm');
+                }
+            } catch (err) {
+                console.error('[EASBridge] crawl:export error:', err);
+                window.EASBridge.send('crawl:exportComplete', {});
+            }
+        });
+
+        window.EASBridge.on('crawl:cancelExport', () => {
+            // Click the DOM cancel button — it calls crawlExportController's
+            // activeToken.cancel() which is private inside the IIFE
+            const btn = document.getElementById('cancelCrawlExport');
+            if (btn && !btn.disabled) btn.click();
+        });
+
+        console.log('[EASBridge] Crawl bridge handlers registered');
+    }
 })();

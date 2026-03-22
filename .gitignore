@@ -4,3 +4,4 @@
 .pytest_cache/
 pytest-cache*/
 tests/
+*.patch

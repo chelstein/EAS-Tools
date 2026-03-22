@@ -908,6 +908,16 @@
                         activate(deepLinkTool);
                     }
                 });
+
+                // Native bridge: muxer activation
+                if (window.EASBridge) {
+                    window.EASBridge.on('muxer:activate', () => {
+                        activate('muxer');
+                    });
+                    window.EASBridge.on('muxer:deactivate', () => {
+                        activate('decoder');
+                    });
+                }
             })();
         </script>
     </body>
