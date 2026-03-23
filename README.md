@@ -168,6 +168,7 @@ For a demonstration of each individual TTS voice, see the [voice demo page](http
 
 ## 📜 Credits & third‑party
 
+* Logo design: **BunnyTub** (https://bunnytub.com/) for the new EAS Tools "Toolbox" Logo
 * UI fonts: **Hack** (via `assets/css/hack.css`)
 * WAV writer: **wavefile.js** (bundled in `assets/js/wavefile.js`)
 * Resampling: **wave‑resampler.js** (bundled in `assets/js/wave‑resampler.js`)

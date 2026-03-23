@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="robots" content="index, nofollow">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>EAS Tools - Credits/Acknoledgements</title>
+        <link rel="stylesheet" href="assets/css/hack.css">
+        <link rel="stylesheet" href="assets/css/style.css">
+        <meta name="title" content="Emergency Alert System (EAS) Tools">
+        <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
+        <meta name="language" content="English">
+        <meta name="image" content="https://eas.tools/assets/eas-logo-banner.png">
+        <meta name="author" content="https://github.com/wagwan-piffting-blud/">
+        <link rel="canonical" href="https://eas.tools/">
+        <meta property="og:type" content="website">
+        <meta property="og:title" content="Emergency Alert System (EAS) Tools">
+        <meta property="og:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta property="og:url" content="https://eas.tools/">
+        <meta property="og:image" content="https://eas.tools/assets/eas-logo-banner.png">
+        <meta property="og:site_name" content="EAS Tools">
+        <meta name="twitter:card" content="summary">
+        <meta name="twitter:title" content="Emergency Alert System (EAS) Tools">
+        <meta name="twitter:description"
+            content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta name="twitter:image" content="https://eas.tools/assets/eas-logo-banner.png">
+        <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <!-- Cloudflare Web Analytics -->
+        <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+            data-cf-beacon='{"token": "de7f295c3b7d43e1a9a771246a7fdc65"}'></script>
+        <!-- End Cloudflare Web Analytics -->
+    </head>
+    <body>
+        <header>
+            <h1><a href="./index.html">EAS Tools - Credits/Acknowledgements</a></h1>
+        </header>
+        <main>
+            <article style="padding: 2rem;">
+                <h2>Credits/Acknowledgements</h2>
+                <p>Special thanks goes out to the following individuals, resources, and packages/organizations for their contributions to the development of EAS Tools:</p>
+                <h3>Libraries &amp; Packages</h3>
+                <ul>
+                    <li><a href="https://github.com/source-foundry/Hack" target="_blank" rel="noopener">Hack font</a> &mdash; Monospace font used for the site's UI typography.</li>
+                    <li><a href="https://rochars.github.io/wavefile/" target="_blank" rel="noopener">wavefile.js</a> &mdash; WAV file writer used for generating downloadable WAV audio files in the Encoder and Audio Splicer tools.</li>
+                    <li><a href="https://github.com/rochars/wave-resampler" target="_blank" rel="noopener">wave-resampler.js</a> &mdash; Audio resampling library used for converting audio sample rates in the Encoder and Audio Splicer tools.</li>
+                    <li><a href="https://github.com/jnordberg/gif.js" target="_blank" rel="noopener">gif.js</a> &mdash; GIF encoding library used to export text crawl animations as GIF files in the Text Crawl Generator.</li>
+                    <li><a href="https://github.com/Mintplex-Labs/piper-tts-web" target="_blank" rel="noopener">piper.tts.js</a> &mdash; WebAssembly-based TTS voice engine used for local in-browser speech synthesis in the Encoder and Audio Splicer tools.</li>
+                    <li>nanotts.js &mdash; Additional WebAssembly TTS voice engine used alongside piper.tts.js for local in-browser speech synthesis.</li>
+                    <li><a href="https://codemirror.net/" target="_blank" rel="noopener">CodeMirror</a> &mdash; Code editor component used for input areas across multiple tools.</li>
+                    <li><a href="https://github.com/wagwan-piffting-blud/E2T-NG" target="_blank" rel="noopener">E2T-NG</a> (JS port by wagwan-piffting-blud, originally by Newton Communications, see below for link) &mdash; Converts SAME headers into human-readable alert text; used in the Decoder and Text Crawl Generator.</li>
+                    <li><a href="https://github.com/rameshvarun/sox-emscripten" target="_blank" rel="noopener">sox-emscripten</a> &mdash; SoX audio processing compiled to WebAssembly, used for audio manipulation in the Audio Splicer tool.</li>
+                    <li><a href="https://github.com/gzuidhof/coi-serviceworker" target="_blank" rel="noopener">coi-serviceworker.js</a> &mdash; Service worker that enables cross-origin isolation, required for SharedArrayBuffer support used by WebAssembly-based tools.</li>
+                    <li><a href="https://github.com/amandaghassaei/canvas-capture" target="_blank" rel="noopener">canvas-capture.js</a> &mdash; Canvas recording library used to export text crawl animations as WebM video files in the Text Crawl Generator.</li>
+                    <li><a href="https://github.com/ffmpegwasm/ffmpeg.wasm" target="_blank" rel="noopener">ffmpeg.wasm</a> &mdash; FFmpeg compiled to WebAssembly, used for combining video and audio files in the Video/Audio Muxer tool.</li>
+                    <li><a href="https://github.com/hans00/phonemize" target="_blank" rel="noopener">phonemeize</a> &mdash; Phoneme conversion library used for converting text into phoneme representations in the Phoneme Converter/Generator tool.</li>
+                    <li><a href="https://github.com/globaleas/EAS.js/" target="_blank" rel="noopener">EAS.js</a> (by <a href="https://globaleas.org/" target="_blank" rel="noopener">GWES</a>) &mdash; Reference implementation used for ENDEC profile logic in the Decoder and Encoder tools.</li>
+                    <li>Original SAME decoding/encoding logic by CryptoDude3 (GitHub Pages site removed), maintained and expanded by wagwan-piffting-blud.</li>
+                </ul>
+                <h3>Inspiration &amp; References</h3>
+                <ul>
+                    <li><a href="https://bunnytub.com/" target="_blank" rel="noopener">BunnyTub</a> for the new EAS Tools "Toolbox" Logo</li>
+                    <li><a href="https://github.com/nicksmadscience/eas-same-encoder" target="_blank" rel="noopener">nicksmadscience SAME Encoder</a> (Python) &mdash; Early reference for SAME header encoding logic.</li>
+                    <li><a href="https://github.com/Mab879/eas_encoder" target="_blank" rel="noopener">Mab879 C++ SAME Encoder</a> &mdash; Additional reference implementation for EAS/SAME encoding.</li>
+                    <li>Anon64 EAS Header Generator (removed) &mdash; Additional reference for header generation.</li>
+                    <li><a href="https://github.com/Newton-Communications/E2T/" target="_blank" rel="noopener">EAS2Text</a> (by Newton Communications) &mdash; Original Python EAS-to-text library that E2T-NG is based on.</li>
+                    <li>CryptoDude3 GitHub Pages site (removed) &mdash; Source of the original encoder/decoder logic and the basis for the current page design.</li>
+                </ul>
+            </article>
+        </main>
+        <footer></footer>
+        <script src="assets/js/footer.js"></script>
+    </body>
+</html>

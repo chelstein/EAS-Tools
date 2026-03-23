@@ -12,6 +12,7 @@ footer.innerHTML = `
     <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
     <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
     <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
+    <li><p><a href="credits.html">Credits</a></p></li>
 </ul>
 <br class="mobileBreak">
 <div id="footer-mobile-arrow" style="display: none;"></div>
