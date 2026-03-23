@@ -126,7 +126,8 @@ async function loadResources() {
     }
 }
 
-await loadResources();
+export const resourcesReady = loadResources();
+await resourcesReady;
 
 function parseEASTime(timeStr) {
     const dayOfYear = Number(timeStr.slice(0, 3));
