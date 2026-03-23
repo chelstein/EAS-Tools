@@ -1,8 +1,19 @@
 export async function saveFile(filename, content, mime, opts = {}) {
     const blob = (content instanceof Blob) ? content : new Blob([content], { type: mime });
 
+    if(!/eas-recording-.*/.test(filename)) {
+        let random_bytes = new Uint8Array(8);
+        crypto.getRandomValues(random_bytes);
+        const random_suffix = Array.from(random_bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        var unique_filename = `${filename.replace(/(\.[^.]*)?$/, `_${random_suffix}$1`)}`;
+    }
+
+    else {
+        var unique_filename = filename;
+    }
+
     if (window.EASDownloads?.saveBlob) {
-        await window.EASDownloads.saveBlob(blob, filename, mime, opts);
+        await window.EASDownloads.saveBlob(blob, unique_filename, mime, opts);
         return;
     }
 
@@ -10,7 +21,7 @@ export async function saveFile(filename, content, mime, opts = {}) {
     try {
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = unique_filename;
         document.body.appendChild(a);
         a.click();
         a.remove();

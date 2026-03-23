@@ -1987,6 +1987,7 @@ async function fetchAndStore() {
         const currentValue = getLocalDT(new Date());
         timeselect.value = currentValue;
         lastValidTimeselectValue = currentValue;
+        updateHeaderPreview();
     }
 
     stime();
@@ -2288,6 +2289,7 @@ async function fetchAndStore() {
             tr.addEventListener("click", function (e) { locations.splice(parseInt(e.srcElement.parentElement.getAttribute("data-val")), 1); updateTable(); });
             fcont.appendChild(tr);
         }
+        if (typeof updateHeaderPreview === "function") updateHeaderPreview();
     }
     updateTable();
 
@@ -2460,6 +2462,7 @@ async function fetchAndStore() {
                 base.setUTCHours(hour, minute, 0, 0);
                 timeselect.value = getLocalDT(base);
                 lastValidTimeselectValue = timeselect.value;
+                updateHeaderPreview();
             }
         }
 
@@ -2680,6 +2683,40 @@ async function fetchAndStore() {
             }
         });
     }
+
+    function updateHeaderPreview() {
+        const headerPreviewElem = document.getElementById("headerPreview");
+        if (!headerPreviewElem) return;
+        if (window.mode === "header") {
+            headerPreviewElem.textContent = "";
+            return;
+        }
+        if (locations.length < 1) {
+            headerPreviewElem.textContent = "";
+            return;
+        }
+        if (!isTimeselectValueValid(timeselect.value)) {
+            headerPreviewElem.textContent = "";
+            return;
+        }
+        var par = parinput.value;
+        if (par.length < 8) {
+            par += " ".repeat(8 - par.length);
+        }
+        var min = parseInt(minselect.value);
+        var l = hr.toString().padStart(2, "0") + min.toString().padStart(2, "0");
+        var time = new Date(timeselect.value);
+        headerPreviewElem.textContent = create_header_string(originators.value, events.value, locations, l, time, par);
+    }
+
+    events.addEventListener("change", updateHeaderPreview);
+    originators.addEventListener("change", updateHeaderPreview);
+    minselect.addEventListener("change", updateHeaderPreview);
+    parinput.addEventListener("input", updateHeaderPreview);
+    timeselect.addEventListener("change", updateHeaderPreview);
+    hrselect.addEventListener("change", updateHeaderPreview);
+
+    updateHeaderPreview();
 
     // currently not used in main iife, but exported for console use and potential future use
     const noaaProductToFips = function (noaaProduct) {
