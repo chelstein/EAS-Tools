@@ -4665,13 +4665,14 @@ async function initCrawlEditor() {
 
     // === Native Bridge ===
     if (window.EASBridge) {
-        // Send E2T endec emulation modes to native
-        try {
+        // Send E2T endec emulation modes to native (wait for resources like DOM code does)
+        function sendEndecModesToNative() {
             const modes = allEndecModes().filter((mode) => mode.toLowerCase() !== 'json');
             const modeList = [{ value: '', label: 'None (Default)' }];
             modes.forEach(m => modeList.push({ value: m, label: m }));
             window.EASBridge.send('crawl:endecModes', { modes: modeList });
-        } catch (e) { console.error('[EASBridge] crawl endec modes error:', e); }
+        }
+        resourcesReady.then(sendEndecModesToNative).catch(() => sendEndecModesToNative());
 
         window.EASBridge.on('crawl:convertHeader', async (params) => {
             const rawHeader = params?.header;
@@ -4789,12 +4790,7 @@ async function initCrawlEditor() {
         });
 
         window.EASBridge.on('crawl:requestData', () => {
-            try {
-                const modes = allEndecModes().filter((mode) => mode.toLowerCase() !== 'json');
-                const modeList = [{ value: '', label: 'None (Default)' }];
-                modes.forEach(m => modeList.push({ value: m, label: m }));
-                window.EASBridge.send('crawl:endecModes', { modes: modeList });
-            } catch (e) { console.error('[EASBridge] crawl requestData error:', e); }
+            resourcesReady.then(sendEndecModesToNative).catch(() => sendEndecModesToNative());
         });
 
         console.log('[EASBridge] Crawl bridge handlers registered');
