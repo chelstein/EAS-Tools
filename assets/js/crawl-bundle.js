@@ -2219,6 +2219,7 @@ async function initCrawlEditor() {
             this._topLeftActive = false;
             this.repetitions = 0;
             this.crawlRepetitions = 0;
+            this.kerningPercent = 0;
             this._frameHistory = [];
             this._frameHistoryLimit = 15;
             this._responsiveViewportHandler = null;
@@ -2726,10 +2727,26 @@ async function initCrawlEditor() {
             }
         }
 
+        setKerning(kerning) {
+            const parsed = Number(kerning);
+            if (Number.isFinite(parsed)) {
+                this.kerningPercent = parsed;
+                const px = (parsed / 100) * this.fontSize;
+                this.ctx.letterSpacing = `${px}px`;
+                this.startFromRightInitialized = false;
+                this._invalidateVdsState();
+                this._resetFrameHistory();
+            }
+        }
+
         setFontSize(size) {
             const parsed = Number(size);
             if (Number.isFinite(parsed) && parsed > 0) {
                 this.fontSize = parsed;
+                if (this.kerningPercent) {
+                    const px = (this.kerningPercent / 100) * parsed;
+                    this.ctx.letterSpacing = `${px}px`;
+                }
                 this.startFromRightInitialized = false;
                 this._invalidateVdsState();
                 this._resetFrameHistory();
@@ -3887,6 +3904,7 @@ async function initCrawlEditor() {
         let crawlTopLeftOffsetX = document.getElementById('crawlTopLeftPixelX').value;
         let crawlTopLeftOffsetY = document.getElementById('crawlTopLeftPixelY').value;
         const repetitions = document.getElementById('crawlRepetitions').value;
+        const crawlKerning = document.getElementById('crawlKerning').value;
 
         if (crawlBackgroundMode === 'transparent') {
             bgColor = 'transparent';
@@ -3963,7 +3981,8 @@ async function initCrawlEditor() {
             easyplusEventCode,
             crawlTopLeftOffsetX,
             crawlTopLeftOffsetY,
-            repetitions
+            repetitions,
+            crawlKerning
         };
 
         localStorage.setItem(localStorageKey, JSON.stringify(settings));
@@ -4014,6 +4033,7 @@ async function initCrawlEditor() {
         generator.vdsBaseDelayFrames = normalizedVdsDelay;
         generator.setVDSMode(useVDSMode);
         generator.setRepetitions(repetitions);
+        generator.setKerning(crawlKerning);
         setPauseButtonState(false);
         resumeDasdecRotationState();
         window.crawlGenerator._updateButtons(false);
@@ -4519,6 +4539,105 @@ async function initCrawlEditor() {
     if (savedSettings) {
         applySettingsToControls(JSON.parse(savedSettings));
     }
+
+    // --- Live crawl preview ---
+    const _crawlPreviewCanvas = document.getElementById('crawlPreview');
+    const _crawlPreviewCtx = _crawlPreviewCanvas ? _crawlPreviewCanvas.getContext('2d') : null;
+    let _crawlPreviewScheduled = false;
+
+    async function updateCrawlPreview() {
+        if (!_crawlPreviewCtx) return;
+
+        const canvas = _crawlPreviewCanvas;
+        const ctx = _crawlPreviewCtx;
+
+        const text = document.getElementById('crawlText').value || 'Preview';
+        const fontSize = Math.max(1, Number(document.getElementById('crawlFontSize').value) || 24);
+        const textColor = document.getElementById('crawlTextColor').value || '#FFFFFF';
+        const bgColor = document.getElementById('crawlBgColor').value || '#000000';
+        const bgMode = document.getElementById('crawlBackgroundMode').value;
+        const fontFamilyRaw = document.getElementById('crawlFontFamily')
+            ? document.getElementById('crawlFontFamily').value : 'Arial';
+        const fontStyle = document.getElementById('crawlFontStyle')
+            ? document.getElementById('crawlFontStyle').value : 'normal';
+        const outlineColor = document.getElementById('crawlOutlineColor').value || '';
+        const outlineWidth = Number(document.getElementById('crawlOutlineWidth').value) || 0;
+        const outlineJoin = document.getElementById('crawlOutlineJoin').value || 'round';
+        const kerning = Number(document.getElementById('crawlKerning').value) || 0;
+
+        // Resolve font family — load custom font if needed
+        let fontFamily = fontFamilyRaw;
+        if (fontFamilyRaw === USER_UPLOAD_FONT_FAMILY) {
+            try {
+                fontFamily = await resolveCrawlFontFamily(fontFamilyRaw);
+            } catch (_) {
+                fontFamily = 'Arial';
+            }
+        }
+
+        await document.fonts.load(`${fontStyle} ${fontSize}px "${fontFamily}"`);
+
+        // Background
+        if (bgMode === 'transparent') {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Font setup
+        ctx.font = `${fontStyle} ${fontSize}px "${fontFamily}"`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = textColor;
+        ctx.lineJoin = outlineJoin;
+
+        // Kerning (convert percentage to px)
+        const kerningPx = (kerning / 100) * fontSize;
+        ctx.letterSpacing = `${kerningPx}px`;
+
+        // Text rendering
+        const renderText = createTextRenderer(ctx, outlineColor, outlineWidth);
+        const lines = (text || '').split('\n');
+        const lineHeight = fontSize + 10;
+        const totalTextHeight = lines.length * lineHeight;
+        const startY = (canvas.height - totalTextHeight) / 2 + lineHeight / 2;
+
+        lines.forEach((line, index) => {
+            const y = startY + index * lineHeight;
+            renderText(line, canvas.width / 2, y);
+        });
+
+        // Reset letterSpacing so it doesn't leak
+        ctx.letterSpacing = '0px';
+    }
+
+    function scheduleCrawlPreview() {
+        if (_crawlPreviewScheduled) return;
+        _crawlPreviewScheduled = true;
+        requestAnimationFrame(() => {
+            _crawlPreviewScheduled = false;
+            updateCrawlPreview();
+        });
+    }
+
+    // Attach listeners to all relevant crawl settings inputs
+    const _previewInputIds = [
+        'crawlText', 'crawlTextColor', 'crawlFontSize', 'crawlFontFamily',
+        'crawlFontStyle', 'crawlOutlineColor', 'crawlOutlineWidth',
+        'crawlOutlineJoin', 'crawlBgColor', 'crawlBackgroundMode',
+        'crawlKerning', 'crawlCustomFontFile'
+    ];
+
+    _previewInputIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', scheduleCrawlPreview);
+        el.addEventListener('change', scheduleCrawlPreview);
+    });
+
+    // Draw the initial preview after fonts are ready
+    ensureFontsReady().then(scheduleCrawlPreview);
 
     function parseEASHeaderAndUpdateEasyPlusSettings(rawHeader) {
         const regex = window.EASREGEX;

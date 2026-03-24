@@ -611,6 +611,23 @@ button[disabled] {
     color: var(--color-text);
 }
 
+#crawlPreviewDiv {
+    position: absolute;
+    top: 50vh;
+    left: calc(35% + (100% - 35%) / 2);
+    transform: translate(-50%, -50%);
+    width: calc(60vw - 2em);
+    max-width: 900px;
+    text-align: center;
+    pointer-events: none;
+}
+
+#crawlPreview {
+    width: 100%;
+    height: auto;
+    pointer-events: auto;
+}
+
 /* Class-level CSS */
 .strikethrough {
     text-decoration: line-through;
