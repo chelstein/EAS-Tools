@@ -149,6 +149,20 @@ async function fetchAndStore() {
     const response = await fetch('assets/E2T/include/same-us.json');
     const data = await response.json();
     processSameCodes(data);
+
+    // Load Canadian FIPS codes
+    window.canadaCounty = {};
+    try {
+        const caResponse = await fetch('assets/E2T/include/same-ca.json');
+        const caData = await caResponse.json();
+        if (caData['SAME']) {
+            for (const code in caData['SAME']) {
+                window.canadaCounty[code.padStart(5, "0")] = caData['SAME'][code];
+            }
+        }
+    } catch (e) {
+        console.error('Error loading Canadian FIPS:', e);
+    }
 }
 
 (async function () {
@@ -162,6 +176,20 @@ async function fetchAndStore() {
     const rgn = window.rgn || {};
     const state = window.state || {};
     const county = window.county || {};
+    const canadaCounty = window.canadaCounty || {};
+
+    // Build Canadian province and location structures from canadaCounty
+    const caProvinces = {};
+    const caLocationsByProvince = {};
+    for (const [code, name] of Object.entries(canadaCounty)) {
+        const provDigit = code.charAt(0);
+        const suffix = code.slice(1);
+        if (suffix === "0000") {
+            caProvinces[provDigit] = name.replace(/^All of /, '');
+        }
+        if (!caLocationsByProvince[provDigit]) caLocationsByProvince[provDigit] = {};
+        caLocationsByProvince[provDigit][suffix] = name;
+    }
 
     // BEGIN encode/audio.js
     var context = new AudioContext();
@@ -1812,6 +1840,7 @@ async function fetchAndStore() {
     var spaces = document.getElementById("spaces");
     var regionselect = document.getElementById("rgselect");
     var fipsinput = document.getElementById("fipsinput");
+    var fipsModeSelect = document.getElementById("fipsMode");
     var rawinput = document.getElementById("cheader");
 
     const EVENT_GROUP_KEYS = ["weather", "non_weather", "administrative", "national", "unimplemented", "nws_misc"];
@@ -2199,6 +2228,22 @@ async function fetchAndStore() {
     function normalizeFipsCode(code, fallbackSubdiv) {
         if (!code) return "";
         const digits = code.toString().replace(/\D/g, "");
+
+        if (fipsModeSelect && fipsModeSelect.value === "ca") {
+            let subdiv, caCode;
+            if (digits.length === 6) {
+                subdiv = digits.charAt(0);
+                caCode = digits.slice(1);
+            } else if (digits.length === 5) {
+                subdiv = fallbackSubdiv;
+                caCode = digits;
+            } else {
+                return "";
+            }
+            if (rgn[subdiv] === undefined || !canadaCounty[caCode]) return "";
+            return subdiv + caCode;
+        }
+
         let subdiv = "";
         let st = "";
         let co = "";
@@ -2272,18 +2317,30 @@ async function fetchAndStore() {
         var fipstable = document.getElementById("fips");
         locations = window.locations;
         fcont.innerHTML = "";
+        const isCA = fipsModeSelect && fipsModeSelect.value === "ca";
         for (var i = 0; i < locations.length; i++) {
             var tr = document.createElement("tr");
             var c = document.createElement("td");
             var s = document.createElement("td");
             var l = document.createElement("td");
             var r = document.createElement("td");
-            var st = locations[i].slice(1, 3);
-            var co = locations[i].slice(3, 6);
-            var re = locations[i].charAt(0);
-            c.innerText = locations[i]; l.innerText = county[st][co];
-            if (co == "000" && st !== "00") { l.innerText = "Entire State"; }
-            r.innerText = rgn[re]; s.innerText = state[st]; tr.appendChild(l); tr.appendChild(s); tr.appendChild(r); tr.appendChild(c);
+            c.innerText = locations[i];
+            if (isCA) {
+                const caCode = locations[i].slice(1);
+                l.innerText = canadaCounty[caCode] || locations[i];
+                const provDigit = caCode.charAt(0);
+                s.innerText = caProvinces[provDigit] || "Unknown";
+                var re = locations[i].charAt(0);
+                r.innerText = rgn[re] || re;
+            } else {
+                var st = locations[i].slice(1, 3);
+                var co = locations[i].slice(3, 6);
+                var re = locations[i].charAt(0);
+                l.innerText = county[st][co];
+                if (co == "000" && st !== "00") { l.innerText = "Entire State"; }
+                r.innerText = rgn[re]; s.innerText = state[st];
+            }
+            tr.appendChild(l); tr.appendChild(s); tr.appendChild(r); tr.appendChild(c);
             tr.setAttribute("class", "entry");
             tr.setAttribute("data-val", i.toString());
             tr.addEventListener("click", function (e) { locations.splice(parseInt(e.srcElement.parentElement.getAttribute("data-val")), 1); updateTable(); });
@@ -2293,45 +2350,112 @@ async function fetchAndStore() {
     }
     updateTable();
 
-    stateselect.innerHTML = "";
+    const stateLabel = document.querySelector('label[for="stateselect"]');
+    const countyLabel = document.querySelector('label[for="countyselect"]');
+    const regionLabel = document.querySelector('label[for="rgselect"]');
+    const fipsTableHeaders = document.querySelectorAll('#fips tr.title td');
 
-    stateselect.addEventListener("change", function () {
-        updateCounties(stateselect.value);
-    });
-
-    Object.keys(state).sort().forEach(e => {
-        var option = document.createElement("option");
-        option.innerHTML = state[e];
-        option.setAttribute("value", e);
-        stateselect.appendChild(option);
-    });
-
-    function updateCounties(state) {
+    function updateCounties(stateCode) {
         countyselect.innerHTML = "";
-        if (state !== "00") {
+        if (stateCode !== "00") {
             let entState = document.createElement("option");
             entState.value = "000";
             entState.innerText = "Entire State";
             countyselect.appendChild(entState);
         }
-        Object.keys(county[state]).sort().forEach(e => {
+        Object.keys(county[stateCode]).sort().forEach(e => {
             var option = document.createElement("option");
-            option.innerHTML = county[state][e];
+            option.innerHTML = county[stateCode][e];
             option.setAttribute("value", e);
             countyselect.appendChild(option);
         });
     }
 
-    updateCounties("00");
+    function updateCALocations(provDigit) {
+        countyselect.innerHTML = "";
+        const locs = caLocationsByProvince[provDigit] || {};
+        if (locs["0000"]) {
+            let entProv = document.createElement("option");
+            entProv.value = "0000";
+            entProv.innerText = "Entire Province";
+            countyselect.appendChild(entProv);
+        }
+        Object.keys(locs).sort().forEach(e => {
+            if (e === "0000") return;
+            var option = document.createElement("option");
+            option.innerHTML = locs[e];
+            option.setAttribute("value", e);
+            countyselect.appendChild(option);
+        });
+    }
 
-    regionselect.innerHTML = "";
+    function populateUSSelectors() {
+        stateselect.innerHTML = "";
+        Object.keys(state).sort().forEach(e => {
+            var option = document.createElement("option");
+            option.innerHTML = state[e];
+            option.setAttribute("value", e);
+            stateselect.appendChild(option);
+        });
+        updateCounties("00");
 
-    Object.keys(rgn).sort().forEach(e => {
-        var option = document.createElement("option");
-        option.innerHTML = rgn[e];
-        option.setAttribute("value", e);
-        regionselect.appendChild(option);
+        regionselect.innerHTML = "";
+        Object.keys(rgn).sort().forEach(e => {
+            var option = document.createElement("option");
+            option.innerHTML = rgn[e];
+            option.setAttribute("value", e);
+            regionselect.appendChild(option);
+        });
+        if (stateLabel) stateLabel.textContent = "State:\u00a0";
+        if (countyLabel) countyLabel.textContent = "County:";
+        if (fipsTableHeaders.length >= 2) {
+            fipsTableHeaders[0].textContent = "County";
+            fipsTableHeaders[1].textContent = "State";
+        }
+    }
+
+    function populateCASelectors() {
+        stateselect.innerHTML = "";
+        Object.keys(caProvinces).sort().forEach(e => {
+            var option = document.createElement("option");
+            option.innerHTML = caProvinces[e];
+            option.setAttribute("value", e);
+            stateselect.appendChild(option);
+        });
+        updateCALocations(Object.keys(caProvinces).sort()[0] || "0");
+
+        if (stateLabel) stateLabel.textContent = "Province:\u00a0";
+        if (countyLabel) countyLabel.textContent = "Location:";
+        if (fipsTableHeaders.length >= 2) {
+            fipsTableHeaders[0].textContent = "Location";
+            fipsTableHeaders[1].textContent = "Province";
+        }
+    }
+
+    stateselect.addEventListener("change", function () {
+        if (fipsModeSelect && fipsModeSelect.value === "ca") {
+            updateCALocations(stateselect.value);
+        } else {
+            updateCounties(stateselect.value);
+        }
     });
+
+    if (fipsModeSelect) {
+        const wxrOption = originators ? originators.querySelector('option[value="WXR"]') : null;
+        fipsModeSelect.addEventListener("change", function () {
+            locations.length = 0;
+            updateTable();
+            if (fipsModeSelect.value === "ca") {
+                populateCASelectors();
+                if (wxrOption) wxrOption.textContent = "Environment Canada";
+            } else {
+                populateUSSelectors();
+                if (wxrOption) wxrOption.textContent = "National Weather Service";
+            }
+        });
+    }
+
+    populateUSSelectors();
 
     function parseSameHeaderParam(rawHeader) {
         if (!rawHeader) {
@@ -2781,6 +2905,16 @@ async function fetchAndStore() {
             }
             window.EASBridge.send('encoder:statesData', { states: statesArr });
 
+            // Canadian FIPS
+            const canadaArr = [];
+            if (window.canadaCounty) {
+                for (const [code, name] of Object.entries(window.canadaCounty)) {
+                    canadaArr.push({ code: code, name: name });
+                }
+                canadaArr.sort((a, b) => a.code.localeCompare(b.code));
+            }
+            window.EASBridge.send('encoder:canadaFipsData', { entries: canadaArr });
+
             // Voices — read from populated #ttsVoice select
             const voicesArr = [];
             const voiceEl = document.getElementById('ttsVoice');
@@ -2946,7 +3080,13 @@ async function fetchAndStore() {
                 const countyCode = fips.slice(3, 6);
                 const countyName = window.county?.[stateCode]?.[countyCode] || '';
                 const stateAbbr = window.state?.[stateCode] || '';
-                return { code: fips, county: countyName, state: stateAbbr };
+                if (countyName || stateAbbr) {
+                    return { code: fips, county: countyName, state: stateAbbr };
+                }
+                // Try Canadian lookup: strip region digit, look up 5-digit code
+                const caCode = fips.slice(1);
+                const caName = window.canadaCounty?.[caCode] || '';
+                return { code: fips, county: caName, state: caName ? 'CA' : '' };
             });
             window.EASBridge.send('encoder:fipsResolved', { results: results });
         });

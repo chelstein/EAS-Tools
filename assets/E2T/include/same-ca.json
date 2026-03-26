@@ -1,4 +1,4 @@
-{ 
+{
     "SAME": {
         "00000": "All of Canada",
         "01110": "Juan de Fuca Strait",
@@ -887,7 +887,7 @@
         "46400": "Waterloo - Wellington, ON",
         "46410": "Mount Forest - Arthur - Northern Wellington County, ON",
         "46420": "Guelph - Erin - Southern Wellington County, ON",
-        "46430": "Kitchener - Cambridge - Region of Waterloo, OH",
+        "46430": "Kitchener - Cambridge - Region of Waterloo, ON",
         "46500": "Dufferin - Innisfil, ON",
         "46510": "Innisfil - New Tecumseth - Angus, ON",
         "46520": "Shelburne - Mansfield - Northern Dufferin County, ON",
@@ -1136,7 +1136,7 @@
         "56231": "Swan River - Duck Mountain Provincial Park - R.M. of Swan River, MB",
         "56232": "Swan River - Duck Mountain Provincial Park - R.M. of Minitonas, MB",
         "56241": "Swan River - Duck Mountain Provincial Park - Duck Mountain Provincial Park and Forest, MB",
-        "56242": "Swan River - Duck Mountain Provincial Park - R.M. of Mountain (southeast), MB",    
+        "56242": "Swan River - Duck Mountain Provincial Park - R.M. of Mountain (southeast), MB",
         "57100": "Norway House - Cross Lake - Wabowden, MB",
         "57110": "Norway House - Cross Lake - Wabowden - Molson Lake and Bear Lake, MB",
         "57120": "Norway House - Cross Lake - Wabowden - Cross Lake and Jenpeg, MB",
@@ -1148,7 +1148,7 @@
         "57310": "Berens River - Little Grand Rapids - Bloodvein - Atikaki - Berens River, MB",
         "57320": "Berens River - Little Grand Rapids - Bloodvein - Atikaki - Little Grand Rapids and Atikaki Provincial Park, MB",
         "57330": "Berens River - Little Grand Rapids - Bloodvein - Atikaki - Bloodvein, MB",
-        "58100": "Brochet, MB",        
+        "58100": "Brochet, MB",
         "58200": "Tadoule Lake, MB",
         "58300": "Lynn Lake - Leaf Rapids - Pukatawagan, MB",
         "58310": "Lynn Lake - Leaf Rapids - Pukatawagan - Lynn Lake, MB",
@@ -1162,7 +1162,7 @@
         "58500": "Flin Flon - Cranberry Portage - Snow Lake, MB",
         "58510": "Flin Flon - Cranberry Portage - Snow Lake - Snow Lake and Herb Lake Landing, MB",
         "58520": "Flin Flon - Cranberry Portage - Snow Lake - Flin Flon, Cranberry Portage and Grass River Provincial Park, MB",
-        "59100": "Churchill, MB",        
+        "59100": "Churchill, MB",
         "59200": "York, MB",
         "59300": "Gillam, MB",
         "59400": "Shamattawa, MB",

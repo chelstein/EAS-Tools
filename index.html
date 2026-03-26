@@ -41,12 +41,7 @@
             <h1><a href="." id="eas-tools-logo"></a></h1>
             <nav id="tab-set">
                 <div id="nav-buttons">
-                    <button type="button" class="active" data-tool="decoder">Decoder</button>
-                    <button type="button" data-tool="encoder">Encoder</button>
-                    <button type="button" data-tool="crawl">Text Crawl Generator</button>
-                    <button type="button" data-tool="splicer">Audio Splicer</button>
-                    <button type="button" data-tool="phoneme">Phoneme Converter/Generator</button>
-                    <button type="button" data-tool="muxer">Video/Audio Muxer</button>
+                    <!-- will get filled in by js below -->
                 </div>
                 <div id="nav-selector" style="display: none;">
                     <select id="nav-select">
@@ -181,6 +176,12 @@
                     <label for="par">Sender ID (8 characters long):</label>
                     <input id="par" minlength="8" maxlength="8" value="senderid">
                     <br>
+                    <br>
+                    <label for="fipsMode">FIPS Mode (US/CA):</label>
+                    <select id="fipsMode">
+                        <option value="us" selected>USA (State/County/Region)</option>
+                        <option value="ca">Canada (Province/Territory/Region)</option>
+                    </select>
                     <br>
                     <label for="stateselect">State:&nbsp;</label>
                     <select id="stateselect" name="stateselect"></select>
@@ -822,17 +823,47 @@
         <script type="module" src="assets/js/phoneme-bundle.js"></script>
         <script>
             (function () {
+                const panels = {
+                    decoder: {
+                        element: document.getElementById('decoder-panel'),
+                        name: "Decoder"
+                    },
+                    encoder: {
+                        element: document.getElementById('encoder-panel'),
+                        name: "Encoder"
+                    },
+                    crawl: {
+                        element: document.getElementById('crawl-panel'),
+                        name: "Text Crawl Generator"
+                    },
+                    splicer: {
+                        element: document.getElementById('splicer-panel'),
+                        name: "Audio Splicer"
+                    },
+                    phoneme: {
+                        element: document.getElementById('phoneme-panel'),
+                        name: "Phoneme Converter/Generator"
+                    },
+                    muxer: {
+                        element: document.getElementById('muxer-panel'),
+                        name: "Video/Audio Muxer"
+                    },
+                };
+
+                const navButtons = document.getElementById('nav-buttons');
+                if (navButtons) {
+                    const buttonElement = document.createElement('button');
+                    buttonElement.type = 'button';
+                    Object.entries(panels).forEach(([key, { name }]) => {
+                        const btn = buttonElement.cloneNode();
+                        btn.dataset.tool = key;
+                        btn.textContent = name;
+                        navButtons.appendChild(btn);
+                    });
+                }
+
                 const buttons = document.querySelectorAll('button[data-tool]');
                 const params = new URLSearchParams(window.location.search);
-
-                const panels = {
-                    decoder: document.getElementById('decoder-panel'),
-                    encoder: document.getElementById('encoder-panel'),
-                    crawl: document.getElementById('crawl-panel'),
-                    splicer: document.getElementById('splicer-panel'),
-                    phoneme: document.getElementById('phoneme-panel'),
-                    muxer: document.getElementById('muxer-panel'),
-                };
 
                 const muxerContainer = document.getElementById('muxer-container');
                 let muxerIframe;
@@ -857,8 +888,8 @@
                 const activate = (target) => {
                     if (target === 'muxer') ensureMuxerIframe();
                     buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tool === target));
-                    Object.entries(panels).forEach(([name, panel]) => {
-                        panel.classList.toggle('active', name === target);
+                    Object.entries(panels).forEach(([name, { element }]) => {
+                        if (element) element.classList.toggle('active', name === target);
                     });
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     const newParams = new URLSearchParams(window.location.search);
