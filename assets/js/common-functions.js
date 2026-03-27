@@ -14,6 +14,9 @@ export async function saveFile(filename, content, mime, opts = {}) {
 
     if (window.EASDownloads?.saveBlob) {
         await window.EASDownloads.saveBlob(blob, unique_filename, mime, opts);
+        if (window.EASBridge?.send) {
+            window.EASBridge.send('download:complete', { filename: unique_filename });
+        }
         return;
     }
 

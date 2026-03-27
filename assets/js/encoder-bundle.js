@@ -1783,11 +1783,16 @@ async function fetchAndStore() {
         }
 
         else if (allowCustomAudio && window.announcementType === "custom") {
-            let customAudioFile = document.getElementById("customAudioFile").files[0];
-            if (customAudioFile) {
-                const arrayBuffer = await customAudioFile.arrayBuffer();
+            let customAudioFile = document.getElementById("customAudioFile")?.files?.[0];
+            // Use native-provided buffer if DOM file input is empty
+            let arrayBuffer = customAudioFile
+                ? await customAudioFile.arrayBuffer()
+                : window._nativeCustomAudioBuffer;
+            if (arrayBuffer) {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const buffer = await audioContext.decodeAudioData(arrayBuffer);
+                // decodeAudioData detaches the buffer, so copy it to allow re-generation
+                const bufferCopy = arrayBuffer.slice(0);
+                const buffer = await audioContext.decodeAudioData(bufferCopy);
                 const pcmRaw = buffer.getChannelData(0);
                 const pcm = resamplePcm(pcmRaw, buffer.sampleRate, SAMPLE_RATE);
                 generate_silence(Math.floor(SAMPLE_RATE * 0.25));
@@ -2336,9 +2341,9 @@ async function fetchAndStore() {
                 var st = locations[i].slice(1, 3);
                 var co = locations[i].slice(3, 6);
                 var re = locations[i].charAt(0);
-                l.innerText = county[st][co];
+                l.innerText = (county[st] && county[st][co]) || locations[i];
                 if (co == "000" && st !== "00") { l.innerText = "Entire State"; }
-                r.innerText = rgn[re]; s.innerText = state[st];
+                r.innerText = rgn[re] || re; s.innerText = state[st] || st;
             }
             tr.appendChild(l); tr.appendChild(s); tr.appendChild(r); tr.appendChild(c);
             tr.setAttribute("class", "entry");
@@ -2979,6 +2984,12 @@ async function fetchAndStore() {
                 if (params.ttsPitch != null && el('ttsPitch')) { el('ttsPitch').value = params.ttsPitch.toString(); el('ttsPitch').dispatchEvent(new Event('input')); }
                 if (params.bitcrushSpeechify != null && el('shouldBitcrushSpeechify')) el('shouldBitcrushSpeechify').checked = params.bitcrushSpeechify;
 
+                // Set FIPS mode (us/ca) before setting locations
+                // Note: do NOT dispatch 'change' — the web handler clears locations
+                if (params.fipsMode && el('fipsMode')) {
+                    el('fipsMode').value = params.fipsMode;
+                }
+
                 // Set locations
                 if (Array.isArray(params.locations)) {
                     window.locations.length = 0;
@@ -2998,6 +3009,25 @@ async function fetchAndStore() {
                 console.error('[EASBridge] Generate error:', err);
                 window.EASBridge.send('encoder:status', { text: 'ERROR: ' + err.message });
                 window.EASBridge.send('encoder:generateState', { active: false, success: false });
+            }
+        });
+
+        // Custom audio from native file picker (base64-encoded)
+        window._nativeCustomAudioBuffer = null;
+        window.EASBridge.on('encoder:loadCustomAudio', async (params) => {
+            try {
+                const base64 = params?.base64;
+                if (!base64) return;
+                const binaryStr = atob(base64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+                window._nativeCustomAudioBuffer = bytes.buffer;
+                window.EASBridge.send('encoder:status', { text: '[LOG] Custom audio loaded (' + Math.round(bytes.length / 1024) + ' KB)' });
+            } catch (err) {
+                console.error('[EASBridge] loadCustomAudio error:', err);
+                window.EASBridge.send('encoder:status', { text: 'ERROR: Failed to load custom audio: ' + err.message });
             }
         });
 
@@ -3089,6 +3119,16 @@ async function fetchAndStore() {
                 return { code: fips, county: caName, state: caName ? 'CA' : '' };
             });
             window.EASBridge.send('encoder:fipsResolved', { results: results });
+        });
+
+        // Normalizer
+        window.EASBridge.on('normalizer:run', (params) => {
+            const text = params?.text || '';
+            const repeat = params?.repeat || false;
+            const result = window.normalizeNwsBulletin
+                ? window.normalizeNwsBulletin(text, { repeat })
+                : text;
+            window.EASBridge.send('normalizer:result', { result });
         });
 
         // Send data proactively on load (native listeners may already be waiting)
