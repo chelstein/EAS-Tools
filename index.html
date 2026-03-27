@@ -730,6 +730,28 @@
                 <br>
                 <pre id="phonemeOutput"></pre>
             </section>
+
+            <section id="normalizer-panel" class="tool-panel" aria-labelledby="tab-normalizer">
+                <h2 class="section-heading">VTAC/AWIPS Product Normalizer</h2>
+                <hr>
+                <label for="shouldRepeat">Include "Repeating..." line: </label>
+                <input type="checkbox" id="shouldRepeat" name="shouldRepeat">
+                <br>
+                <br>
+                <label for="productToNormalize">Enter raw VTAC/AWIPS product text:</label>
+                <br>
+                <br>
+                <textarea id="productToNormalize" class="ttsText normalizerCM"></textarea>
+                <br>
+                <br>
+                <button id="normalizeButton">Normalize</button>
+                <button id="normalizeCopyToClipboard">Copy Normalized Product to Clipboard</button>
+                <button id="normalizeClear">Clear</button>
+                <hr>
+                <label for="normalizedProduct">Normalized Product Output:</label>
+                <br>
+                <pre id="normalizedProduct"></pre>
+            </section>
             <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
                 <h2 class="section-heading">Video/Audio Muxer</h2>
                 <hr>
@@ -757,6 +779,7 @@
                     crawl: 'crawl-panel',
                     splicer: 'splicer-panel',
                     phoneme: 'phoneme-panel',
+                    normalizer: 'normalizer-panel',
                 };
 
                 const syncEditorValue = (editor) => {
@@ -821,6 +844,7 @@
         <script type="module" src="assets/js/crawl-bundle.js"></script>
         <script type="module" src="assets/js/splicer-bundle.js"></script>
         <script type="module" src="assets/js/phoneme-bundle.js"></script>
+        <script type="module" src="assets/js/normalizer-bundle.js"></script>
         <script>
             (function () {
                 const panels = {
@@ -843,6 +867,10 @@
                     phoneme: {
                         element: document.getElementById('phoneme-panel'),
                         name: "Phoneme Converter/Generator"
+                    },
+                    normalizer: {
+                        element: document.getElementById('normalizer-panel'),
+                        name: "VTAC/AWIPS Product Normalizer"
                     },
                     muxer: {
                         element: document.getElementById('muxer-panel'),
