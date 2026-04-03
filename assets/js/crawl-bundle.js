@@ -817,6 +817,12 @@ async function initCrawlEditor() {
         captureCtx.textBaseline = 'middle';
         captureCtx.lineJoin = generator.outlineJoin || 'round';
 
+        const kerningPercent = Number(generator.kerningPercent) || 0;
+        if (kerningPercent) {
+            const kerningPx = (kerningPercent / 100) * scaledFontSize;
+            captureCtx.letterSpacing = `${kerningPx}px`;
+        }
+
         const outlineWidth = Number(generator.outlineWidth);
         const scaledOutlineWidth = Number.isFinite(outlineWidth) ? Math.max(1, Math.round(outlineWidth * scale)) : undefined;
         const renderText = createTextRenderer(captureCtx, generator.outlineColor, scaledOutlineWidth);
@@ -1185,6 +1191,13 @@ async function initCrawlEditor() {
         captureCtx.textAlign = useVdsMode ? 'left' : 'center';
         captureCtx.textBaseline = 'middle';
         captureCtx.lineJoin = generator.outlineJoin || 'round';
+
+        const kerningPercent = Number(generator.kerningPercent) || 0;
+        if (kerningPercent) {
+            const kerningPx = (kerningPercent / 100) * fontSize;
+            captureCtx.letterSpacing = `${kerningPx}px`;
+        }
+
         const renderText = createTextRenderer(captureCtx, generator.outlineColor, generator.outlineWidth);
         const vdsState = useVdsMode ? createVdsExportState(captureCtx, lines) : null;
 

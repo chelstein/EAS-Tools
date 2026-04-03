@@ -1765,6 +1765,52 @@ async function fetchAndStore() {
                 }
             }
 
+            else if (normalizedVoice.startsWith('ios-native:')) {
+                const announcementText = (window.ttsText || '').trim();
+                if (!announcementText) {
+                    addStatus("Native TTS requires announcement text. There will instead be silence.", "ERROR");
+                    generate_silence(SAMPLE_RATE);
+                } else if (window.EASBridge) {
+                    addStatus("Generating native iOS TTS audio...");
+                    const voiceId = selectedVoiceRaw.slice('ios-native:'.length);
+                    const ttsRate = window._nativeTtsRate ?? 0.5;
+                    const ttsPitch = window._nativeTtsPitch ?? 1.0;
+
+                    const nativeTTSResult = await new Promise((resolve) => {
+                        window.EASBridge.on('encoder:nativeTTSResult', (result) => {
+                            resolve(result);
+                        });
+                        window.EASBridge.send('encoder:nativeTTS', {
+                            text: announcementText,
+                            voiceId: voiceId,
+                            rate: ttsRate,
+                            pitch: ttsPitch,
+                        });
+                    });
+
+                    if (nativeTTSResult.error) {
+                        addStatus("Native TTS error: " + nativeTTSResult.error + ". There will instead be silence.", "ERROR");
+                        generate_silence(SAMPLE_RATE);
+                    } else if (nativeTTSResult.base64) {
+                        const binary = atob(nativeTTSResult.base64);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        const buffer = await audioContext.decodeAudioData(bytes.buffer);
+                        const pcmRaw = buffer.getChannelData(0);
+                        const resampled = resamplePcm(pcmRaw, buffer.sampleRate, SAMPLE_RATE);
+                        appendAnnouncement(resampled);
+                        addStatus("Native TTS audio generated successfully.");
+                    } else {
+                        addStatus("Native TTS returned no audio. There will instead be silence.", "ERROR");
+                        generate_silence(SAMPLE_RATE);
+                    }
+                } else {
+                    addStatus("Native TTS is not available in this environment. There will instead be silence.", "ERROR");
+                    generate_silence(SAMPLE_RATE);
+                }
+            }
+
             else if (selectedVoiceRaw) {
                 if (await validateMarkupAndText() !== true) {
                     addStatus("Your text contains invalid or incomplete phoneme codes for the selected backend. This will not be processed by the voice correctly. There will instead be silence.", "ERROR");
@@ -2979,7 +3025,21 @@ async function fetchAndStore() {
                 if (params.clip != null && el('clip')) el('clip').checked = params.clip;
                 if (params.announcementType && el('announcementType')) { el('announcementType').value = params.announcementType; el('announcementType').dispatchEvent(new Event('change')); }
                 if (params.ttsText != null) { window.ttsText = params.ttsText; if (el('ttsText')) el('ttsText').value = params.ttsText; }
-                if (params.ttsVoice) { window.ttsVoice = params.ttsVoice; if (el('ttsVoice')) { el('ttsVoice').value = params.ttsVoice; el('ttsVoice').dispatchEvent(new Event('change')); } }
+                if (params.ttsVoice) {
+                    if (el('ttsVoice')) {
+                        el('ttsVoice').value = params.ttsVoice;
+                        // Only dispatch change if the option exists in the DOM select;
+                        // native-only voices (ios-native:) won't be in the DOM dropdown
+                        if (el('ttsVoice').value === params.ttsVoice) {
+                            el('ttsVoice').dispatchEvent(new Event('change'));
+                        }
+                    }
+                    // Set window.ttsVoice AFTER any change handler to avoid overwrite
+                    window.ttsVoice = params.ttsVoice;
+                }
+                // Store native TTS rate/pitch for ios-native voices
+                if (params.nativeTtsRate != null) window._nativeTtsRate = params.nativeTtsRate;
+                if (params.nativeTtsPitch != null) window._nativeTtsPitch = params.nativeTtsPitch;
                 if (params.ttsRate != null && el('ttsRate')) { el('ttsRate').value = params.ttsRate.toString(); el('ttsRate').dispatchEvent(new Event('input')); }
                 if (params.ttsPitch != null && el('ttsPitch')) { el('ttsPitch').value = params.ttsPitch.toString(); el('ttsPitch').dispatchEvent(new Event('input')); }
                 if (params.bitcrushSpeechify != null && el('shouldBitcrushSpeechify')) el('shouldBitcrushSpeechify').checked = params.bitcrushSpeechify;
