@@ -576,6 +576,7 @@ async function initCrawlEditor() {
         }
         const normalized = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
         progressBar.value = normalized;
+        progressBar.setAttribute('value', normalized);
     }
 
     const PROGRESS_MINIMUM_STEP = 0.0005;
@@ -1080,6 +1081,7 @@ async function initCrawlEditor() {
                     const wasUserCancelled = userCancelledGifExport || crawlExportController.isCancelled(gifCancelToken);
                     crawlExportController.clear(gifCancelToken);
                     tearDownCaptureCanvas();
+                    try { gif.frames.length = 0; gif.imageParts.length = 0; } catch(_) {}
                     addStatus(
                         wasUserCancelled ? 'GIF export canceled.' : 'GIF export aborted unexpectedly.',
                         wasUserCancelled ? 'WARN' : 'ERROR'
@@ -1125,6 +1127,7 @@ async function initCrawlEditor() {
                         }
                     } finally {
                         tearDownCaptureCanvas();
+                        try { gif.frames.length = 0; gif.imageParts.length = 0; } catch(_) {}
                     }
                 });
 
@@ -4871,6 +4874,18 @@ async function initCrawlEditor() {
                 if (!window.crawlGenerator) {
                     window.EASBridge.send('crawl:exportComplete', {});
                     return;
+                }
+
+                // Load custom background image from file URL or base64
+                const bgSrc = params.bgImageURL || (params.bgImageData ? 'data:image/jpeg;base64,' + params.bgImageData : null);
+                if (bgSrc && params.bgMode === 'image') {
+                    const bgImg = new Image();
+                    await new Promise((resolve) => {
+                        bgImg.onload = resolve;
+                        bgImg.onerror = resolve;
+                        bgImg.src = bgSrc;
+                    });
+                    window.crawlGenerator.setBgImage(bgImg);
                 }
 
                 // Force 60fps frame timing for export quality
