@@ -614,7 +614,7 @@
                 this._canvas.width = this.options.width;
                 this._canvas.height = this.options.height;
               }
-              ctx = this._canvas.getContext("2d");
+              ctx = this._canvas.getContext("2d", { willReadFrequently: true });
               ctx.setFill = this.options.background;
               ctx.fillRect(0, 0, this.options.width, this.options.height);
               ctx.drawImage(image, 0, 0);
