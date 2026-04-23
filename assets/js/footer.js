@@ -1,6 +1,9 @@
 const footer = document.querySelector('footer');
+if (!footer) {
+    console.warn('Footer container was not found.');
+}
 
-footer.innerHTML = `
+if (footer) footer.innerHTML = `
 <div class="ztr-footer">
     <div class="ztr-footer__top">
         <div class="ztr-footer__brand">

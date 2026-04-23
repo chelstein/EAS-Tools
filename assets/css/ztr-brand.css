@@ -1049,7 +1049,7 @@ pre.generatedHeader,
     animation: none !important;
 }
 
-#faq-link a { color: var(--ztr-accent); }
+#faq-link { color: var(--ztr-accent); }
 
 /* -----------------------------------------------------------
    13. Announcement toast retains alert cue
