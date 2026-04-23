@@ -465,27 +465,33 @@ header.ztr-header::before {
 #tab-set {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
 }
 
 #nav-buttons {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
 }
 
 button[data-tool] {
     background: var(--ztr-panel);
-    color: var(--ztr-text-secondary);
+    color: var(--ztr-accent-active) !important;
     border: 1px solid var(--ztr-border-strong);
     border-radius: var(--ztr-radius-md);
     padding: 0 16px;
     height: 36px;
-    min-width: 110px;
+    min-width: max-content;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -494,6 +500,8 @@ button[data-tool] {
     font-size: 0.9rem;
     letter-spacing: 0.02em;
     text-transform: none;
+    white-space: nowrap;
+    flex: 0 0 auto;
     box-shadow: none;
     transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
@@ -1025,6 +1033,15 @@ article a:visited {
     #tab-set,
     #nav-buttons {
         justify-content: flex-start;
+    }
+
+    #tab-set {
+        flex-wrap: wrap;
+    }
+
+    #nav-buttons {
+        flex-wrap: wrap;
+        overflow-x: visible;
     }
 
     .ztr-lockup__product { font-size: 18px; }
