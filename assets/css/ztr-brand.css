@@ -319,7 +319,8 @@ header.ztr-header::before {
 }
 
 /* -----------------------------------------------------------
-   6. Hero section (current data-brand-hero markup)
+   6. Hero section — two-column module overview
+   data-brand-hero markup is rendered by brand-config.js
    ----------------------------------------------------------- */
 .ztr-hero-wrap {
     background: var(--ztr-bg);
@@ -328,42 +329,115 @@ header.ztr-header::before {
 }
 
 .ztr-hero__inner {
-    padding-top: var(--ztr-space-5);
-    padding-bottom: var(--ztr-space-5);
+    padding-top: var(--ztr-space-6);
+    padding-bottom: var(--ztr-space-6);
 }
 
 .ztr-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+    align-items: start;
     gap: var(--ztr-space-5);
 }
 
+/* Left column ----------------------------------------------- */
+.ztr-hero__title {
+    min-width: 0;
+}
+
 .ztr-hero__kicker {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 16px;
+    margin: 0 0 18px;
+    border-radius: var(--ztr-radius-pill);
+    border: 1px solid var(--ztr-accent);
+    background: transparent;
     color: var(--ztr-accent);
-    border-color: var(--ztr-accent);
-    background: var(--ztr-accent-pale);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
 }
 
 .ztr-hero__module {
+    margin: 0 0 12px;
     color: var(--ztr-text);
-    font-size: 2.25rem;
+    font-size: clamp(2.4rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
-.ztr-hero__tagline {
+.ztr-hero__subhead {
+    margin: 0 0 16px;
+    color: var(--ztr-text);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.35;
+    max-width: 60ch;
+}
+
+.ztr-hero__body {
+    margin: 0 0 16px;
     color: var(--ztr-text-secondary);
-    font-size: 1rem;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    max-width: 62ch;
+}
+
+.ztr-hero__integration {
+    margin: 0;
+    color: var(--ztr-accent-active);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ztr-hero__integration-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ztr-accent);
+    box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18);
+    flex-shrink: 0;
+}
+
+/* Right column --------------------------------------------- */
+.ztr-hero__aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ztr-space-4);
+    min-width: 0;
 }
 
 .ztr-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 14px 18px;
     background: var(--ztr-warn-bg);
     border: 1px solid var(--ztr-warn-border);
     border-left: 3px solid var(--ztr-alert);
-    color: var(--ztr-warn-text);
     border-radius: var(--ztr-radius-lg);
-    padding: var(--ztr-space-3) var(--ztr-space-4);
+    color: var(--ztr-warn-text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.4;
 }
 
 .ztr-badge__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
     background: var(--ztr-alert);
-    box-shadow: 0 0 8px rgba(217, 106, 26, 0.6);
+    box-shadow: 0 0 8px rgba(217, 106, 26, 0.55);
+    flex-shrink: 0;
 }
 
 .ztr-hero__statement {
@@ -371,10 +445,15 @@ header.ztr-header::before {
     color: var(--ztr-panel-dark-text);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--ztr-radius-xl);
-    box-shadow: var(--ztr-shadow-3);
-    padding: var(--ztr-space-5);
-    line-height: 1.55;
+    box-shadow: var(--ztr-shadow-dark);
+    padding: 22px;
+}
+
+.ztr-hero__statement p {
+    margin: 0;
+    color: var(--ztr-panel-dark-text);
     font-size: 0.95rem;
+    line-height: 1.55;
 }
 
 /* -----------------------------------------------------------
@@ -748,7 +827,16 @@ article a:visited {
     .ztr-lockup__sub     { font-size: 14px; }
     .ztr-lockup__subtitle { display: none; }
 
-    .ztr-hero__module { font-size: 1.65rem; }
+    .ztr-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .ztr-hero__module {
+        font-size: clamp(1.9rem, 6vw, 2.4rem);
+    }
+
+    .ztr-hero__subhead { font-size: 1.05rem; }
+    .ztr-hero__body    { font-size: 0.95rem; }
 
     .tool-panel {
         padding: var(--ztr-space-4) var(--ztr-shell-pad-x) var(--ztr-space-6);
