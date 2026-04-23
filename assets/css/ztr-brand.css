@@ -1445,6 +1445,19 @@ main, .tool-panel, .ztr-header__inner, .ztr-hero__inner {
     overflow-x: hidden;
 }
 
+/* Use normal document flow for active panel content so the page
+   renders in full height without nested middle scroll containers. */
+main {
+    overflow: visible !important;
+}
+
+.tool-panel {
+    position: relative !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+}
+
 img, canvas, video, audio {
     max-width: 100%;
     height: auto;
