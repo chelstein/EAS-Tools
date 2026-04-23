@@ -33,17 +33,23 @@
         const subPage = options.subPage || '';
         host.classList.add('ztr-header');
         host.innerHTML = `
-            <div class="ztr-lockup">
-                <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.module} home">
-                    <span class="ztr-lockup__mark" aria-hidden="true"></span>
-                    <span class="ztr-lockup__text">
-                        <span class="ztr-lockup__eyebrow">${BRAND.platform}</span>
-                        <span class="ztr-lockup__product">${BRAND.product}<span class="ztr-lockup__sep"> / </span><span class="ztr-lockup__module">${BRAND.module}</span>${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}</span>
-                        <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
-                    </span>
-                </a>
+            <div class="ztr-header__inner">
+                <div class="ztr-lockup">
+                    <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.module} home">
+                        <span class="ztr-lockup__mark" aria-hidden="true"></span>
+                        <span class="ztr-lockup__text">
+                            <span class="ztr-lockup__eyebrow">${BRAND.platform}</span>
+                            <span class="ztr-lockup__product">
+                                ${BRAND.product}
+                                <span class="ztr-lockup__sep">/</span>
+                                <span class="ztr-lockup__module">${BRAND.module}</span>${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
+                            </span>
+                            <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
+                        </span>
+                    </a>
+                </div>
+                ${existingNav}
             </div>
-            ${existingNav}
         `;
     };
 
@@ -51,18 +57,20 @@
         const hero = document.querySelector('[data-brand-hero]');
         if (!hero) return;
         hero.innerHTML = `
-            <div class="ztr-hero">
-                <div class="ztr-hero__title">
-                    <span class="ztr-hero__kicker">${BRAND.platform} · ${BRAND.product}</span>
-                    <h2 class="ztr-hero__module">${BRAND.module}</h2>
-                    <p class="ztr-hero__tagline">${BRAND.tagline}</p>
-                </div>
-                <div class="ztr-hero__aside">
-                    <div class="ztr-badge" role="note" aria-label="Usage notice">
-                        <span class="ztr-badge__dot" aria-hidden="true"></span>
-                        <span class="ztr-badge__text">${BRAND.notice}</span>
+            <div class="ztr-hero__inner">
+                <div class="ztr-hero">
+                    <div class="ztr-hero__title">
+                        <span class="ztr-hero__kicker">${BRAND.platform} · ${BRAND.product}</span>
+                        <h2 class="ztr-hero__module">${BRAND.module}</h2>
+                        <p class="ztr-hero__tagline">${BRAND.tagline}</p>
                     </div>
-                    <p class="ztr-hero__statement">${BRAND.statement}</p>
+                    <div class="ztr-hero__aside">
+                        <div class="ztr-badge" role="note" aria-label="Usage notice">
+                            <span class="ztr-badge__dot" aria-hidden="true"></span>
+                            <span class="ztr-badge__text">${BRAND.notice}</span>
+                        </div>
+                        <p class="ztr-hero__statement">${BRAND.statement}</p>
+                    </div>
                 </div>
             </div>
         `;
