@@ -485,8 +485,10 @@ header.ztr-header::before {
 }
 
 button[data-tool] {
-    background: var(--ztr-panel);
-    color: var(--ztr-accent-active) !important;
+    /* Inactive pill: subtly tinted pale surface + darker text so it
+       reads clearly against the white header. */
+    background: var(--ztr-bg-raised);
+    color: var(--ztr-text);
     border: 1px solid var(--ztr-border-strong);
     border-radius: var(--ztr-radius-md);
     padding: 0 16px;
@@ -500,23 +502,28 @@ button[data-tool] {
     font-size: 0.9rem;
     letter-spacing: 0.02em;
     text-transform: none;
-    white-space: nowrap;
-    flex: 0 0 auto;
-    box-shadow: none;
-    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    box-shadow: var(--ztr-shadow-1);
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 button[data-tool]:hover {
     background: var(--ztr-accent-pale);
-    color: var(--ztr-accent-hover);
+    color: var(--ztr-accent-active);
     border-color: var(--ztr-accent);
+    box-shadow: var(--ztr-shadow-2);
 }
 
 button[data-tool].active {
-    background: var(--ztr-accent-pale);
-    color: var(--ztr-accent-active);
-    border-color: var(--ztr-accent);
-    box-shadow: inset 0 -2px 0 var(--ztr-accent);
+    /* Active pill: solid teal so selection is unmistakable. */
+    background: var(--ztr-accent);
+    color: var(--ztr-accent-on);
+    border-color: var(--ztr-accent-hover);
+    box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18), var(--ztr-shadow-1);
+}
+
+button[data-tool].active:hover {
+    background: var(--ztr-accent-hover);
+    color: var(--ztr-accent-on);
 }
 
 /* -----------------------------------------------------------
