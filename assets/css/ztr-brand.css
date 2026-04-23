@@ -1050,6 +1050,240 @@ article a:visited {
 }
 
 /* -----------------------------------------------------------
+   16b. Global overflow guards
+   Prevent the most common runaway-width offenders so the layout
+   doesn't sideways-scroll on tablet/phone widths.
+   ----------------------------------------------------------- */
+html, body {
+    overflow-x: hidden;
+}
+
+main, .tool-panel, .ztr-header__inner, .ztr-hero__inner {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img, canvas, video, audio, iframe {
+    max-width: 100%;
+    height: auto;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+input[type="search"],
+input[type="url"],
+input[type="email"],
+textarea,
+select,
+pre {
+    max-width: 100%;
+}
+
+pre, code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* The crawl preview canvas sits in an absolutely-positioned overlay;
+   keep it from poking past the canvas on narrow widths. */
+#crawlPreviewDiv {
+    max-width: 95vw;
+}
+
+/* -----------------------------------------------------------
+   16c. Tablet breakpoint (≤ 768px)
+   Tighten shell padding, allow action buttons to grow into their
+   row, and unfloat .right-align so the toggle stops colliding
+   with wrapping action buttons.
+   ----------------------------------------------------------- */
+@media (max-width: 768px) {
+    :root {
+        --ztr-shell-pad-x: 14px;
+    }
+
+    .ztr-hero__inner {
+        padding-top: var(--ztr-space-5);
+        padding-bottom: var(--ztr-space-5);
+    }
+
+    .ztr-hero__statement {
+        padding: 16px;
+    }
+
+    .ztr-badge {
+        font-size: 0.88rem;
+    }
+
+    /* Action buttons stretch into their row and stack cleanly. */
+    #decoder-panel > span:not(.right-align) {
+        width: 100%;
+        gap: 8px;
+    }
+
+    #decoder-panel > span:not(.right-align) > button {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+    }
+
+    /* Drop the float so the loopback toggle sits below the action
+       buttons instead of fighting them at narrow widths. */
+    #decoder-panel > span.right-align {
+        float: none;
+        display: flex;
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 4px;
+    }
+
+    .control-panel {
+        gap: 8px;
+    }
+
+    .control-panel > button,
+    #decoder-panel > span > button,
+    .waveform-actions > button {
+        height: 38px;
+        font-size: 0.92rem;
+    }
+
+    /* Section heading stays readable; table title cells stay
+       legible. */
+    .section-heading {
+        font-size: 0.78rem !important;
+    }
+
+    .section-subhead {
+        font-size: 0.9rem;
+    }
+
+    /* Footer link strip wraps cleanly and centers. */
+    .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 0;
+    }
+
+    .footer-links li + li::before {
+        margin: 0 8px;
+    }
+
+    .ztr-footer__brand {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .ztr-footer__mission {
+        font-size: 0.78rem;
+    }
+
+    /* The encoder area uses inline label/select/input chains
+       separated by <br>; on narrow widths labels wrap to their own
+       line so fields don't get squeezed. */
+    #encoder-panel label,
+    #crawl-panel label {
+        display: inline-block;
+        margin-bottom: 4px;
+    }
+
+    #encoder-panel select,
+    #crawl-panel select,
+    #encoder-panel input[type="text"],
+    #encoder-panel input[type="number"],
+    #encoder-panel input[type="datetime-local"] {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Splice action grid: two-up on tablets. */
+    .splice-action-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* FIPS table region shrinks its max-height so it doesn't
+       dominate the viewport. */
+    #fips {
+        max-height: 320px;
+    }
+}
+
+/* -----------------------------------------------------------
+   16d. Phone breakpoint (≤ 480px)
+   Action buttons stack one-per-row, hero typography shrinks
+   further, and dense form clusters collapse.
+   ----------------------------------------------------------- */
+@media (max-width: 480px) {
+    :root {
+        --ztr-shell-pad-x: 12px;
+    }
+
+    .ztr-lockup__home {
+        gap: 10px;
+    }
+
+    .ztr-lockup__mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+    }
+
+    .ztr-lockup__product {
+        font-size: 16px;
+        flex-wrap: wrap;
+    }
+
+    .ztr-lockup__sub {
+        display: none;
+    }
+
+    .ztr-hero__module {
+        font-size: 1.7rem;
+    }
+
+    .ztr-hero__kicker {
+        height: 26px;
+        padding: 0 12px;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+    }
+
+    /* Single column of action buttons. */
+    #decoder-panel > span:not(.right-align) > button {
+        flex: 1 1 100%;
+    }
+
+    .splice-action-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Tighten card paddings so they don't eat the canvas. */
+    .ztr-hero__statement,
+    .waveform-card,
+    .splice-controls,
+    .copy-paste-code-container {
+        padding: 14px !important;
+    }
+
+    /* Footer brand stacks vertically. */
+    .ztr-footer__brand {
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .ztr-footer__sep {
+        display: none;
+    }
+
+    /* Decoder status block tightens. */
+    #decoder-panel #sync {
+        font-size: 1rem;
+        padding: 10px 12px;
+        word-break: break-all;
+    }
+}
+
+/* -----------------------------------------------------------
    17. Reduced motion
    ----------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
