@@ -1,9 +1,8 @@
 const footer = document.querySelector('footer');
 if (!footer) {
     console.warn('Footer container was not found.');
-}
-
-if (footer) footer.innerHTML = `
+} else {
+footer.innerHTML = `
 <div class="ztr-footer">
     <div class="ztr-footer__top">
         <div class="ztr-footer__brand">
@@ -17,21 +16,16 @@ if (footer) footer.innerHTML = `
     </div>
     <div class="ztr-metrics-bar" aria-label="Operational status">
         <div class="ztr-metric">
-            <span class="ztr-metric__label">Signal Confidence</span>
-            <div class="ztr-metric__meter"><span style="width: 96%;"></span></div>
-            <strong class="ztr-metric__value">96%</strong>
+            <span class="ztr-metric__label">Environment</span>
+            <strong class="ztr-metric__value">Authorized Lab Mode</strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Compliance</span>
-            <strong class="ztr-metric__value ztr-metric__value--ok">PASS</strong>
-        </div>
-        <div class="ztr-metric">
-            <span class="ztr-metric__label">Artifact Integrity</span>
-            <strong class="ztr-metric__value">99.4%</strong>
+            <strong class="ztr-metric__value ztr-metric__value--ok">Validation Workflow</strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Upstream Engine</span>
-            <strong class="ztr-metric__value">EAS Tools</strong>
+            <strong class="ztr-metric__value"><a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a></strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Last Updated</span>
@@ -278,3 +272,4 @@ if (cachedData) {
 formatTimestamps(window.commitDate);
 
 setInterval(() => formatTimestamps(window.commitDate), 1000);
+}
