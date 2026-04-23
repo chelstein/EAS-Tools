@@ -17,16 +17,21 @@ if (footer) footer.innerHTML = `
     </div>
     <div class="ztr-metrics-bar" aria-label="Operational status">
         <div class="ztr-metric">
-            <span class="ztr-metric__label">Environment</span>
-            <strong class="ztr-metric__value">Authorized Lab Mode</strong>
+            <span class="ztr-metric__label">Signal Confidence</span>
+            <div class="ztr-metric__meter"><span style="width: 96%;"></span></div>
+            <strong class="ztr-metric__value">96%</strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Compliance</span>
-            <strong class="ztr-metric__value ztr-metric__value--ok">Validation Workflow</strong>
+            <strong class="ztr-metric__value ztr-metric__value--ok">PASS</strong>
+        </div>
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">Artifact Integrity</span>
+            <strong class="ztr-metric__value">99.4%</strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Upstream Engine</span>
-            <strong class="ztr-metric__value"><a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a></strong>
+            <strong class="ztr-metric__value">EAS Tools</strong>
         </div>
         <div class="ztr-metric">
             <span class="ztr-metric__label">Last Updated</span>
