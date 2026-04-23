@@ -1,19 +1,28 @@
 const footer = document.querySelector('footer');
 
 footer.innerHTML = `
-<ul class="footer-links">
-    <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
-    <li><p id="donate-link"><a href="donations.html">Donate</a></p></li>
-    <li><p id="terms-of-service-link"><a href="terms.html">Terms of Service</a></p></li>
-    <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
-    <li><p>Developed by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a></p></li>
-    <li><p>Hosted on <a href="https://github.com/wagwan-piffting-blud/eas-tools">GitHub Pages</a></p></li>
-    <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
-    <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
-    <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
-    <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
-    <li><p><a href="credits.html">Credits</a></p></li>
-</ul>
+<div class="ztr-footer">
+    <div class="ztr-footer__brand">
+        <span class="ztr-footer__platform">Zero Trust Radio Alliance</span>
+        <span class="ztr-footer__sep">·</span>
+        <span class="ztr-footer__product">powered by buoyIQ</span>
+        <span class="ztr-footer__sep">·</span>
+        <span class="ztr-footer__module">EAS Lab</span>
+    </div>
+    <p class="ztr-footer__mission">Includes EAS simulation, decode, and parsing capabilities for lab/testing workflows. Not for live broadcast without authorization.</p>
+    <ul class="footer-links">
+        <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
+        <li><p id="donate-link"><a href="donations.html">Donate</a></p></li>
+        <li><p id="terms-of-service-link"><a href="terms.html">Terms of Service</a></p></li>
+        <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
+        <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
+        <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
+        <li><p><a href="credits.html">Credits &amp; Attribution</a></p></li>
+        <li><p>Upstream engine: <a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a> by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a> (GNU GPL v3)</p></li>
+        <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
+        <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
+    </ul>
+</div>
 <br class="mobileBreak">
 <div id="footer-mobile-arrow" style="display: none;"></div>
 <p id="footer-mobile-tip" style="display: none;">Swipe for more</p>

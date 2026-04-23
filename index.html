@@ -5,30 +5,31 @@
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <meta name="robots" content="index, nofollow">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <title>EAS Tools</title>
-        <meta name="title" content="Emergency Alert System (EAS) Tools">
-        <meta name="description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
-        <meta name="keywords" content="eas, same, emergency alert system, specific area message encoding">
+        <title>EAS Lab · buoyIQ · Zero Trust Radio</title>
+        <meta name="title" content="EAS Lab — buoyIQ · a Zero Trust Radio tool">
+        <meta name="description" content="EAS Lab: synthetic alert generation, decode, validation, and station fire simulation for broadcast infrastructure. A Zero Trust Radio capability delivered through buoyIQ.">
+        <meta name="keywords" content="zero trust radio, buoyiq, eas lab, broadcast validation, synthetic alert, same decode, station fire test, signal integrity">
         <meta name="language" content="English">
         <meta name="image" content="https://eas.tools/assets/eas-logo-banner.png">
-        <meta name="author" content="https://github.com/wagwan-piffting-blud/">
+        <meta name="author" content="Zero Trust Radio Alliance">
         <link rel="canonical" href="https://eas.tools/">
         <meta property="og:type" content="website">
-        <meta property="og:title" content="Emergency Alert System (EAS) Tools">
-        <meta property="og:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta property="og:title" content="EAS Lab — buoyIQ · a Zero Trust Radio tool">
+        <meta property="og:description" content="Synthetic alert generation, decode, validation, and station fire simulation. EAS Lab is the broadcast integrity module of buoyIQ, the Zero Trust Radio platform.">
         <meta property="og:url" content="https://eas.tools/">
         <meta property="og:image" content="https://eas.tools/assets/eas-logo-banner.png">
-        <meta property="og:site_name" content="EAS Tools">
+        <meta property="og:site_name" content="Zero Trust Radio · buoyIQ">
         <meta name="twitter:card" content="summary">
-        <meta name="twitter:title" content="Emergency Alert System (EAS) Tools">
-        <meta name="twitter:description" content="A web tool to decode and encode EAS SAME headers locally in your browser.">
+        <meta name="twitter:title" content="EAS Lab — buoyIQ · a Zero Trust Radio tool">
+        <meta name="twitter:description" content="Synthetic alert generation, decode, validation, and station fire simulation. A Zero Trust Radio capability in buoyIQ.">
         <meta name="twitter:image" content="https://eas.tools/assets/eas-logo-banner.png">
-        <meta name="twitter:image:alt" content="Emergency Alert System Logo">
+        <meta name="twitter:image:alt" content="Zero Trust Radio · buoyIQ · EAS Lab">
         <link rel="stylesheet" href="assets/css/hack.css">
         <link rel="stylesheet" href="assets/css/codemirror.css">
         <link rel="stylesheet" href="assets/css/dracula.css">
         <link rel="stylesheet" href="assets/css/elegant.css">
         <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/ztr-brand.css">
         <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
         <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
@@ -37,7 +38,7 @@
         <!-- End Cloudflare Web Analytics -->
     </head>
     <body>
-        <header>
+        <header data-brand-header>
             <h1><a href="." id="eas-tools-logo"></a></h1>
             <nav id="tab-set">
                 <div id="nav-buttons">
@@ -50,19 +51,21 @@
                 </div>
             </nav>
         </header>
+        <section data-brand-hero class="ztr-hero-wrap" aria-label="Module overview"></section>
         <main>
             <section id="decoder-panel" class="tool-panel active" aria-labelledby="tab-decoder">
-                <h2 class="section-heading">SAME Decoder</h2>
+                <h2 class="section-heading">Decode — SAME Signal Intake</h2>
+                <p class="section-subhead">Ingest microphone, stream, or artifact audio and parse SAME headers in-browser. No signal leaves the workstation.</p>
                 <hr>
                 <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
                 <span>
-                    <button type="button" data-decoder-toggle>Start Microphone Decoder</button>
-                    <button type="button" data-decoder-stream-toggle>Start Stream Decoder</button>
+                    <button type="button" data-decoder-toggle>Decode Microphone</button>
+                    <button type="button" data-decoder-stream-toggle>Decode Stream</button>
                     <input type="file" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;" id="audiofile" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a">
-                    <button type="button" data-decoder-load>Upload Audio File</button>
-                    <button type="button" data-decoder-load-raw>Load/Analyze Raw ZCZC Header</button>
-                    <button type="button" data-decoder-record-toggle disabled>Start Recording (alerts toggle this automatically)</button>
-                    <button type="button" data-decoder-clear disabled>Clear Logs</button>
+                    <button type="button" data-decoder-load>Upload Alert Audio Artifact</button>
+                    <button type="button" data-decoder-load-raw>Inspect Raw ZCZC Header</button>
+                    <button type="button" data-decoder-record-toggle disabled>Capture Session (auto-armed on alert)</button>
+                    <button type="button" data-decoder-clear disabled>Clear Session</button>
                 </span>
                 <span class="right-align">
                     <button type="button" data-decoder-clear-stream-url style="display: none;">Clear Stream URL</button>
@@ -100,7 +103,7 @@
                     <div class="modalBox">
                         <div class="modalClose" id="close">X</div>
                         <div class="modalContent">
-                            <div class="modalTitle"><strong>Alert Details</strong></div>
+                            <div class="modalTitle"><strong>Alert Inspection</strong></div>
                             <br>
                             <div class="modalInfo">
                             </div>
@@ -109,7 +112,8 @@
                 </div>
             </section>
             <section id="encoder-panel" class="tool-panel" aria-labelledby="tab-encoder">
-                <h2 class="section-heading">SAME Encoder</h2>
+                <h2 class="section-heading">Generate — Synthetic Alert Artifact</h2>
+                <p class="section-subhead">Compose a validated SAME payload, preview the header, and export a lab-grade WAV artifact for station fire testing and integration validation.</p>
                 <hr>
                 <label for="encoderMode">Select EAS Header Generation Mode:</label>
                 <select id="encoderMode">
@@ -312,9 +316,9 @@
                 </div>
                 <hr>
                 <div class="control-panel">
-                    <button type="button" data-encoder-generate id="generate">Generate</button>
-                    <button type="button" id="save" style="display: none;">Save as wav file</button>
-                    <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Logs</button>
+                    <button type="button" data-encoder-generate id="generate">Generate Synthetic Alert</button>
+                    <button type="button" id="save" style="display: none;">Export WAV Artifact</button>
+                    <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Session</button>
                     <br>
                     <br>
                     <audio id="audioPlayback" controls></audio>
@@ -322,10 +326,11 @@
                 <hr>
                 <p id="status"></p>
                 <hr>
-                <p>Credit goes to: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience same encoder python</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ same encoder</a>, Anon64 EAS Header Generator (removed), and CryptoDude3 GitHub Pages (removed) for original inspiration</p>
+                <p class="inline-credit">Built on open-source prior art: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience SAME encoder (Python)</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ SAME encoder</a>, Anon64 EAS Header Generator (archived), and CryptoDude3 (archived) for original inspiration. See <a href="credits.html">Credits</a> for the full attribution list.</p>
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
-                <h2 class="section-heading">Text Crawl Generator</h2>
+                <h2 class="section-heading">Crawl Builder — Visual Layer</h2>
+                <p class="section-subhead">Compose validated alert crawls for station overlay, signage, and validation loops. Export as GIF or WebM artifacts.</p>
                 <hr>
                 <label for="crawlUserPreset">Save/Load User Preset...</label>
                 <select id="crawlUserPreset">
@@ -505,13 +510,13 @@
                     <button type="button" id="prevFrame" disabled>Previous Frame</button>
                     <button type="button" id="nextFrame" disabled>Next Frame</button>
                     <button type="button" id="stopCrawl" disabled>Stop/Reset Crawl</button>
-                    <button type="button" id="exportCrawlGIF" disabled>Export as GIF</button>
-                    <button type="button" id="exportCrawlVideo" disabled>Export as video (.webm)</button>
-                    <button type="button" id="copyCrawlText" disabled>Copy Crawl Text to Clipboard</button>
-                    <button type="button" id="destroyCrawl" disabled>Destroy Crawl Instance</button>
-                    <button type="button" id="saveUserPreset">Save Currently Selected Preset</button>
-                    <button type="button" id="loadUserPreset">Load Currently Selected Preset</button>
-                    <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Logs</button>
+                    <button type="button" id="exportCrawlGIF" disabled>Export GIF Artifact</button>
+                    <button type="button" id="exportCrawlVideo" disabled>Export WebM Artifact</button>
+                    <button type="button" id="copyCrawlText" disabled>Copy Crawl Text</button>
+                    <button type="button" id="destroyCrawl" disabled>Reset Crawl Instance</button>
+                    <button type="button" id="saveUserPreset">Save Preset</button>
+                    <button type="button" id="loadUserPreset">Load Preset</button>
+                    <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Session</button>
                     <div id="crawlExportProgressDiv" class="crawl-export-progress" style="display: none; background-color: rgba(0, 0, 0, 0.75);">
                         <label for="crawlExportProgress">Export Progress: <span id="crawlExportProgressLabel">0%</span></label>
                         <div class="crawl-export-progress__row">
@@ -526,7 +531,8 @@
                 <div id="crawlDisplay" class="crawl-display" aria-live="polite" aria-atomic="true"></div>
             </section>
             <section id="splicer-panel" class="tool-panel" aria-labelledby="tab-splicer">
-                <h2 class="section-heading">Audio Splicer</h2>
+                <h2 class="section-heading">Audio Assembly — Artifact Composition</h2>
+                <p class="section-subhead">Combine TTS, uploaded samples, and macros into a single validated WAV artifact. All processing stays on this workstation.</p>
                 <hr>
                 <div class="splice-grid">
                     <div class="waveform-card">
@@ -547,7 +553,7 @@
                         </div>
                         <br>
                         <div class="guide">
-                            <strong>Guide:</strong> Load audio files or generate TTS to build your project. Use the controls to manipulate segments in the timeline. Export your final audio as a WAV file.
+                            <strong>Guide:</strong> Upload alert audio artifacts or generate TTS to build the session. Use the controls to manipulate segments in the timeline. Export the final audio as a WAV artifact.
 
                             Waveform controls:
                             <ul id="desktop-controls">
@@ -568,10 +574,10 @@
                     </div>
                     <div class="splice-controls">
                         <div>
-                            <label for="spliceFile">Load Audio File:</label>
+                            <label for="spliceFile">Upload Alert Audio Artifact:</label>
                             <br>
                             <input id="spliceFile" type="file" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a" data-splice-file style="display: none;">
-                            <button type="button" data-splice-load>Load File</button>
+                            <button type="button" data-splice-load>Load Artifact</button>
                             <span data-splice-file-status class="status-line"></span>
                         </div>
                         <div id="spliceTTSGenerator">
@@ -669,9 +675,9 @@
                         <button type="button" disabled data-splice-trim>Trim to Selection</button>
                         <button type="button" disabled data-splice-delete>Delete Selection</button>
                         <button type="button" disabled data-splice-split>Save Selection as Segment</button>
-                        <button type="button" disabled data-splice-export>Export WAV</button>
-                        <button type="button" disabled data-splice-export-macro>Export WAV with Macro</button>
-                        <button type="button" disabled data-splice-clear>Clear Project</button>
+                        <button type="button" disabled data-splice-export>Export WAV Artifact</button>
+                        <button type="button" disabled data-splice-export-macro>Export WAV Artifact w/ Macro</button>
+                        <button type="button" disabled data-splice-clear>Clear Session</button>
                         </div>
                         <div class="splice-storage">
                             Status: <span data-splice-persist>Waiting...</span>
@@ -680,12 +686,13 @@
                 </div>
                 <div class="splice-timeline">
                     <h3>Segment Timeline</h3>
-                    <p class="splice-timeline__hint">Segments are cached locally on-device so you can resume where you left off.</p>
+                    <p class="splice-timeline__hint">Segments are cached locally on-device so the session resumes where you left off.</p>
                     <ul data-splice-segments class="splice-segment-list"></ul>
                 </div>
             </section>
             <section id="phoneme-panel" class="tool-panel" aria-labelledby="tab-phoneme">
-                <h2 class="section-heading">Phoneme Converter/Generator</h2>
+                <h2 class="section-heading">Phoneme Lab — Voice Pronunciation Tuning</h2>
+                <p class="section-subhead">Translate word ↔ phoneme and cross-convert backends to tune TTS voices for operational clarity.</p>
                 <hr>
                 <label for="phonemeText">Enter text to convert to phonemes (or vice-versa):</label>
                 <br>
@@ -732,7 +739,8 @@
             </section>
 
             <section id="normalizer-panel" class="tool-panel" aria-labelledby="tab-normalizer">
-                <h2 class="section-heading">VTAC/AWIPS Product Normalizer</h2>
+                <h2 class="section-heading">Product Normalizer — VTAC / AWIPS</h2>
+                <p class="section-subhead">Normalize raw VTAC/AWIPS product text into operator-grade input for synthesis and crawl workflows.</p>
                 <hr>
                 <label for="shouldRepeat">Include "Repeating..." line: </label>
                 <input type="checkbox" id="shouldRepeat" name="shouldRepeat">
@@ -753,7 +761,8 @@
                 <pre id="normalizedProduct"></pre>
             </section>
             <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
-                <h2 class="section-heading">Video/Audio Muxer</h2>
+                <h2 class="section-heading">Artifacts — Video / Audio Muxer</h2>
+                <p class="section-subhead">Combine artifact video with a synthesized audio track to produce a unified broadcast-ready deliverable.</p>
                 <hr>
                 <div id="muxer-container">
                     <!-- Muxer iframe will be injected here when activated -->
@@ -761,6 +770,7 @@
             </section>
         </main>
         <footer></footer>
+        <script src="assets/js/brand-config.js"></script>
         <script src="coi-serviceworker.js"></script>
         <script src="assets/js/phoneme-webpack.js"></script>
         <script src="assets/js/wavefile.js"></script>
@@ -847,34 +857,35 @@
         <script type="module" src="assets/js/normalizer-bundle.js"></script>
         <script>
             (function () {
+                const navLabels = (window.BRAND && window.BRAND.nav) || {};
                 const panels = {
                     decoder: {
                         element: document.getElementById('decoder-panel'),
-                        name: "Decoder"
+                        name: navLabels.decoder || "Decode"
                     },
                     encoder: {
                         element: document.getElementById('encoder-panel'),
-                        name: "Encoder"
+                        name: navLabels.encoder || "Generate"
                     },
                     crawl: {
                         element: document.getElementById('crawl-panel'),
-                        name: "Text Crawl Generator"
+                        name: navLabels.crawl || "Crawl Builder"
                     },
                     splicer: {
                         element: document.getElementById('splicer-panel'),
-                        name: "Audio Splicer"
+                        name: navLabels.splicer || "Audio Assembly"
                     },
                     phoneme: {
                         element: document.getElementById('phoneme-panel'),
-                        name: "Phoneme Converter/Generator"
+                        name: navLabels.phoneme || "Phoneme Lab"
                     },
                     normalizer: {
                         element: document.getElementById('normalizer-panel'),
-                        name: "VTAC/AWIPS Product Normalizer"
+                        name: navLabels.normalizer || "Product Normalizer"
                     },
                     muxer: {
                         element: document.getElementById('muxer-panel'),
-                        name: "Video/Audio Muxer"
+                        name: navLabels.muxer || "Artifacts"
                     },
                 };
 
@@ -899,7 +910,7 @@
                 const ensureMuxerIframe = () => {
                     if (muxerIframe || !muxerContainer) return;
                     muxerIframe = document.createElement('iframe');
-                    muxerIframe.title = 'Video/Audio Muxer';
+                    muxerIframe.title = 'EAS Lab — Artifacts (Video/Audio Muxer)';
                     muxerIframe.loading = 'lazy';
                     muxerIframe.style.width = '100%';
                     muxerIframe.style.minHeight = '1080px';
