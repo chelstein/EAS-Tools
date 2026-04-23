@@ -65,6 +65,11 @@
                     </span>
                 </a>
             </div>
+            <div class="ztr-header__ornament" aria-hidden="true">
+                <span class="ztr-header__rose"></span>
+                <span class="ztr-header__rose"></span>
+                <span class="ztr-header__rose"></span>
+            </div>
         `;
 
         host.classList.add('ztr-header');
@@ -88,6 +93,11 @@
                         <h1 class="ztr-hero__module">${BRAND.module}</h1>
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
+                        <div class="ztr-hero__capabilities" aria-label="Core capabilities">
+                            <span>Synthetic Alert</span>
+                            <span>Signal Decode</span>
+                            <span>Compliance Validation</span>
+                        </div>
                         <p class="ztr-hero__integration">
                             <span class="ztr-hero__integration-dot" aria-hidden="true"></span>
                             ${BRAND.heroIntegration}
@@ -96,7 +106,7 @@
                     <div class="ztr-hero__aside">
                         <div class="ztr-badge" role="note" aria-label="Usage notice">
                             <span class="ztr-badge__dot" aria-hidden="true"></span>
-                            <span class="ztr-badge__text">${BRAND.notice}</span>
+                            <span class="ztr-badge__text">AUTHORIZED TEST ENVIRONMENT ONLY</span>
                         </div>
                         <div class="ztr-hero__statement" role="note" aria-label="Platform statement">
                             <p>${BRAND.statement}</p>
