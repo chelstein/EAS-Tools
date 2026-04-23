@@ -745,6 +745,138 @@ table tbody tr:last-child td {
 }
 
 /* -----------------------------------------------------------
+   10b. Filter / control bars
+   The app uses a few patterns for grouping controls:
+     * <span> wrapping action buttons (decoder/encoder)
+     * <span class="right-align"> for end-of-row toggles
+     * <div class="control-panel"> for encoder/crawl button clusters
+     * <label for="…"> immediately followed by select/input
+   This section turns those into proper flex toolbars with shared
+   sizing, gaps, and wrap behavior. CSS-only; no markup changes,
+   no behavior changes.
+   ----------------------------------------------------------- */
+
+/* Decoder action button cluster + checkbox cluster */
+#decoder-panel > span {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    vertical-align: top;
+}
+
+#decoder-panel > span.right-align {
+    float: right;
+    gap: 10px;
+}
+
+#decoder-panel > span.right-align label {
+    color: var(--ztr-text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#decoder-panel > span.right-align input[type="checkbox"] {
+    margin: 0;
+    transform: scale(1.05);
+    cursor: pointer;
+}
+
+/* Encoder / crawl / splicer button toolbars */
+.control-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: var(--ztr-space-3) 0;
+}
+
+.control-panel button {
+    margin: 0;
+}
+
+.waveform-actions,
+.splice-action-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Standardize control heights so action buttons, selects, and
+   inputs in a shared row align cleanly. */
+#decoder-panel > span > button,
+.control-panel > button,
+.waveform-actions > button {
+    height: 36px;
+    padding: 0 16px;
+    line-height: 1;
+}
+
+/* Inline label + control pairs (encoder form, crawl settings).
+   Keep the upstream <br>-separated structure but tighten the
+   visual rhythm so labels and inputs feel deliberate. */
+label {
+    color: var(--ztr-text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-right: 6px;
+}
+
+label[for] + select,
+label[for] + input[type="text"],
+label[for] + input[type="number"],
+label[for] + input[type="datetime-local"] {
+    margin-left: 4px;
+}
+
+/* Sticky control panels (crawl uses position: sticky already);
+   drop the dark inline background and replace with a brand
+   surface so it reads as part of the operational shell. */
+#crawl-panel .control-panel[style*="sticky"] {
+    background: var(--ztr-bg-raised);
+    border-bottom: 1px solid var(--ztr-border);
+    padding: var(--ztr-space-3) var(--ztr-space-3);
+    border-radius: var(--ztr-radius-sm);
+    box-shadow: var(--ztr-shadow-1);
+}
+
+/* Encoder header / mode select cluster */
+#encoderMode,
+#announcementType,
+#crawlMode {
+    min-width: 240px;
+}
+
+/* Active filter / toggle visualization for checkboxes that act
+   like filters (e.g. decoder-loopback, clip, useLocalTZ). */
+.custom-checkbox-container {
+    color: var(--ztr-text-secondary);
+}
+
+.custom-checkbox-container input[type="checkbox"]:checked ~ span.checkmark {
+    background-color: var(--ztr-accent) !important;
+    border-color: var(--ztr-accent) !important;
+}
+
+/* Splicer macro select + storage status row */
+.splice-storage {
+    color: var(--ztr-text-muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+[data-splice-persist] {
+    color: var(--ztr-ok) !important;
+    font-weight: 600;
+}
+
+/* -----------------------------------------------------------
    11. Cards / surfaces (existing markup)
    ----------------------------------------------------------- */
 .waveform-card,
