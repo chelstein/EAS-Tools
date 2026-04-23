@@ -4287,7 +4287,7 @@ async function fetchAndStore() {
                 }
                 const isStreamPlayable = await testAudioStream(window.streamUrl);
                 if (!isStreamPlayable) {
-                    alert("The provided stream URL is not playable by EAS Tools. This is not a problem with EAS Tools, it simply means the stream is not direct audio, and will remain unsupported. Please try a different stream URL.");
+                    alert("EAS Lab can't play the provided stream URL. This means the stream is not direct audio, which is unsupported in-browser. Please try a different stream URL.");
                     window.streamUrl = null;
                     return;
                 }
