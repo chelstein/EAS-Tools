@@ -10,34 +10,34 @@
    ----------------------------------------------------------- */
 :root {
     /* Surfaces */
-    --ztr-bg:                #eef3f5;     /* app canvas */
-    --ztr-bg-raised:         #f7fafb;     /* subtle panel tint */
-    --ztr-panel:             #ffffff;     /* primary card / panel */
-    --ztr-panel-strong:      #ffffff;
-    --ztr-panel-dark:        #2c3a4f;     /* featured dark statement card */
-    --ztr-panel-dark-text:   #d7e3ef;
-    --ztr-overlay:           rgba(24, 35, 49, 0.55);
+    --ztr-bg:                #efe2c7;
+    --ztr-bg-raised:         #f4e6ca;
+    --ztr-panel:             #f8ecd2;
+    --ztr-panel-strong:      #fff4de;
+    --ztr-panel-dark:        #112235;
+    --ztr-panel-dark-text:   #e6e3d4;
+    --ztr-overlay:           rgba(27, 36, 48, 0.55);
 
     /* Text */
-    --ztr-text:              #182331;
-    --ztr-text-secondary:    #4d6175;
-    --ztr-text-muted:        #738395;
+    --ztr-text:              #1b2430;
+    --ztr-text-secondary:    #435064;
+    --ztr-text-muted:        #6e7687;
     --ztr-text-inverse:      #ffffff;
     --ztr-text-on-accent:    #ffffff;
 
     /* Borders / dividers */
-    --ztr-border:            #cfd8df;
-    --ztr-border-strong:     #9dc7c7;
-    --ztr-border-soft:       #e3eaee;
-    --ztr-divider:           #cfd8df;
+    --ztr-border:            #2a3340;
+    --ztr-border-strong:     #1b2430;
+    --ztr-border-soft:       #c8b999;
+    --ztr-divider:           #b8a884;
 
     /* Brand accent (teal) */
-    --ztr-accent:            #0e9694;
-    --ztr-accent-hover:      #0b7f7e;
-    --ztr-accent-active:     #095f5e;
-    --ztr-accent-pale:       #dff4f3;
-    --ztr-accent-on:         #ffffff;
-    --ztr-accent-deep:       #084948;
+    --ztr-accent:            #0f7c7b;
+    --ztr-accent-hover:      #0d6767;
+    --ztr-accent-active:     #0b5354;
+    --ztr-accent-pale:       #d5ece8;
+    --ztr-accent-on:         #fff4de;
+    --ztr-accent-deep:       #083f40;
 
     /* Status / semantic */
     --ztr-ok:                #1f8a5c;
@@ -54,15 +54,15 @@
     --ztr-danger-border:     #f1b3b0;
 
     /* Slate cues retained for the EAS-alert flavor */
-    --ztr-alert:             #d96a1a;
-    --ztr-alert-soft:        #fff4ea;
+    --ztr-alert:             #c95d2e;
+    --ztr-alert-soft:        #ffe7d6;
 
     /* Radius scale */
     --ztr-radius-xs:         4px;
     --ztr-radius-sm:         6px;
-    --ztr-radius-md:         8px;
+    --ztr-radius-md:         12px;
     --ztr-radius-lg:         12px;
-    --ztr-radius-xl:         14px;
+    --ztr-radius-xl:         18px;
     --ztr-radius-pill:       999px;
 
     /* Shadow scale */
@@ -81,7 +81,8 @@
     --ztr-space-7:           40px;
 
     /* Typography */
-    --ztr-font-sans:         "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --ztr-font-sans:         "Avenir Next", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --ztr-font-display:      "Rockwell", "Cinzel", "Bookman Old Style", "Georgia", serif;
     --ztr-font-mono:         "Hack", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --ztr-letter-tight:      -0.01em;
     --ztr-letter-tracked:    0.16em;
@@ -110,6 +111,10 @@ html {
 
 body {
     background: var(--ztr-bg);
+    background-image:
+        radial-gradient(circle at 10% 10%, rgba(209, 167, 75, 0.12), transparent 48%),
+        radial-gradient(circle at 85% 20%, rgba(15, 124, 123, 0.1), transparent 50%),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12));
     color: var(--ztr-text);
     font-family: var(--ztr-font-sans);
     -webkit-font-smoothing: antialiased;
@@ -205,8 +210,8 @@ main {
    ----------------------------------------------------------- */
 header.ztr-header {
     background: var(--ztr-panel);
-    border-bottom: 1px solid var(--ztr-border);
-    box-shadow: var(--ztr-shadow-1);
+    border-bottom: 2px solid var(--ztr-border);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.45), var(--ztr-shadow-1);
     padding: 0;
     min-height: var(--ztr-header-height);
     display: block;
@@ -283,6 +288,7 @@ header.ztr-header::before {
 
 .ztr-lockup__product {
     color: var(--ztr-text);
+    font-family: var(--ztr-font-display);
     font-size: 22px;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -301,6 +307,22 @@ header.ztr-header::before {
 .ztr-lockup__module {
     color: var(--ztr-accent);
     font-weight: 700;
+}
+
+.ztr-header__ornament {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.ztr-header__rose {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffd78e, #c95d2e 55%, #7a2b22);
+    border: 1px solid rgba(27, 36, 48, 0.45);
+    box-shadow: 0 0 0 1px rgba(255, 244, 222, 0.6);
 }
 
 .ztr-lockup__sub {
@@ -346,6 +368,14 @@ header.ztr-header::before {
 /* Left column ----------------------------------------------- */
 .ztr-hero__title {
     min-width: 0;
+    padding: 26px;
+    border: 2px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-xl);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(209, 167, 75, 0.26), transparent 44%),
+        radial-gradient(circle at 82% 12%, rgba(15, 124, 123, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 244, 222, 0.7));
+    box-shadow: 0 3px 0 rgba(27, 36, 48, 0.24);
 }
 
 .ztr-hero__kicker {
@@ -367,6 +397,7 @@ header.ztr-header::before {
 .ztr-hero__module {
     margin: 0 0 12px;
     color: var(--ztr-text);
+    font-family: var(--ztr-font-display);
     font-size: clamp(2.4rem, 4vw, 3.5rem);
     line-height: 1.05;
     font-weight: 700;
@@ -388,6 +419,25 @@ header.ztr-header::before {
     font-size: 1.05rem;
     line-height: 1.5;
     max-width: 62ch;
+}
+
+.ztr-hero__capabilities {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 16px;
+}
+
+.ztr-hero__capabilities span {
+    border: 1px solid rgba(27, 36, 48, 0.3);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    color: var(--ztr-text);
+    background: rgba(255, 244, 222, 0.75);
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .ztr-hero__integration {
@@ -425,8 +475,8 @@ header.ztr-header::before {
     min-height: 56px;
     padding: 14px 18px;
     background: var(--ztr-warn-bg);
-    border: 1px solid var(--ztr-warn-border);
-    border-left: 3px solid var(--ztr-alert);
+    border: 2px solid #c7773f;
+    border-left: 5px solid var(--ztr-alert);
     border-radius: var(--ztr-radius-lg);
     color: var(--ztr-warn-text);
     font-size: 0.95rem;
@@ -446,7 +496,7 @@ header.ztr-header::before {
 .ztr-hero__statement {
     background: var(--ztr-panel-dark);
     color: var(--ztr-panel-dark-text);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--ztr-radius-xl);
     box-shadow: var(--ztr-shadow-dark);
     padding: 22px;
@@ -465,50 +515,64 @@ header.ztr-header::before {
 #tab-set {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
 }
 
 #nav-buttons {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
 }
 
 button[data-tool] {
-    background: var(--ztr-panel);
-    color: var(--ztr-text-secondary);
-    border: 1px solid var(--ztr-border-strong);
+    background: linear-gradient(180deg, #fdf4df 0%, #f1ddb7 100%);
+    color: var(--ztr-text) !important;
+    border: 2px solid var(--ztr-border-strong);
     border-radius: var(--ztr-radius-md);
     padding: 0 16px;
     height: 36px;
-    min-width: 110px;
+    min-width: max-content;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--ztr-font-sans);
+    font-family: var(--ztr-font-display);
     font-weight: 600;
     font-size: 0.9rem;
     letter-spacing: 0.02em;
     text-transform: none;
-    box-shadow: none;
-    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    box-shadow: 0 2px 0 rgba(27, 36, 48, 0.35);
+    transition: transform 120ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
 button[data-tool]:hover {
-    background: var(--ztr-accent-pale);
-    color: var(--ztr-accent-hover);
-    border-color: var(--ztr-accent);
+    background: #fff4de;
+    color: var(--ztr-accent-active);
+    border-color: var(--ztr-accent-active);
+    transform: translateY(-1px) rotate(-0.8deg);
 }
 
 button[data-tool].active {
-    background: var(--ztr-accent-pale);
-    color: var(--ztr-accent-active);
-    border-color: var(--ztr-accent);
-    box-shadow: inset 0 -2px 0 var(--ztr-accent);
+    background: linear-gradient(180deg, #d1723d 0%, #b84a2c 100%);
+    color: #fff4de !important;
+    border-color: #7d2c1b;
+    box-shadow: 0 3px 0 rgba(27, 36, 48, 0.35);
+}
+
+button[data-tool]:focus-visible {
+    outline: 3px solid rgba(15, 124, 123, 0.45);
+    outline-offset: 2px;
 }
 
 /* -----------------------------------------------------------
@@ -886,6 +950,48 @@ label[for] + input[type="datetime-local"] {
     box-shadow: var(--ztr-shadow-1);
 }
 
+#splicer-panel .splice-grid {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    gap: 20px;
+}
+
+#splicer-panel .waveform-card {
+    background: linear-gradient(180deg, #0f1825 0%, #151515 100%) !important;
+    border: 2px solid #202e40 !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 4px 0 rgba(27, 36, 48, 0.4);
+    color: #dde7f3;
+}
+
+#splicer-panel #spliceWaveform {
+    border: 1px solid rgba(15, 124, 123, 0.55);
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.26)),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 28px);
+}
+
+#splicer-panel .splice-controls {
+    background:
+        linear-gradient(180deg, rgba(255, 244, 222, 0.95), rgba(244, 230, 202, 0.95)) !important;
+    border: 2px solid var(--ztr-border) !important;
+    box-shadow: 0 4px 0 rgba(27, 36, 48, 0.25);
+}
+
+#splicer-panel .splice-controls > div:first-child {
+    border: 2px dashed rgba(27, 36, 48, 0.5);
+    border-radius: 14px;
+    background: rgba(255, 244, 222, 0.85);
+    padding: 14px;
+    text-align: center;
+}
+
+#splicer-panel .splice-controls > div:first-child label {
+    display: block;
+    margin-bottom: 8px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
 .modalBox {
     background: var(--ztr-panel) !important;
     border: 1px solid var(--ztr-border-strong) !important;
@@ -966,8 +1072,24 @@ pre.generatedHeader,
 footer {
     background: var(--ztr-panel);
     color: var(--ztr-text-secondary);
-    border-top: 1px solid var(--ztr-border);
+    border-top: 2px solid var(--ztr-border);
     padding: var(--ztr-space-4) var(--ztr-space-5);
+}
+
+.ztr-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: var(--ztr-shell-max);
+    margin: 0 auto;
+}
+
+.ztr-footer__top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px 20px;
 }
 
 .ztr-footer__platform { color: var(--ztr-text); }
@@ -980,10 +1102,68 @@ footer {
     font-size: 0.8rem;
 }
 
-.footer-links { color: var(--ztr-text-secondary); }
+.ztr-metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.ztr-metric {
+    background: rgba(255, 244, 222, 0.7);
+    border: 1px solid rgba(27, 36, 48, 0.26);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.ztr-metric__label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ztr-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    margin-bottom: 6px;
+}
+
+.ztr-metric__value {
+    color: var(--ztr-text);
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+.ztr-metric__value--ok { color: var(--ztr-ok); }
+
+.ztr-metric__meter {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(27, 36, 48, 0.13);
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.ztr-metric__meter span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #0f7c7b, #d1a74b);
+}
+
+.ztr-footer__links-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 20px;
+    align-items: start;
+}
+
+.footer-links { color: var(--ztr-text-secondary); list-style: none; margin: 0; padding: 0; }
+.footer-links li { margin: 0 0 6px; }
 .footer-links a { color: var(--ztr-accent); }
 .footer-links a:visited { color: var(--ztr-accent-active); }
-.footer-links li + li::before { color: var(--ztr-text-muted); }
+.footer-links li + li::before { content: none; }
+
+.ztr-footer__engine {
+    margin: 0;
+    color: var(--ztr-text-secondary);
+    font-size: 0.82rem;
+}
 
 /* -----------------------------------------------------------
    15. Secondary pages (article-based privacy/terms/etc.)
@@ -1027,9 +1207,19 @@ article a:visited {
         justify-content: flex-start;
     }
 
+    #tab-set {
+        flex-wrap: wrap;
+    }
+
+    #nav-buttons {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+
     .ztr-lockup__product { font-size: 18px; }
     .ztr-lockup__sub     { font-size: 14px; }
     .ztr-lockup__subtitle { display: none; }
+    .ztr-header__ornament { display: none; }
 
     .ztr-hero {
         grid-template-columns: 1fr;
@@ -1041,9 +1231,18 @@ article a:visited {
 
     .ztr-hero__subhead { font-size: 1.05rem; }
     .ztr-hero__body    { font-size: 0.95rem; }
+    .ztr-hero__capabilities { grid-template-columns: 1fr; }
 
     .tool-panel {
         padding: var(--ztr-space-4) var(--ztr-shell-pad-x) var(--ztr-space-6);
+    }
+
+    .ztr-metrics-bar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .ztr-footer__links-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1117,6 +1316,14 @@ pre, code {
 
     .ztr-badge {
         font-size: 0.88rem;
+    }
+
+    #splicer-panel .splice-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ztr-metrics-bar {
+        grid-template-columns: 1fr;
     }
 
     /* Action buttons stretch into their row and stack cleanly. */
