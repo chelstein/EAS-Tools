@@ -478,12 +478,16 @@ header.ztr-header::before {
     justify-content: flex-end;
 }
 
+/* Nav pill selectors bumped to (1,1,1) specificity via #tab-set
+   so they decisively override upstream light/dark-mode overrides
+   and any other same-specificity rules regardless of cascade order. */
+#tab-set button[data-tool],
 button[data-tool] {
     /* Inactive pill: subtly tinted pale surface + darker text so it
        reads clearly against the white header. */
-    background: var(--ztr-bg-raised);
-    color: var(--ztr-text);
-    border: 1px solid var(--ztr-border-strong);
+    background: var(--ztr-bg-raised) !important;
+    color: var(--ztr-text) !important;
+    border: 1px solid var(--ztr-border-strong) !important;
     border-radius: var(--ztr-radius-md);
     padding: 0 16px;
     height: 36px;
@@ -500,24 +504,27 @@ button[data-tool] {
     transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
+#tab-set button[data-tool]:hover,
 button[data-tool]:hover {
-    background: var(--ztr-accent-pale);
-    color: var(--ztr-accent-active);
-    border-color: var(--ztr-accent);
+    background: var(--ztr-accent-pale) !important;
+    color: var(--ztr-accent-active) !important;
+    border-color: var(--ztr-accent) !important;
     box-shadow: var(--ztr-shadow-2);
 }
 
+#tab-set button[data-tool].active,
 button[data-tool].active {
     /* Active pill: solid teal so selection is unmistakable. */
-    background: var(--ztr-accent);
-    color: var(--ztr-accent-on);
-    border-color: var(--ztr-accent-hover);
+    background: var(--ztr-accent) !important;
+    color: var(--ztr-accent-on) !important;
+    border-color: var(--ztr-accent-hover) !important;
     box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18), var(--ztr-shadow-1);
 }
 
+#tab-set button[data-tool].active:hover,
 button[data-tool].active:hover {
-    background: var(--ztr-accent-hover);
-    color: var(--ztr-accent-on);
+    background: var(--ztr-accent-hover) !important;
+    color: var(--ztr-accent-on) !important;
 }
 
 /* -----------------------------------------------------------
