@@ -31,34 +31,55 @@
     const renderBrandHeader = (options = {}) => {
         const host = document.querySelector('[data-brand-header]') || document.querySelector('header');
         if (!host) return;
-        const includeNav = options.includeNav !== false && !!host.querySelector('#tab-set');
-        const existingNav = includeNav ? host.querySelector('#tab-set').outerHTML : '';
+        // Idempotent: if we've already rendered the lockup into this
+        // header, leave it alone. Prevents listener loss on re-entry.
+        if (host.querySelector('.ztr-header__inner')) return;
+
         const subPage = options.subPage || '';
-        host.classList.add('ztr-header');
-        host.innerHTML = `
-            <div class="ztr-header__inner">
-                <div class="ztr-lockup">
-                    <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.module} home">
-                        <span class="ztr-lockup__mark" aria-hidden="true"></span>
-                        <span class="ztr-lockup__text">
-                            <span class="ztr-lockup__eyebrow">${BRAND.platform}</span>
-                            <span class="ztr-lockup__product">
-                                ${BRAND.product}
-                                <span class="ztr-lockup__sep">/</span>
-                                <span class="ztr-lockup__module">${BRAND.module}</span>${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
-                            </span>
-                            <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
+        const tabSet = options.includeNav !== false ? host.querySelector('#tab-set') : null;
+
+        // Hide the legacy <h1><a id="eas-tools-logo">…</a></h1> and any
+        // other header <h1> so only the new lockup is visible. We do
+        // not remove it, so any listeners or anchors remain valid.
+        host.querySelectorAll('h1').forEach((h) => {
+            h.style.display = 'none';
+        });
+
+        // Build the new wrapper in a document fragment and inject
+        // the live nav element with appendChild so its event
+        // listeners (attached by index.html's inline IIFE) survive.
+        const inner = document.createElement('div');
+        inner.className = 'ztr-header__inner';
+        inner.innerHTML = `
+            <div class="ztr-lockup">
+                <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.module} home">
+                    <span class="ztr-lockup__mark" aria-hidden="true"></span>
+                    <span class="ztr-lockup__text">
+                        <span class="ztr-lockup__eyebrow">${BRAND.platform}</span>
+                        <span class="ztr-lockup__product">
+                            ${BRAND.product}
+                            <span class="ztr-lockup__sep">/</span>
+                            <span class="ztr-lockup__module">${BRAND.module}</span>${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                         </span>
-                    </a>
-                </div>
-                ${existingNav}
+                        <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
+                    </span>
+                </a>
             </div>
         `;
+
+        host.classList.add('ztr-header');
+        host.appendChild(inner);
+
+        if (tabSet) {
+            // Move the live node — keeps click/change listeners intact.
+            inner.appendChild(tabSet);
+        }
     };
 
     const renderBrandHero = () => {
         const hero = document.querySelector('[data-brand-hero]');
         if (!hero) return;
+        if (hero.querySelector('.ztr-hero__inner')) return; // idempotent
         hero.innerHTML = `
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
