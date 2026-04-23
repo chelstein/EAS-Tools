@@ -891,10 +891,13 @@
 
                 const navButtons = document.getElementById('nav-buttons');
                 if (navButtons) {
+                    navButtons.setAttribute('role', 'tablist');
+                    navButtons.setAttribute('aria-label', 'Tool navigation');
                     const buttonElement = document.createElement('button');
                     buttonElement.type = 'button';
                     Object.entries(panels).forEach(([key, { name }]) => {
                         const btn = buttonElement.cloneNode();
+                        btn.id = `tab-${key}`;
                         btn.dataset.tool = key;
                         btn.textContent = name;
                         navButtons.appendChild(btn);
@@ -903,6 +906,8 @@
 
                 const buttons = document.querySelectorAll('button[data-tool]');
                 const params = new URLSearchParams(window.location.search);
+                const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const panelList = document.getElementById('nav-select');
 
                 const muxerContainer = document.getElementById('muxer-container');
                 let muxerIframe;
@@ -924,22 +929,35 @@
                     requestAnimationFrame(() => window.__ensureTextEditorsRefreshed(target));
                 };
 
-                const activate = (target) => {
+                const activate = (target, options = {}) => {
+                    const { updateHistory = true, scroll = true } = options;
                     if (target === 'muxer') ensureMuxerIframe();
-                    buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tool === target));
+                    buttons.forEach((btn) => {
+                        const isActive = btn.dataset.tool === target;
+                        btn.classList.toggle('active', isActive);
+                        btn.setAttribute('aria-selected', String(isActive));
+                        btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+                        btn.tabIndex = isActive ? 0 : -1;
+                    });
                     Object.entries(panels).forEach(([name, { element }]) => {
                         if (element) element.classList.toggle('active', name === target);
                     });
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    const newParams = new URLSearchParams(window.location.search);
-                    newParams.set('tool', target);
-                    window.history.replaceState({}, '', `${window.location.pathname}?${newParams}`);
+                    if (panelList) panelList.value = target;
+                    if (scroll) {
+                        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+                    }
+                    if (updateHistory) {
+                        const newParams = new URLSearchParams(window.location.search);
+                        newParams.set('tool', target);
+                        window.history.replaceState({}, '', `${window.location.pathname}?${newParams}`);
+                    }
                     requestEditorRefresh(target);
                 };
 
                 buttons.forEach((btn) => {
+                    btn.setAttribute('role', 'tab');
+                    btn.setAttribute('aria-controls', `${btn.dataset.tool}-panel`);
                     btn.addEventListener('click', () => activate(btn.dataset.tool));
-                    const panelList = document.getElementById('nav-select');
                     if (panelList) {
                         const option = document.createElement('option');
                         option.value = btn.dataset.tool;
@@ -948,30 +966,47 @@
                     }
                 });
 
-                const panelList = document.getElementById('nav-select');
                 if (panelList) {
                     panelList.addEventListener('change', () => {
-                        activate(panelList.value);
+                        activate(panelList.value, { scroll: false });
                     });
                 }
+
+                const toolOrder = Object.keys(panels);
+                buttons.forEach((btn) => {
+                    btn.addEventListener('keydown', (event) => {
+                        const currentIndex = toolOrder.indexOf(btn.dataset.tool);
+                        if (currentIndex === -1) return;
+                        let targetIndex = null;
+                        if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % toolOrder.length;
+                        if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + toolOrder.length) % toolOrder.length;
+                        if (event.key === 'Home') targetIndex = 0;
+                        if (event.key === 'End') targetIndex = toolOrder.length - 1;
+                        if (targetIndex === null) return;
+                        event.preventDefault();
+                        const targetTool = toolOrder[targetIndex];
+                        activate(targetTool, { scroll: false });
+                        document.querySelector(`button[data-tool="${targetTool}"]`)?.focus();
+                    });
+                });
 
                 document.querySelectorAll('[data-switch-to]').forEach((link) => {
                     link.addEventListener('click', (event) => {
                         event.preventDefault();
                         activate(link.dataset.switchTo);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
                     });
                 });
 
                 if (params.get('header')) {
-                    activate('encoder');
+                    activate('encoder', { scroll: false });
                 }
 
                 const toolParam = params.get('tool');
                 if (toolParam && panels[toolParam]) {
-                    activate(toolParam);
+                    activate(toolParam, { scroll: false });
                 } else {
-                    activate('decoder');
+                    activate('decoder', { scroll: false });
                 }
 
                 window.addEventListener('deepLinkOpen', (event) => {
