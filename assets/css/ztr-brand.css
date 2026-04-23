@@ -1073,19 +1073,23 @@ footer {
     background: var(--ztr-panel);
     color: var(--ztr-text-secondary);
     border-top: 2px solid var(--ztr-border);
-    padding: var(--ztr-space-4) var(--ztr-space-5);
+    padding: 10px 16px;
     position: static !important;
+    left: auto;
+    right: auto;
     bottom: auto !important;
     overflow: visible !important;
+    max-height: none !important;
     z-index: auto !important;
 }
 
 .ztr-footer {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 6px;
     max-width: var(--ztr-shell-max);
     margin: 0 auto;
+    align-items: center;
 }
 
 .ztr-footer__top {
@@ -1096,20 +1100,11 @@ footer {
     gap: 10px 20px;
 }
 
-.ztr-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    max-width: var(--ztr-shell-max);
-    margin: 0 auto;
-}
-
-.ztr-footer__top {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px 20px;
+.ztr-footer__meta {
+    margin: 0;
+    color: var(--ztr-text-muted);
+    font-size: 0.75rem;
+    text-align: center;
 }
 
 .ztr-footer__platform { color: var(--ztr-text); }
@@ -1175,15 +1170,25 @@ footer {
 }
 
 .footer-links { color: var(--ztr-text-secondary); list-style: none; margin: 0; padding: 0; }
-.footer-links li { margin: 0 0 6px; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 0; justify-content: center; }
+.footer-links li { margin: 0; }
 .footer-links a { color: var(--ztr-accent); }
 .footer-links a:visited { color: var(--ztr-accent-active); }
-.footer-links li + li::before { content: none; }
+.footer-links li + li::before { content: "·"; margin: 0 8px; color: var(--ztr-text-muted); }
 
 .ztr-footer__engine {
     margin: 0;
     color: var(--ztr-text-secondary);
     font-size: 0.82rem;
+}
+
+.ztr-metrics-bar,
+.ztr-footer__links-grid,
+.ztr-footer__mission,
+#footer-mobile-arrow,
+#footer-mobile-tip,
+.mobileBreak {
+    display: none !important;
 }
 
 /* -----------------------------------------------------------
@@ -1423,6 +1428,7 @@ footer {
     .ztr-footer__links-grid {
         grid-template-columns: 1fr;
     }
+
 }
 
 /* -----------------------------------------------------------

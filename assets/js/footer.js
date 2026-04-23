@@ -50,10 +50,20 @@ footer.innerHTML = `
         </ul>
         <p class="ztr-footer__engine">Upstream engine: <a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a> by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a> (GNU GPL v3)</p>
     </div>
+    <ul class="footer-links">
+        <li><a id="faq-link" href="faq.html">FAQ</a></li>
+        <li><a id="terms-of-service-link" href="terms.html">Terms</a></li>
+        <li><a id="privacy-policy-link" href="privacy.html">Privacy</a></li>
+        <li><a href="tts-docs.html">Docs</a></li>
+        <li><a href="credits.html">Credits</a></li>
+    </ul>
+    <p class="ztr-footer__meta">
+        Last updated <span id="last-updated"><time datetime=""></time></span>
+        (commit <span id="last-commit-hash"></span>) ·
+        TTS <span id="tts-requests-counter">0/0</span>
+        (resets in <span id="tts-requests-reset-time"></span>)
+    </p>
 </div>
-<br class="mobileBreak">
-<div id="footer-mobile-arrow" style="display: none;"></div>
-<p id="footer-mobile-tip" style="display: none;">Swipe for more</p>
 `;
 
 const lastUpdated = document.getElementById('last-updated');
