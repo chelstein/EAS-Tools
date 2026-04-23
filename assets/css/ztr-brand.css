@@ -535,9 +535,11 @@ header.ztr-header::before {
 }
 
 button[data-tool] {
-    background: linear-gradient(180deg, #fdf4df 0%, #f1ddb7 100%);
-    color: var(--ztr-text) !important;
-    border: 2px solid var(--ztr-border-strong);
+    /* Inactive pill: subtly tinted pale surface + darker text so it
+       reads clearly against the white header. */
+    background: var(--ztr-bg-raised);
+    color: var(--ztr-text);
+    border: 1px solid var(--ztr-border-strong);
     border-radius: var(--ztr-radius-md);
     padding: 0 16px;
     height: 36px;
@@ -550,29 +552,28 @@ button[data-tool] {
     font-size: 0.9rem;
     letter-spacing: 0.02em;
     text-transform: none;
-    white-space: nowrap;
-    flex: 0 0 auto;
-    box-shadow: 0 2px 0 rgba(27, 36, 48, 0.35);
-    transition: transform 120ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
+    box-shadow: var(--ztr-shadow-1);
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 button[data-tool]:hover {
-    background: #fff4de;
+    background: var(--ztr-accent-pale);
     color: var(--ztr-accent-active);
-    border-color: var(--ztr-accent-active);
-    transform: translateY(-1px) rotate(-0.8deg);
+    border-color: var(--ztr-accent);
+    box-shadow: var(--ztr-shadow-2);
 }
 
 button[data-tool].active {
-    background: linear-gradient(180deg, #d1723d 0%, #b84a2c 100%);
-    color: #fff4de !important;
-    border-color: #7d2c1b;
-    box-shadow: 0 3px 0 rgba(27, 36, 48, 0.35);
+    /* Active pill: solid teal so selection is unmistakable. */
+    background: var(--ztr-accent);
+    color: var(--ztr-accent-on);
+    border-color: var(--ztr-accent-hover);
+    box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18), var(--ztr-shadow-1);
 }
 
-button[data-tool]:focus-visible {
-    outline: 3px solid rgba(15, 124, 123, 0.45);
-    outline-offset: 2px;
+button[data-tool].active:hover {
+    background: var(--ztr-accent-hover);
+    color: var(--ztr-accent-on);
 }
 
 /* -----------------------------------------------------------
@@ -1104,7 +1105,7 @@ footer {
 
 .ztr-metrics-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -1131,7 +1132,6 @@ footer {
 }
 
 .ztr-metric__value--ok { color: var(--ztr-ok); }
-.ztr-metric__value a { color: var(--ztr-accent-active); }
 
 .ztr-metric__meter {
     height: 6px;
@@ -1396,13 +1396,6 @@ footer {
         padding: var(--ztr-space-4) var(--ztr-shell-pad-x) var(--ztr-space-6);
     }
 
-    .ztr-hero__title,
-    .ztr-hero__statement,
-    .waveform-card,
-    .splice-controls {
-        padding: 18px;
-    }
-
     .ztr-metrics-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1503,12 +1496,6 @@ pre, code {
 
     .ztr-metrics-bar {
         grid-template-columns: 1fr;
-    }
-
-    .waveform-card,
-    .splice-controls,
-    .splice-timeline {
-        padding: 14px;
     }
 
     /* Action buttons stretch into their row and stack cleanly. */
