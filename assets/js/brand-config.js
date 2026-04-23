@@ -116,13 +116,18 @@
     window.BRAND = BRAND;
     window.ZTR = { BRAND, docTitle, renderBrandHeader, renderBrandHero, applyDocumentTitle };
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            renderBrandHeader();
-            renderBrandHero();
-        });
-    } else {
+    const initializeBrandShell = () => {
+        if (window.__ztrBrandShellInitialized) return;
+        window.__ztrBrandShellInitialized = true;
         renderBrandHeader();
         renderBrandHero();
+    };
+
+    // Render as soon as this script executes so downstream scripts
+    // (like tab wiring) bind against the final header markup.
+    initializeBrandShell();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeBrandShell, { once: true });
     }
 })();
