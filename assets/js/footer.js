@@ -1,27 +1,55 @@
 const footer = document.querySelector('footer');
-
+if (!footer) {
+    console.warn('Footer container was not found.');
+} else {
 footer.innerHTML = `
 <div class="ztr-footer">
-    <div class="ztr-footer__brand">
-        <span class="ztr-footer__platform">Zero Trust Radio Alliance</span>
-        <span class="ztr-footer__sep">·</span>
-        <span class="ztr-footer__product">powered by buoyIQ</span>
-        <span class="ztr-footer__sep">·</span>
-        <span class="ztr-footer__module">EAS Lab</span>
+    <div class="ztr-footer__top">
+        <div class="ztr-footer__brand">
+            <span class="ztr-footer__platform">Zero Trust Radio Alliance</span>
+            <span class="ztr-footer__sep">·</span>
+            <span class="ztr-footer__product">powered by buoyIQ</span>
+            <span class="ztr-footer__sep">·</span>
+            <span class="ztr-footer__module">EAS Lab</span>
+        </div>
+        <p class="ztr-footer__mission">Includes EAS simulation, decode, and parsing capabilities for lab/testing workflows. Not for live broadcast without authorization.</p>
     </div>
-    <p class="ztr-footer__mission">Includes EAS simulation, decode, and parsing capabilities for lab/testing workflows. Not for live broadcast without authorization.</p>
-    <ul class="footer-links">
-        <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
-        <li><p id="donate-link"><a href="donations.html">Donate</a></p></li>
-        <li><p id="terms-of-service-link"><a href="terms.html">Terms of Service</a></p></li>
-        <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
-        <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
-        <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
-        <li><p><a href="credits.html">Credits &amp; Attribution</a></p></li>
-        <li><p>Upstream engine: <a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a> by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a> (GNU GPL v3)</p></li>
-        <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
-        <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
-    </ul>
+    <div class="ztr-metrics-bar" aria-label="Operational status">
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">Environment</span>
+            <strong class="ztr-metric__value">Authorized Lab Mode</strong>
+        </div>
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">Compliance</span>
+            <strong class="ztr-metric__value ztr-metric__value--ok">Validation Workflow</strong>
+        </div>
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">Upstream Engine</span>
+            <strong class="ztr-metric__value"><a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a></strong>
+        </div>
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">Last Updated</span>
+            <strong class="ztr-metric__value"><span id="last-updated"><time datetime=""></time></span> · <span id="last-commit-hash"></span></strong>
+        </div>
+        <div class="ztr-metric">
+            <span class="ztr-metric__label">TTS Requests</span>
+            <strong class="ztr-metric__value"><span id="tts-requests-counter">0/0</span> · resets in <span id="tts-requests-reset-time"></span></strong>
+        </div>
+    </div>
+    <div class="ztr-footer__links-grid">
+        <ul class="footer-links">
+            <li><a id="faq-link" href="faq.html">FAQ</a></li>
+            <li><a id="donate-link" href="donations.html">Donate</a></li>
+            <li><a id="terms-of-service-link" href="terms.html">Terms of Service</a></li>
+            <li><a id="privacy-policy-link" href="privacy.html">Privacy Policy</a></li>
+        </ul>
+        <ul class="footer-links">
+            <li><a href="tts-docs.html">TTS Documentation</a></li>
+            <li><a href="demos.html">TTS Voice Demos</a></li>
+            <li><a href="credits.html">Credits &amp; Attribution</a></li>
+        </ul>
+        <p class="ztr-footer__engine">Upstream engine: <a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a> by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a> (GNU GPL v3)</p>
+    </div>
 </div>
 <br class="mobileBreak">
 <div id="footer-mobile-arrow" style="display: none;"></div>
@@ -244,3 +272,4 @@ if (cachedData) {
 formatTimestamps(window.commitDate);
 
 setInterval(() => formatTimestamps(window.commitDate), 1000);
+}
