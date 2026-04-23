@@ -1396,13 +1396,6 @@ footer {
         padding: var(--ztr-space-4) var(--ztr-shell-pad-x) var(--ztr-space-6);
     }
 
-    .ztr-hero__title,
-    .ztr-hero__statement,
-    .waveform-card,
-    .splice-controls {
-        padding: 18px;
-    }
-
     .ztr-metrics-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1503,12 +1496,6 @@ pre, code {
 
     .ztr-metrics-bar {
         grid-template-columns: 1fr;
-    }
-
-    .waveform-card,
-    .splice-controls,
-    .splice-timeline {
-        padding: 14px;
     }
 
     /* Action buttons stretch into their row and stack cleanly. */
