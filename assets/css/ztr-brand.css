@@ -191,7 +191,10 @@ main {
     padding: var(--ztr-space-5) var(--ztr-shell-pad-x) var(--ztr-space-7);
 }
 
-.tool-panel > * {
+/* Centered content inside each tab panel, but skip elements that
+   manage their own positioning (fixed modals, absolute overlays)
+   so their anchoring isn't overridden. */
+.tool-panel > *:not(.modalContainer):not([style*="position: fixed"]):not([style*="position:fixed"]):not([style*="position: absolute"]):not([style*="position:absolute"]) {
     max-width: var(--ztr-shell-max);
     margin-left: auto;
     margin-right: auto;
@@ -696,14 +699,9 @@ table tbody tr:last-child td {
 }
 
 /* The FIPS table specifically: clickable entries, monospace code
-   column, scrollable on narrow widths without breaking layout. */
-#fips {
-    display: block;
-    max-height: 420px;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
+   column. Native table layout is preserved so column widths stay
+   aligned between the title row and the dynamic data rows. The
+   enclosing .tool-panel handles vertical scrolling for long lists. */
 #fips tbody tr.entry {
     cursor: pointer;
     transition: background 120ms ease, color 120ms ease;
@@ -1063,9 +1061,15 @@ main, .tool-panel, .ztr-header__inner, .ztr-hero__inner {
     overflow-x: hidden;
 }
 
-img, canvas, video, audio, iframe {
+img, canvas, video, audio {
     max-width: 100%;
     height: auto;
+}
+
+/* iframe: cap width only; preserve inline/JS-set height so the
+   injected muxer iframe keeps its min-height: 1080px target. */
+iframe {
+    max-width: 100%;
 }
 
 input[type="text"],
@@ -1201,11 +1205,6 @@ pre, code {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    /* FIPS table region shrinks its max-height so it doesn't
-       dominate the viewport. */
-    #fips {
-        max-height: 320px;
-    }
 }
 
 /* -----------------------------------------------------------
