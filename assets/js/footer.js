@@ -1,5 +1,7 @@
 const footer = document.querySelector('footer');
-
+if (!footer) {
+    console.warn('Footer container was not found.');
+} else {
 footer.innerHTML = `
 <div class="ztr-footer">
     <div class="ztr-footer__brand">
@@ -9,23 +11,20 @@ footer.innerHTML = `
         <span class="ztr-footer__sep">·</span>
         <span class="ztr-footer__module">EAS Lab</span>
     </div>
-    <p class="ztr-footer__mission">Includes EAS simulation, decode, and parsing capabilities for lab/testing workflows. Not for live broadcast without authorization.</p>
     <ul class="footer-links">
-        <li><p id="faq-link"><a href="faq.html">FAQ</a></p></li>
-        <li><p id="donate-link"><a href="donations.html">Donate</a></p></li>
-        <li><p id="terms-of-service-link"><a href="terms.html">Terms of Service</a></p></li>
-        <li><p id="privacy-policy-link"><a href="privacy.html">Privacy Policy</a></p></li>
-        <li><p><a href="tts-docs.html">TTS Documentation</a></p></li>
-        <li><p><a href="demos.html">TTS Voice Demos</a></p></li>
-        <li><p><a href="credits.html">Credits &amp; Attribution</a></p></li>
-        <li><p>Upstream engine: <a href="https://github.com/wagwan-piffting-blud/eas-tools">EAS Tools</a> by <a href="https://github.com/wagwan-piffting-blud/">wagwan-piffting-blud</a> (GNU GPL v3)</p></li>
-        <li><p>Last updated: <span id="last-updated"><time datetime=""></time></span> (commit <span id="last-commit-hash"></span>)</p></li>
-        <li><p><span id="tts-requests-counter">0/0</span> successful TTS requests served (resets in <span id="tts-requests-reset-time"></span>)</p></li>
+        <li><a id="faq-link" href="faq.html">FAQ</a></li>
+        <li><a id="terms-of-service-link" href="terms.html">Terms</a></li>
+        <li><a id="privacy-policy-link" href="privacy.html">Privacy</a></li>
+        <li><a href="tts-docs.html">Docs</a></li>
+        <li><a href="credits.html">Credits</a></li>
     </ul>
+    <p class="ztr-footer__meta">
+        Last updated <span id="last-updated"><time datetime=""></time></span>
+        (commit <span id="last-commit-hash"></span>) ·
+        TTS <span id="tts-requests-counter">0/0</span>
+        (resets in <span id="tts-requests-reset-time"></span>)
+    </p>
 </div>
-<br class="mobileBreak">
-<div id="footer-mobile-arrow" style="display: none;"></div>
-<p id="footer-mobile-tip" style="display: none;">Swipe for more</p>
 `;
 
 const lastUpdated = document.getElementById('last-updated');
@@ -244,3 +243,4 @@ if (cachedData) {
 formatTimestamps(window.commitDate);
 
 setInterval(() => formatTimestamps(window.commitDate), 1000);
+}
