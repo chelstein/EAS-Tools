@@ -163,48 +163,173 @@ pre {
 }
 
 /* -----------------------------------------------------------
-   4. Header lockup (current markup retained)
+   4. App shell — page width + section rhythm
+   ----------------------------------------------------------- */
+:root {
+    --ztr-shell-max:      1680px;
+    --ztr-shell-pad-x:    28px;
+    --ztr-header-height:  88px;
+}
+
+main {
+    background: var(--ztr-bg);
+}
+
+/* Centered, padded inner container reused inside header, hero,
+   and (later) tool panels. */
+.ztr-header__inner,
+.ztr-hero__inner {
+    max-width: var(--ztr-shell-max);
+    margin: 0 auto;
+    padding: 0 var(--ztr-shell-pad-x);
+    width: 100%;
+}
+
+/* Tool panels keep their absolute-positioned scroll container,
+   but their inner content is centered to the shell width. */
+.tool-panel {
+    padding: var(--ztr-space-5) var(--ztr-shell-pad-x) var(--ztr-space-7);
+}
+
+.tool-panel > * {
+    max-width: var(--ztr-shell-max);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* -----------------------------------------------------------
+   5. Header lockup
    ----------------------------------------------------------- */
 header.ztr-header {
     background: var(--ztr-panel);
     border-bottom: 1px solid var(--ztr-border);
     box-shadow: var(--ztr-shadow-1);
-    padding: var(--ztr-space-4) var(--ztr-space-5);
+    padding: 0;
+    min-height: var(--ztr-header-height);
+    display: block;
+    position: relative;
 }
 
 header.ztr-header::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
     background: linear-gradient(90deg, transparent, var(--ztr-accent) 30%, var(--ztr-alert) 70%, transparent);
     opacity: 0.45;
 }
 
-.ztr-lockup__home { color: var(--ztr-text); }
+.ztr-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ztr-space-5);
+    min-height: var(--ztr-header-height);
+    flex-wrap: wrap;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+.ztr-lockup {
+    flex: 0 0 auto;
+}
+
+.ztr-lockup__home {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--ztr-text);
+    text-decoration: none;
+}
 
 .ztr-lockup__mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     background:
-        radial-gradient(circle at 30% 30%, var(--ztr-accent) 0%, var(--ztr-accent-deep) 60%, #04302f 100%);
+        radial-gradient(circle at 30% 28%, var(--ztr-accent) 0%, var(--ztr-accent-deep) 60%, #04302f 100%);
     border: 1px solid var(--ztr-accent-deep);
-    box-shadow: inset 0 0 10px rgba(14, 150, 148, 0.35);
+    box-shadow: inset 0 0 10px rgba(14, 150, 148, 0.4), 0 0 0 1px rgba(255,255,255,0.4);
+    position: relative;
+    flex-shrink: 0;
 }
 
 .ztr-lockup__mark::after {
-    border-color: rgba(255, 255, 255, 0.55);
-    border-top-color: rgba(255, 255, 255, 0.85);
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.9);
 }
 
-.ztr-lockup__eyebrow { color: var(--ztr-accent); }
-.ztr-lockup__product { color: var(--ztr-text); }
-.ztr-lockup__sep     { color: var(--ztr-text-muted); }
-.ztr-lockup__module  { color: var(--ztr-accent); }
-.ztr-lockup__sub     { color: var(--ztr-text-secondary); }
-.ztr-lockup__subtitle{ color: var(--ztr-text-muted); }
+.ztr-lockup__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.1;
+}
+
+.ztr-lockup__eyebrow {
+    color: var(--ztr-accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.ztr-lockup__product {
+    color: var(--ztr-text);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.ztr-lockup__sep {
+    color: var(--ztr-text-muted);
+    font-weight: 400;
+    margin: 0 2px;
+}
+
+.ztr-lockup__module {
+    color: var(--ztr-accent);
+    font-weight: 700;
+}
+
+.ztr-lockup__sub {
+    color: var(--ztr-text-secondary);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 16px;
+    margin-left: 6px;
+}
+
+.ztr-lockup__subtitle {
+    color: var(--ztr-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
 
 /* -----------------------------------------------------------
-   5. Hero section (current data-brand-hero markup)
+   6. Hero section (current data-brand-hero markup)
    ----------------------------------------------------------- */
 .ztr-hero-wrap {
     background: var(--ztr-bg);
     border-bottom: 1px solid var(--ztr-divider);
-    padding: var(--ztr-space-5) clamp(20px, 2vw, 32px) var(--ztr-space-4);
+    padding: 0;
+}
+
+.ztr-hero__inner {
+    padding-top: var(--ztr-space-5);
+    padding-bottom: var(--ztr-space-5);
 }
 
 .ztr-hero {
@@ -253,11 +378,22 @@ header.ztr-header::before {
 }
 
 /* -----------------------------------------------------------
-   6. Tab nav pills
+   7. Tab nav pills
    ----------------------------------------------------------- */
 #tab-set {
+    display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#nav-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 button[data-tool] {
@@ -265,8 +401,12 @@ button[data-tool] {
     color: var(--ztr-text-secondary);
     border: 1px solid var(--ztr-border-strong);
     border-radius: var(--ztr-radius-md);
-    padding: 8px 16px;
+    padding: 0 16px;
     height: 36px;
+    min-width: 110px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--ztr-font-sans);
     font-weight: 600;
     font-size: 0.9rem;
@@ -583,7 +723,40 @@ article a:visited {
 }
 
 /* -----------------------------------------------------------
-   16. Reduced motion
+   16. Shell responsive guard (header / hero / pills)
+   ----------------------------------------------------------- */
+@media (max-width: 1079px) {
+    :root {
+        --ztr-shell-pad-x: 18px;
+        --ztr-header-height: auto;
+    }
+
+    .ztr-header__inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--ztr-space-3);
+        padding-top: var(--ztr-space-3);
+        padding-bottom: var(--ztr-space-3);
+    }
+
+    #tab-set,
+    #nav-buttons {
+        justify-content: flex-start;
+    }
+
+    .ztr-lockup__product { font-size: 18px; }
+    .ztr-lockup__sub     { font-size: 14px; }
+    .ztr-lockup__subtitle { display: none; }
+
+    .ztr-hero__module { font-size: 1.65rem; }
+
+    .tool-panel {
+        padding: var(--ztr-space-4) var(--ztr-shell-pad-x) var(--ztr-space-6);
+    }
+}
+
+/* -----------------------------------------------------------
+   17. Reduced motion
    ----------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
     * {
