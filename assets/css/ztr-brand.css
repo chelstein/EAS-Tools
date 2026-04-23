@@ -1701,6 +1701,48 @@ pre, code {
 }
 
 /* -----------------------------------------------------------
+   16e. Tool iframe embed
+   The tool workspace is rendered via an iframe loading the
+   upstream EAS Tools deployment. Fill the remaining viewport
+   below the header + hero, above the footer.
+   ----------------------------------------------------------- */
+main {
+    display: flex;
+    flex-direction: column;
+}
+
+.ztr-embed {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 70vh;
+    width: 100%;
+    max-width: var(--ztr-shell-max);
+    margin: 0 auto;
+    padding: var(--ztr-space-4) var(--ztr-shell-pad-x);
+    box-sizing: border-box;
+}
+
+.ztr-embed #tool-frame {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 70vh;
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-lg);
+    background: var(--ztr-panel);
+    box-shadow: var(--ztr-shadow-2);
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .ztr-embed {
+        padding: var(--ztr-space-3) var(--ztr-shell-pad-x);
+    }
+    .ztr-embed #tool-frame {
+        min-height: 75vh;
+    }
+}
+
+/* -----------------------------------------------------------
    17. Reduced motion
    ----------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {

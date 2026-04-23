@@ -30,9 +30,6 @@
         <link rel="stylesheet" href="assets/css/elegant.css">
         <link rel="stylesheet" href="assets/css/style.css">
         <link rel="stylesheet" href="assets/css/ztr-brand.css">
-        <script language="javascript" type="text/javascript" src="assets/js/codemirror.js"></script>
-        <script language="javascript" type="text/javascript" src="assets/js/matchbrackets.js"></script>
-        <script language="javascript" type="text/javascript" src="assets/js/xml.js"></script>
         <!-- Cloudflare Web Analytics -->
         <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "de7f295c3b7d43e1a9a771246a7fdc65"}'></script>
         <!-- End Cloudflare Web Analytics -->
@@ -53,986 +50,133 @@
         </header>
         <section data-brand-hero class="ztr-hero-wrap" aria-label="Module overview"></section>
         <main>
-            <section id="decoder-panel" class="tool-panel active" aria-labelledby="tab-decoder">
-                <h2 class="section-heading">Decode — SAME Signal Intake</h2>
-                <p class="section-subhead">Ingest microphone, stream, or artifact audio and parse SAME headers in-browser. No signal leaves the workstation.</p>
-                <hr>
-                <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
-                <span>
-                    <button type="button" data-decoder-toggle>Decode Microphone</button>
-                    <button type="button" data-decoder-stream-toggle>Decode Stream</button>
-                    <input type="file" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;" id="audiofile" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a">
-                    <button type="button" data-decoder-load>Upload Alert Audio Artifact</button>
-                    <button type="button" data-decoder-load-raw>Inspect Raw ZCZC Header</button>
-                    <button type="button" data-decoder-record-toggle disabled>Capture Session (auto-armed on alert)</button>
-                    <button type="button" data-decoder-clear disabled>Clear Session</button>
-                </span>
-                <span class="right-align">
-                    <button type="button" data-decoder-clear-stream-url style="display: none;">Clear Stream URL</button>
-                    <label for="decoder-loopback">Play back audio source?</label>
-                    <input type="checkbox" id="decoder-loopback" name="decoder-loopback">
-                </span>
-                <br>
-                <div class="level-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="1"
-                    aria-valuenow="0" data-level-meter>
-                    <span class="level-meter__label">Level</span>
-                    <div class="level-meter__stack">
-                        <div class="level-meter__bars">
-                            <div class="level-meter__fill" data-level-fill></div>
-                        </div>
-                        <div class="level-meter__scale" aria-hidden="true">
-                            <div class="level-meter__tick-lines"></div>
-                            <div class="level-meter__tick-labels">
-                                <span>-60</span>
-                                <span>-50</span>
-                                <span>-40</span>
-                                <span>-30</span>
-                                <span>-20</span>
-                                <span>-10</span>
-                                <span>0</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <hr>
-                <div id="sync">STATUS: WAITING...</div>
-                <hr>
-                <div id="afsk"></div>
-                <p id="output"></p>
-                <div class="modalContainer" style="display: none;">
-                    <div class="modalBox">
-                        <div class="modalClose" id="close">X</div>
-                        <div class="modalContent">
-                            <div class="modalTitle"><strong>Alert Inspection</strong></div>
-                            <br>
-                            <div class="modalInfo">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <section id="encoder-panel" class="tool-panel" aria-labelledby="tab-encoder">
-                <h2 class="section-heading">Generate — Synthetic Alert Artifact</h2>
-                <p class="section-subhead">Compose a validated SAME payload, preview the header, and export a lab-grade WAV artifact for station fire testing and integration validation.</p>
-                <hr>
-                <label for="encoderMode">Select EAS Header Generation Mode:</label>
-                <select id="encoderMode">
-                    <option value="builder" selected>Build your own EAS Header</option>
-                    <option value="header">Generate from EAS Header String</option>
-                </select>
-                <br>
-                <hr>
-                <div id="customEncoder">
-                    <label for="originators">Select Originator:</label>
-                    <select id="originators">
-                        <option value="EAS">Emergency Alert System</option>
-                        <option value="CIV">Civil Authorities</option>
-                        <option value="WXR" selected>National Weather Service</option>
-                        <option value="PEP">Primary Entry Point</option>
-                    </select>
-                    <br>
-                    <br>
-                    <label for="events">Select EAS Event Type:</label>
-                    <select id="events">
-                        <optgroup label="Weather-Related Events" data-event-group="weather">
-                        </optgroup>
-                        <optgroup label="Non-Weather-Related Events" data-event-group="non_weather">
-                        </optgroup>
-                        <optgroup label="Administrative Events" data-event-group="administrative">
-                        </optgroup>
-                        <optgroup label="National-Level Events" data-event-group="national">
-                        </optgroup>
-                        <optgroup label="Unimplemented Codes" data-event-group="unimplemented">
-                        </optgroup>
-                        <optgroup label="NWS Unimplemented/Misc. Codes" data-event-group="nws_misc">
-                        </optgroup>
-                    </select>
-                    <br>
-                    <br>
-                    Time the alert is effective for:
-                    <br>
-                    <label for="hr">Hr:</label>
-                    <select id="hr" class="small" value="00">
-                        <option value="00">00</option>
-                        <option value="01">01</option>
-                        <option value="02">02</option>
-                        <option value="03">03</option>
-                        <option value="04">04</option>
-                        <option value="05">05</option>
-                        <option value="06">06</option>
-                        <option value="07">07</option>
-                        <option value="08">08</option>
-                    </select>
-                    &emsp;
-                    <label for="min">Min:</label>
-                    <select id="min">
-                        <option>00</option>
-                        <option>15</option>
-                        <option>30</option>
-                        <option selected>45</option>
-                    </select>
-                    <br>
-                    <br>
-                    <label for="time">Select Start Date and Time:</label>
-                    <input type="datetime-local" id="time">&nbsp;<button type="button" data-encoder-now>Now</button>
-                    <br>
-                    <br>
-                    <label for="par">Sender ID (8 characters long):</label>
-                    <input id="par" minlength="8" maxlength="8" value="senderid">
-                    <br>
-                    <br>
-                    <label for="fipsMode">FIPS Mode (US/CA):</label>
-                    <select id="fipsMode">
-                        <option value="us" selected>USA (State/County/Region)</option>
-                        <option value="ca">Canada (Province/Territory/Region)</option>
-                    </select>
-                    <br>
-                    <label for="stateselect">State:&nbsp;</label>
-                    <select id="stateselect" name="stateselect"></select>
-                    <label for="countyselect">County:</label>
-                    <select id="countyselect" name="countyselect"></select>
-                    <label for="rgselect">Region:</label>
-                    <select id="rgselect" name="rgselect"></select>
-                    <br>
-                    <label for="fipsinput">Or manually enter FIPS Code(s, each dash separated if multiple):</label>
-                    <input type="text" id="fipsinput" name="fipsinput" placeholder="e.g. 031025-031021-..."></input>
-                    <button type="button" data-encoder-add-loc>Add</button>
-                    <br>
-                    <br>
-                    (Click a county in the table below to remove it)
-                    <button type="button" data-encoder-clear-locs>Clear All Locations</button>
-                    <br>
-                    <table id="fips">
-                        <tbody>
-                            <tr class="title">
-                                <td>County</td>
-                                <td>State</td>
-                                <td>Region</td>
-                                <td>FIPS Code</td>
-                            </tr>
-                        </tbody>
-                        <tbody id="container"></tbody>
-                    </table>
-                    <div id="locs"></div>
-                </div>
-                <div id="stringEncoder" style="display: none;">
-                    <label for="cheader">Enter SAME Header here:</label>&nbsp;
-                    <br class="mobileBreak">
-                    <input type="text" id="cheader" name="cheader" placeholder="ZCZC-WXR-TOR..."></input>
-                    <br class="mobileBreak">
-                    <button type="button" data-encoder-transfer>Transfer Header to Builder Mode</button>
-                </div>
-                <hr>
-                <label for="headerPreview">Header Preview:</label>
-                <pre id="headerPreview" class="generatedHeader"></pre>
-                <br>
-                <label for="att">Select Attention Tone:</label>
-                <select id="att">
-                    <option value="0" selected>EBS/Dual Frequency Attention Tone</option>
-                    <option value="1">NWR Attention Tone (1050hz)</option>
-                    <option value="2">Pelmorex (Alert Ready - Canada) Attention Tone (NOTE: WILL NOT INCLUDE SAME HEADERS!)</option>
-                    <option value="3">No Attention Tone</option>
-                </select>
-                <div id="tlenContainer">
-                    <br>
-                    <br>
-                    <label for="tlen">Attention tone time (8-25 secs.):</label>
-                    <input type="number" id="tlen" min="8" max="25" value="10">
-                </div>
-                <br>
-                <br>
-                <label for="overallEndecMode">ENDEC Mode:</label>
-                <select id="overallEndecMode">
-                    <option value="DEFAULT" selected>None (Default)</option>
-                    <!-- will be populated by js -->
-                </select>
-                <br>
-                <br>
-                <label for="clip">Clip Signal (for authenticity):</label>
-                <input type="checkbox" id="clip" checked>
-                <hr>
-                <label for="announcementType">Select Announcement Type:</label>
-                <select id="announcementType">
-                    <option value="none" selected>No Announcement</option>
-                    <option value="tts">Text-to-Speech Announcement</option>
-                    <option value="custom">Custom Audio Announcement</option>
-                </select>
-                <div id="tts" style="display: none;">
-                    <div id="ttsDiv">
-                        <br>
-                        <textarea id="ttsText" class="ttsText" rows="12" cols="100" placeholder="Type the message to speak..." style="display:none;"></textarea>
-                        <br class="ttsText">
-                        <br class="ttsText">
-                        <label for="ttsVoice">Select Voice:</label>
-                        <select id="ttsVoice" name="ttsVoice">
-                            <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
-                            <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
-                        </select>
-                        <br>
-                        <br>
-                        <div id="ttsRatePitchControls">
-                            <label for="ttsRate">Speech Speed: <span id="ttsRateValue">0</span></label>
-                            <input type="range" id="ttsRate" name="ttsRate" min="-10" max="10" value="0" step="1">
-                            <button type="button" id="ttsRateReset">Reset</button>
-                            <br>
-                            <br>
-                            <label for="ttsPitch">Speech Pitch: <span id="ttsPitchValue">0</span></label>
-                            <input type="range" id="ttsPitch" name="ttsPitch" min="-10" max="10" value="0" step="1">
-                            <button type="button" id="ttsPitchReset">Reset</button>
-                            <br>
-                            <br>
-                            <div id="shouldBitcrushSpeechifyContainer">
-                                <label for="shouldBitcrushSpeechify">"VM-Sounding" Speechify Output:</label>
-                                <input type="checkbox" id="shouldBitcrushSpeechify" name="shouldBitcrushSpeechify"></input>
-                            </div>
-                        </div>
-                        <br class="overrideTZ">
-                        <br class="overrideTZ">
-                        <label for="useOverrideTZ" class="overrideTZ">Override Timezone (can only be used with EMNet):</label>
-                        <select id="useOverrideTZ" name="useOverrideTZ" class="overrideTZ">
-                            <option value="UTC">UTC</option>
-                            <option value="AST">AST (Atlantic Standard Time)</option>
-                            <option value="EST">EST (Eastern Standard Time)</option>
-                            <option value="EDT">EDT (Eastern Daylight Time)</option>
-                            <option value="CST">CST (Central Standard Time)</option>
-                            <option value="CDT">CDT (Central Daylight Time)</option>
-                            <option value="MST">MST (Mountain Standard Time)</option>
-                            <option value="MDT">MDT (Mountain Daylight Time)</option>
-                            <option value="PST">PST (Pacific Standard Time)</option>
-                            <option value="PDT">PDT (Pacific Daylight Time)</option>
-                            <option value="AKST">AKST (Alaska Standard Time)</option>
-                            <option value="AKDT">AKDT (Alaska Daylight Time)</option>
-                            <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
-                            <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
-                            <option value="SST">SST (Samoa Standard Time)</option>
-                            <option value="CHST">CHST (Chamorro Standard Time)</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="customAudioDiv" style="display: none;">
-                    <br>
-                    <label for="customAudioFile">Upload Custom Audio File (WAV format):</label>
-                    <input type="file" id="customAudioFile" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a">
-                </div>
-                <hr>
-                <div class="control-panel">
-                    <button type="button" data-encoder-generate id="generate">Generate Synthetic Alert</button>
-                    <button type="button" id="save" style="display: none;">Export WAV Artifact</button>
-                    <button type="button" data-encoder-clear id="clr" style="display:none;">Clear Session</button>
-                    <br>
-                    <br>
-                    <audio id="audioPlayback" controls></audio>
-                </div>
-                <hr>
-                <p id="status"></p>
-                <hr>
-                <p class="inline-credit">Built on open-source prior art: <a href="https://github.com/nicksmadscience/eas-same-encoder">nicksmadscience SAME encoder (Python)</a>, <a href="https://github.com/Mab879/eas_encoder">Mab879 C++ SAME encoder</a>, Anon64 EAS Header Generator (archived), and CryptoDude3 (archived) for original inspiration. See <a href="credits.html">Credits</a> for the full attribution list.</p>
-            </section>
-            <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
-                <h2 class="section-heading">Crawl Builder — Visual Layer</h2>
-                <p class="section-subhead">Compose validated alert crawls for station overlay, signage, and validation loops. Export as GIF or WebM artifacts.</p>
-                <hr>
-                <label for="crawlUserPreset">Save/Load User Preset...</label>
-                <select id="crawlUserPreset">
-                    <option value="1">Preset #1</option>
-                    <option value="2">Preset #2</option>
-                    <option value="3">Preset #3</option>
-                    <option value="4">Preset #4</option>
-                    <option value="5">Preset #5</option>
-                </select>
-                <hr class="shorter-hr">
-                <label for="crawlMode">Select Crawl Text Source:</label>
-                <select id="crawlMode">
-                    <option value="custom" selected>Custom Text</option>
-                    <option value="header">Generate from EAS Header using EAS2Text</option>
-                </select>
-                <br>
-                <br>
-                <label for="crawlText" class="crawl-text">Enter text to generate crawl:</label>
-                <br class="crawl-text">
-                <textarea id="crawlText" name="crawlText" placeholder="Type the text for the crawl..." style="display: none !important;"></textarea>
-                <label for="crawlRawHeader" style="display: none;" class="crawl-raw-header">Input a raw EAS header:</label>
-                <input id="crawlRawHeader" style="display: none; width: 50vw;" class="crawl-raw-header" placeholder="ZCZC-WXR-TOR..."></input>
-                <hr>
-                <label for="crawlSettings">Crawl Settings:</label>
-                <hr>
-                <div id="E2TOptions" style="display: none;">
-                    E2T Options:
-                    <br>
-                    <label class="custom-checkbox-container localTZ">
-                        Use Local Timezone:
-                        <input type="checkbox" class="hidden-checkbox localTZ" name="crawlUseLocalTZ" id="crawlUseLocalTZ">
-                        <span class="checkmark localTZ"></span>
-                    </label>
-                    <br class="localTZ">
-                    <br class="crawlOverrideTZ">
-                    <label for="crawlUseOverrideTZ" class="crawlOverrideTZ">Override Timezone (cannot be combined with "Use Local Timezone"):</label>
-                    <select id="crawlUseOverrideTZ" class="crawlOverrideTZ">
-                        <option value="" selected>None (Default)</option>
-                        <option value="UTC">UTC</option>
-                        <option value="America/New_York">America/New_York (Eastern Time)</option>
-                        <option value="America/Chicago">America/Chicago (Central Time)</option>
-                        <option value="America/Denver">America/Denver (Mountain Time)</option>
-                        <option value="America/Los_Angeles">America/Los_Angeles (Pacific Time)</option>
-                        <option value="America/Anchorage">America/Anchorage (Alaska Time)</option>
-                        <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii-Aleutian Time)</option>
-                    </select>
-                    <br class="crawlOverrideTZ">
-                    <br>
-                    <label for="endecMode">ENDEC Emulation Mode:</label>
-                    <select id="endecMode">
-                        <!-- will be populated by js -->
-                    </select>
-                    <hr class="shorter-hr">
-                </div>
-                <div class="crawl-settings">
-                    <label for="crawlSpeed">Crawl Speed (pixels per frame, 1-20):</label>
-                    <input type="number" id="crawlSpeed" min="1" max="20" value="5">
-                    <hr class="shorter-hr">
-                    <label for="crawlUseVDSMode">Use VDS Mode:</label>
-                    <input type="checkbox" id="crawlUseVDSMode">
-                    <br>
-                    <label for="vdsFrameDelay">VDS Frame Delay (fps/hz, 1-360):</label>
-                    <input type="number" id="vdsFrameDelay" min="1" max="360" value="30">
-                    <hr class="shorter-hr">
-                    <label for="crawlTextColor">Font Color:</label>
-                    <input type="color" id="crawlTextColor" value="#FFFFFF">
-                    <br>
-                    <label for="crawlFontSize">Font Size (pixels, 10-100):</label>
-                    <input type="number" id="crawlFontSize" min="10" max="100" value="24">
-                    <br>
-                    <label for="crawlFontFamily">Font Family:</label>
-                    <select id="crawlFontFamily">
-                        <!-- will be populated by js -->
-                    </select>
-                    <br class="customFontUpload">
-                    <label for="crawlCustomFontFile" class="customFontUpload">Upload your own font (must be .ttf or .otf format, you can convert other formats to these formats online):</label>
-                    <input type="file" id="crawlCustomFontFile" class="customFontUpload" accept=".ttf,.otf,font/*">
-                    <br>
-                    <label for="crawlFontStyle">Font Style:</label>
-                    <select id="crawlFontStyle">
-                        <option value="normal" selected>Normal</option>
-                        <option value="bold">Bold</option>
-                        <option value="italic">Italic</option>
-                        <option value="italic bold">Bold Italic</option>
-                    </select>
-                    <hr class="shorter-hr">
-                    <div id="crawlGetAndSetDiv" style="display: none;">
-                        <label for="crawlGetAndSetWH">Get/Set Width/Height from image below: </label>
-                        <button type="button" id="crawlGetAndSetWH">Get/Set</button>
-                        <br>
-                    </div>
-                    <label for="crawlWidth">Crawl Width (pixels, 0-3840):</label>
-                    <input type="number" id="crawlWidth" min="0" max="3840" value="800">
-                    <br>
-                    <label for="crawlHeight">Crawl Height (pixels, 0-2160):</label>
-                    <input type="number" id="crawlHeight" min="0" max="2160" value="200">
-                    <br>
-                    <label for="crawlInset">Crawl Inset (pixels, 0-500):</label>
-                    <input type="number" id="crawlInset" min="0" max="500" value="0">
-                    <br>
-                    <label for="crawlTopLeftPixel">Crawl Top-Left Location (X [left/right], Y [up/down]):</label>
-                    <input type="number" id="crawlTopLeftPixelX" min="0" max="3840" value="0">
-                    <input type="number" id="crawlTopLeftPixelY" min="0" max="2160" value="0">
-                    <br>
-                    <label for="crawlKerning">Crawl Kerning (percentage, 0 to 100%):</label>
-                    <input type="number" id="crawlKerning" min="0" max="100" value="0">
-                    <br>
-                    <label for="crawlRestartDelay">Crawl Restart Delay (milliseconds, 500-60000 in steps of 500):</label>
-                    <input type="number" id="crawlRestartDelay" min="500" max="60000" value="1000" step="500">
-                    <br>
-                    <label for="crawlRepetitions">Crawl Export Repetitions (1-10):</label>
-                    <input type="number" id="crawlRepetitions" min="1" max="10" value="1">
-                    <hr class="shorter-hr">
-                    <label for="crawlBackgroundMode">Background Mode:</label>
-                    <select id="crawlBackgroundMode">
-                        <option value="solid" selected>Solid Color Background</option>
-                        <!--<option value="transparent">Transparent Background</option>--> <!-- disabled for the time being because codec support is spotty/limited all around -->
-                        <option value="image">Custom Image Background</option>
-                        <option value="premade">Premade/Common Background Images</option>
-                    </select>
-                    <div id="crawlBackgroundColorDiv">
-                        <br>
-                        <label for="crawlBgColor">Background Color:</label>
-                        <input type="color" id="crawlBgColor" value="#000000">
-                    </div>
-                    <div id="crawlBackgroundImageDiv" style="display: none;">
-                        <br>
-                        <label for="crawlBackgroundImageFile">Upload Background Image File:</label>
-                        <input type="file" id="crawlBackgroundImageFile" accept="image/*">
-                    </div>
-                    <div id="crawlBackgroundPremadeDiv" style="display: none;">
-                        <br>
-                        <label for="crawlBackgroundPremadeSelect">Select Premade/Common Background Image:</label>
-                        <select id="crawlBackgroundPremadeSelect">
-                            <option value="image:assets/screens/xfinity.png">Comcast/Xfinity "EMERGENCY ALERT"</option>
-                            <option value="image:assets/screens/directv.jpg">DirecTV</option>
-                            <option value="easyplus:easyplus">EASyPLUS</option>
-                            <option value="easyplus:easyplus_gray">EASyPLUS Gray</option>
-                            <option value="dasdec:dasdec">DASDEC</option>
-                        </select>
-                        <div id="easyplusSettings" style="display: none;">
-                            <br>
-                            <label for="easyplusOriginator">EASyPLUS Originator:</label>
-                            <select id="easyplusOriginator">
-                                <!-- will be populated by js -->
-                            </select>
-                            <br>
-                            <label for="easyplusEventCode">EASyPLUS Event Code:</label>
-                            <select id="easyplusEventCode">
-                                <!-- will be populated by js -->
-                            </select>
-                        </div>
-                    </div>
-                    <hr class="shorter-hr">
-                    <label for="crawlOutlineColor">Text Outline Color (set outline width to >0 to enable):</label>
-                    <input type="color" id="crawlOutlineColor" value="#000000">
-                    <br>
-                    <label for="crawlOutlineWidth">Text Outline Width (pixels, 0-10):</label>
-                    <input type="number" id="crawlOutlineWidth" min="0" max="10" value="0">
-                    <br>
-                    <label for="crawlOutlineJoin">Text Outline Join Style:</label>
-                    <select id="crawlOutlineJoin">
-                        <option value="round" selected>Round</option>
-                        <option value="bevel">Bevel</option>
-                        <option value="miter">Miter</option>
-                    </select>
-                </div>
-                <div id="crawlPreviewDiv">
-                    <label for="crawlPreview">Live Preview (updates after any settings change):</label>
-                    <br>
-                    <canvas id="crawlPreview" width="1200" height="150" style="border: 1px solid #ff0000;"></canvas>
-                </div>
-                <hr>
-                <div class="control-panel" style="position: sticky; top: 0; padding-top: 10px; padding-bottom: 10px; z-index: 10;">
-                    <button type="button" id="startCrawl">Start Crawl</button>
-                    <button type="button" id="pauseCrawl" disabled>Pause Crawl</button>
-                    <button type="button" id="prevFrame" disabled>Previous Frame</button>
-                    <button type="button" id="nextFrame" disabled>Next Frame</button>
-                    <button type="button" id="stopCrawl" disabled>Stop/Reset Crawl</button>
-                    <button type="button" id="exportCrawlGIF" disabled>Export GIF Artifact</button>
-                    <button type="button" id="exportCrawlVideo" disabled>Export WebM Artifact</button>
-                    <button type="button" id="copyCrawlText" disabled>Copy Crawl Text</button>
-                    <button type="button" id="destroyCrawl" disabled>Reset Crawl Instance</button>
-                    <button type="button" id="saveUserPreset">Save Preset</button>
-                    <button type="button" id="loadUserPreset">Load Preset</button>
-                    <button type="button" data-crawl-clear id="clr-crawl" style="display:none;">Clear Session</button>
-                    <div id="crawlExportProgressDiv" class="crawl-export-progress" style="display: none; background-color: rgba(0, 0, 0, 0.75);">
-                        <label for="crawlExportProgress">Export Progress: <span id="crawlExportProgressLabel">0%</span></label>
-                        <div class="crawl-export-progress__row">
-                            <progress id="crawlExportProgress" value="0" max="1"></progress>
-                            <button type="button" id="cancelCrawlExport">Cancel Export</button>
-                        </div>
-                    </div>
-                </div>
-                <hr>
-                <p id="status-crawl"></p>
-                <hr>
-                <div id="crawlDisplay" class="crawl-display" aria-live="polite" aria-atomic="true"></div>
-            </section>
-            <section id="splicer-panel" class="tool-panel" aria-labelledby="tab-splicer">
-                <h2 class="section-heading">Audio Assembly — Artifact Composition</h2>
-                <p class="section-subhead">Combine TTS, uploaded samples, and macros into a single validated WAV artifact. All processing stays on this workstation.</p>
-                <hr>
-                <div class="splice-grid">
-                    <div class="waveform-card">
-                        <canvas id="spliceWaveform" width="1000" height="200"></canvas>
-                        <div class="waveform-meta">
-                            <div>
-                                Selection:
-                                <span data-selection-start>0.00s</span>
-                                &rarr;
-                                <span data-selection-end>0.00s</span>
-                                (<span data-selection-length>0.00s</span>)
-                            </div>
-                            <div class="waveform-actions">
-                                <button type="button" disabled data-splice-play>Play Selection</button>
-                                <button type="button" disabled data-splice-playAll>Play All</button>
-                                <button type="button" disabled data-splice-stop>Stop</button>
-                            </div>
-                        </div>
-                        <br>
-                        <div class="guide">
-                            <strong>Guide:</strong> Upload alert audio artifacts or generate TTS to build the session. Use the controls to manipulate segments in the timeline. Export the final audio as a WAV artifact.
-
-                            Waveform controls:
-                            <ul id="desktop-controls">
-                                <li>Click and drag on the waveform to select a region.</li>
-                                <li>Shift+Click and drag while zoomed to pan the view.</li>
-                                <li>Use the mouse wheel to zoom in/out of the waveform.</li>
-                                <li>Use the buttons below the waveform to play/pause/stop audio, either selection or all.</li>
-                                <li>Use the splice action buttons to edit the selected region.</li>
-                            </ul>
-                            <ul id="mobile-controls">
-                                <li>Tap and drag on the waveform to select a region.</li>
-                                <li>Use two fingers to pinch zoom in/out of the waveform.</li>
-                                <li>Use one finger to drag and pan the view while zoomed.</li>
-                                <li>Use the buttons below the waveform to play/pause/stop audio, either selection or all.</li>
-                                <li>Use the splice action buttons to edit the selected region.</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="splice-controls">
-                        <div>
-                            <label for="spliceFile">Upload Alert Audio Artifact:</label>
-                            <br>
-                            <input id="spliceFile" type="file" accept="audio/*,.wav,.wave,.x-wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.3gp,.mp4,audio/mp4,audio/x-m4a" data-splice-file style="display: none;">
-                            <button type="button" data-splice-load>Load Artifact</button>
-                            <span data-splice-file-status class="status-line"></span>
-                        </div>
-                        <div id="spliceTTSGenerator">
-                            <br>
-                            <label for="ttsText2" class="ttsText">Or, enter text below to generate speech:</label>
-                            <br class="ttsText">
-                            <textarea id="ttsText2" class="ttsText" placeholder="Type the message to speak..."></textarea>
-                            <br class="ttsText">
-                            <br class="ttsText">
-                            <label for="ttsVoice2">Select Voice:</label>
-                            <select id="ttsVoice2" name="ttsVoice2">
-                                <option value="wasm" selected>[WASM] WebAssembly (local) Voice (takes longer time depending on text length)</option>
-                                <option value="nanotts">[NanoTTS] WebAssembly (local) Voice #2 (faster, but less natural)</option>
-                            </select>
-                            <div id="ttsRatePitchControls2">
-                                <br>
-                                <label for="ttsRate2">Speech Speed: <span id="ttsRateValue2">0</span></label>
-                                <input type="range" id="ttsRate2" name="ttsRate2" min="-10" max="10" value="0" step="1">
-                                <button type="button" id="ttsRateReset2">Reset</button>
-                                <br>
-                                <br>
-                                <label for="ttsPitch2">Speech Pitch: <span id="ttsPitchValue2">0</span></label>
-                                <input type="range" id="ttsPitch2" name="ttsPitch2" min="-10" max="10" value="0" step="1">
-                                <button type="button" id="ttsPitchReset2">Reset</button>
-                                <div id="shouldBitcrushSpeechifyContainer2">
-                                    <br>
-                                    <label for="shouldBitcrushSpeechify2">"VM-Sounding" Speechify Output:</label>
-                                    <input type="checkbox" id="shouldBitcrushSpeechify2" name="shouldBitcrushSpeechify2"></input>
-                                </div>
-                            </div>
-                            <br class="splicerOverrideTZ">
-                            <br class="splicerOverrideTZ">
-                            <label for="useSplicerOverrideTZ" class="splicerOverrideTZ">Override Timezone (can only be used with EMNet):</label>
-                            <select id="useSplicerOverrideTZ" name="useSplicerOverrideTZ" class="splicerOverrideTZ">
-                                <option value="UTC">UTC</option>
-                                <option value="AST">AST (Atlantic Standard Time)</option>
-                                <option value="EST">EST (Eastern Standard Time)</option>
-                                <option value="EDT">EDT (Eastern Daylight Time)</option>
-                                <option value="CST">CST (Central Standard Time)</option>
-                                <option value="CDT">CDT (Central Daylight Time)</option>
-                                <option value="MST">MST (Mountain Standard Time)</option>
-                                <option value="MDT">MDT (Mountain Daylight Time)</option>
-                                <option value="PST">PST (Pacific Standard Time)</option>
-                                <option value="PDT">PDT (Pacific Daylight Time)</option>
-                                <option value="AKST">AKST (Alaska Standard Time)</option>
-                                <option value="AKDT">AKDT (Alaska Daylight Time)</option>
-                                <option value="HST">HST (Hawaii-Aleutian Standard Time)</option>
-                                <option value="HDT">HDT (Hawaii-Aleutian Daylight Time)</option>
-                                <option value="SST">SST (Samoa Standard Time)</option>
-                                <option value="CHST">CHST (Chamorro Standard Time)</option>
-                            </select>
-                        <br>
-                        <button type="button" data-splice-tts-generate>Generate &amp; Append</button>
-                        <span data-splice-tts-status class="status-line"></span>
-                    </div>
-                    <br>
-                    <div>
-                        <label for="spliceSilence">Insert Silence (seconds):</label><br>
-                        <input id="spliceSilence" type="number" step="0.1" min="0.1" value="0.2" data-splice-silence>
-                        <button type="button" data-splice-add-silence>Add Silence</button>
-                        <span data-splice-silence-status class="status-line"></span>
-                    </div>
-                    <br>
-                    <label for="spliceLoudness">Adjust Loudness (dB, -60 to +12):</label>
-                    <input id="spliceLoudness" type="number" step="0.1" min="-60" max="12" value="0" data-splice-loudness>
-                    <br>
-                    <div>
-                        <label for="enable-static-noise">Enable Static Noise with Current Macro:</label>
-                        <input type="checkbox" id="enable-static-noise" data-splice-enable-static-noise>
-                        <br>
-                        <div id="staticNoiseOptions" style="display: none;">
-                            <br>
-                            <label for="static-noise-level">Static Noise Level (0-1, 1 being max):</label>
-                            <input type="number" id="static-noise-level" data-splice-static-noise-level min="0" max="1" step="0.01" value="0.14">
-                            <br>
-                            <label for="static-noise-fade-depth">Static Noise Fade Depth (0-1):</label>
-                            <input type="number" id="static-noise-fade-depth" data-splice-static-noise-fade-depth min="0" max="1" step="0.01" value="0.45">
-                            <br>
-                            <label for="static-noise-fade-rate">Static Noise Fade Rate (Hz, 0 to disable):</label>
-                            <input type="number" id="static-noise-fade-rate" data-splice-static-noise-fade-rate min="0" max="1" step="0.01" value="0.6">
-                        </div>
-                        <br>
-                    </div>
-                    <div>
-                        <label for="spliceMacros">Apply Macro:</label>
-                        <br>
-                        <select id="spliceMacros" data-splice-macro-select>
-                            <!-- The macro list will be loaded by JS -->
-                        </select>
-                        <button type="button" disabled data-splice-preview-macro>Play Macro Preview</button>
-                    </div>
-                    <div class="splice-action-grid">
-                        <button type="button" disabled data-splice-split-selection>Split at Selection</button>
-                        <button type="button" disabled data-splice-join-all>Join All Segments</button>
-                        <button type="button" disabled data-splice-trim>Trim to Selection</button>
-                        <button type="button" disabled data-splice-delete>Delete Selection</button>
-                        <button type="button" disabled data-splice-split>Save Selection as Segment</button>
-                        <button type="button" disabled data-splice-export>Export WAV Artifact</button>
-                        <button type="button" disabled data-splice-export-macro>Export WAV Artifact w/ Macro</button>
-                        <button type="button" disabled data-splice-clear>Clear Session</button>
-                        </div>
-                        <div class="splice-storage">
-                            Status: <span data-splice-persist>Waiting...</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="splice-timeline">
-                    <h3>Segment Timeline</h3>
-                    <p class="splice-timeline__hint">Segments are cached locally on-device so the session resumes where you left off.</p>
-                    <ul data-splice-segments class="splice-segment-list"></ul>
-                </div>
-            </section>
-            <section id="phoneme-panel" class="tool-panel" aria-labelledby="tab-phoneme">
-                <h2 class="section-heading">Phoneme Lab — Voice Pronunciation Tuning</h2>
-                <p class="section-subhead">Translate word ↔ phoneme and cross-convert backends to tune TTS voices for operational clarity.</p>
-                <hr>
-                <label for="phonemeText">Enter text to convert to phonemes (or vice-versa):</label>
-                <br>
-                <br>
-                <textarea id="phonemeText" class="ttsText phonemeCM" rows="12" cols="100" placeholder="Type the word/phoneme to convert..." style="display:none;"></textarea>
-                <br>
-                <br>
-                <label for="phonemeMode">Mode:</label>
-                <select id="phonemeMode">
-                    <option value="word">Word to Phoneme</option>
-                    <option value="phoneme">Phoneme to Word</option>
-                    <option value="cross">Cross-Mode (Backend->Backend)</option>
-                </select>
-                <br class="phonemeOutBackend">
-                <label class="phonemeOutBackend" for="phonemeOutBackend">Output backend:</label>
-                <select id="phonemeOutBackend" class="phonemeOutBackend">
-                    <option value="all">All Backends (default)</option>
-                    <option value="vtml">VTML</option>
-                    <option value="bal">Balabolka</option>
-                    <option value="dt">DECtalk</option>
-                </select>
-                <br class="phonemeCrossMode">
-                <label class="phonemeCrossMode" for="phonemeCrossModeFrom">From: </label>
-                <select id="phonemeCrossModeFrom" name="phonemeCrossModeFrom" class="phonemeCrossMode">
-                    <option value="vtml">VTML</option>
-                    <option value="bal">Balabolka</option>
-                    <option value="dt">DECtalk</option>
-                </select>
-                <label class="phonemeCrossMode" for="phonemeCrossModeTo">To: </label>
-                <select id="phonemeCrossModeTo" name="phonemeCrossModeTo" class="phonemeCrossMode">
-                    <option value="vtml">VTML</option>
-                    <option value="bal">Balabolka</option>
-                    <option value="dt">DECtalk</option>
-                </select>
-                <br>
-                <br>
-                <button id="phonemeConvert">Convert</button>
-                <button id="phonemeCopyToClipboard">Copy Output to Clipboard</button>
-                <button id="phonemeClear">Clear</button>
-                <hr>
-                <label for="phonemeOutput">Output:</label>
-                <br>
-                <pre id="phonemeOutput"></pre>
-            </section>
-
-            <section id="normalizer-panel" class="tool-panel" aria-labelledby="tab-normalizer">
-                <h2 class="section-heading">Product Normalizer — VTAC / AWIPS</h2>
-                <p class="section-subhead">Normalize raw VTAC/AWIPS product text into operator-grade input for synthesis and crawl workflows.</p>
-                <hr>
-                <label for="shouldRepeat">Include "Repeating..." line: </label>
-                <input type="checkbox" id="shouldRepeat" name="shouldRepeat">
-                <br>
-                <br>
-                <label for="productToNormalize">Enter raw VTAC/AWIPS product text:</label>
-                <br>
-                <br>
-                <textarea id="productToNormalize" class="ttsText normalizerCM"></textarea>
-                <br>
-                <br>
-                <button id="normalizeButton">Normalize</button>
-                <button id="normalizeCopyToClipboard">Copy Normalized Product to Clipboard</button>
-                <button id="normalizeClear">Clear</button>
-                <hr>
-                <label for="normalizedProduct">Normalized Product Output:</label>
-                <br>
-                <pre id="normalizedProduct"></pre>
-            </section>
-            <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
-                <h2 class="section-heading">Artifacts — Video / Audio Muxer</h2>
-                <p class="section-subhead">Combine artifact video with a synthesized audio track to produce a unified broadcast-ready deliverable.</p>
-                <hr>
-                <div id="muxer-container">
-                    <!-- Muxer iframe will be injected here when activated -->
-                </div>
-            </section>
+            <div class="ztr-embed" data-tool-embed>
+                <iframe id="tool-frame"
+                        title="EAS Lab — tool workspace"
+                        src="https://octopus-app-t96ou.ondigitalocean.app/index.html?tool=decoder"
+                        allow="microphone; clipboard-read; clipboard-write; fullscreen; autoplay"
+                        loading="eager"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-popups-to-escape-sandbox"></iframe>
+            </div>
         </main>
         <footer></footer>
         <script src="assets/js/brand-config.js"></script>
         <script src="coi-serviceworker.js"></script>
-        <script src="assets/js/phoneme-webpack.js"></script>
-        <script src="assets/js/wavefile.js"></script>
-        <script src="assets/js/wave-resampler.js"></script>
-        <script src="assets/js/gif.js"></script>
         <script src="assets/js/footer.js"></script>
-        <script src="assets/js/sox.js"></script>
-        <script src="assets/js/canvas-capture.js"></script>
-        <script type="module" src="assets/E2T/EAS2Text-NG.js"></script>
         <script>
-            window.EASREGEX = /^ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}(?:-?)){1,31})\+(\d{4})-(\d{7})-([A-Za-z0-9\/ ]{1,8}?)-$/m;
-
+            // Drive the embedded tool iframe from nav clicks. All tool logic
+            // lives in the upstream app loaded via the iframe; this page is
+            // the brand shell + nav.
             (function () {
-                const panelIds = {
-                    encoder: 'encoder-panel',
-                    crawl: 'crawl-panel',
-                    splicer: 'splicer-panel',
-                    phoneme: 'phoneme-panel',
-                    normalizer: 'normalizer-panel',
-                };
-
-                const syncEditorValue = (editor) => {
-                    if (typeof editor.getTextArea === 'function') {
-                        const textarea = editor.getTextArea();
-                        if (textarea && textarea.value !== editor.getValue()) {
-                            editor.setValue(textarea.value);
-                        }
-                    }
-                    editor.refresh();
-                };
-
-                const refreshForPanels = (panelNames, attempt = 0) => {
-                    if (!window.CodeMirror) {
-                        if (attempt < 10) {
-                            requestAnimationFrame(() => refreshForPanels(panelNames, attempt + 1));
-                        }
-                        return;
-                    }
-
-                    let needsRetry = false;
-                    panelNames.forEach((name) => {
-                        const panelId = panelIds[name];
-                        if (!panelId) return;
-                        const panel = document.getElementById(panelId);
-                        if (!panel || !panel.classList.contains('active')) return;
-                        const editors = panel.querySelectorAll('.ttsText--editor');
-                        if (!editors.length) {
-                            needsRetry = true;
-                            return;
-                        }
-                        editors.forEach((node) => {
-                            const editor = node.CodeMirror;
-                            if (editor && typeof editor.refresh === 'function') {
-                                syncEditorValue(editor);
-                            }
-                        });
-                    });
-
-                    if (needsRetry && attempt < 10) {
-                        requestAnimationFrame(() => refreshForPanels(panelNames, attempt + 1));
-                    }
-                };
-
-                window.__ensureTextEditorsRefreshed = (panelName) => {
-                    const names = panelName ? [panelName] : Object.keys(panelIds);
-                    refreshForPanels(names);
-                };
-
-                const announcementTypeSelect = document.getElementById('announcementType');
-                if (announcementTypeSelect) {
-                    announcementTypeSelect.addEventListener('change', () => {
-                        if (announcementTypeSelect.value === 'tts') {
-                            requestAnimationFrame(() => window.__ensureTextEditorsRefreshed?.('encoder'));
-                        }
-                    });
-                }
-            })();
-        </script>
-        <script type="module" src="assets/js/decoder-bundle.js"></script>
-        <script type="module" src="assets/js/encoder-bundle.js"></script>
-        <script type="module" src="assets/js/crawl-bundle.js"></script>
-        <script type="module" src="assets/js/splicer-bundle.js"></script>
-        <script type="module" src="assets/js/phoneme-bundle.js"></script>
-        <script type="module" src="assets/js/normalizer-bundle.js"></script>
-        <script>
-            (function () {
+                const TOOL_HOST = "https://octopus-app-t96ou.ondigitalocean.app/index.html";
+                const DEFAULT_TOOL = "decoder";
                 const navLabels = (window.BRAND && window.BRAND.nav) || {};
-                const panels = {
-                    decoder: {
-                        element: document.getElementById('decoder-panel'),
-                        name: navLabels.decoder || "Decode"
-                    },
-                    encoder: {
-                        element: document.getElementById('encoder-panel'),
-                        name: navLabels.encoder || "Generate"
-                    },
-                    crawl: {
-                        element: document.getElementById('crawl-panel'),
-                        name: navLabels.crawl || "Crawl Builder"
-                    },
-                    splicer: {
-                        element: document.getElementById('splicer-panel'),
-                        name: navLabels.splicer || "Audio Assembly"
-                    },
-                    phoneme: {
-                        element: document.getElementById('phoneme-panel'),
-                        name: navLabels.phoneme || "Phoneme Lab"
-                    },
-                    normalizer: {
-                        element: document.getElementById('normalizer-panel'),
-                        name: navLabels.normalizer || "Product Normalizer"
-                    },
-                    muxer: {
-                        element: document.getElementById('muxer-panel'),
-                        name: navLabels.muxer || "Artifacts"
-                    },
+                const TOOLS = {
+                    decoder:    { label: navLabels.decoder    || "Decode" },
+                    encoder:    { label: navLabels.encoder    || "Generate" },
+                    crawl:      { label: navLabels.crawl      || "Crawl Builder" },
+                    splicer:    { label: navLabels.splicer    || "Audio Assembly" },
+                    phoneme:    { label: navLabels.phoneme    || "Phoneme Lab" },
+                    normalizer: { label: navLabels.normalizer || "Product Normalizer" },
+                    muxer:      { label: navLabels.muxer      || "Artifacts" }
                 };
 
-                const navButtons = document.getElementById('nav-buttons');
+                const frame = document.getElementById("tool-frame");
+                const navButtons = document.getElementById("nav-buttons");
+                const navSelect = document.getElementById("nav-select");
+                const toolOrder = Object.keys(TOOLS);
+
                 if (navButtons) {
-                    navButtons.setAttribute('role', 'tablist');
-                    navButtons.setAttribute('aria-label', 'Tool navigation');
-                    const buttonElement = document.createElement('button');
-                    buttonElement.type = 'button';
-                    Object.entries(panels).forEach(([key, { name }]) => {
-                        const btn = buttonElement.cloneNode();
+                    navButtons.setAttribute("role", "tablist");
+                    navButtons.setAttribute("aria-label", "Tool navigation");
+                    Object.entries(TOOLS).forEach(([key, { label }]) => {
+                        const btn = document.createElement("button");
+                        btn.type = "button";
                         btn.id = `tab-${key}`;
                         btn.dataset.tool = key;
-                        btn.textContent = name;
+                        btn.textContent = label;
+                        btn.setAttribute("role", "tab");
                         navButtons.appendChild(btn);
                     });
                 }
-
-                const buttons = document.querySelectorAll('button[data-tool]');
-                const params = new URLSearchParams(window.location.search);
-                const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                const panelList = document.getElementById('nav-select');
-
-                const muxerContainer = document.getElementById('muxer-container');
-                let muxerIframe;
-
-                const ensureMuxerIframe = () => {
-                    if (muxerIframe || !muxerContainer) return;
-                    muxerIframe = document.createElement('iframe');
-                    muxerIframe.title = 'EAS Lab — Artifacts (Video/Audio Muxer)';
-                    muxerIframe.loading = 'lazy';
-                    muxerIframe.style.width = '100%';
-                    muxerIframe.style.minHeight = '1080px';
-                    muxerIframe.style.border = '0';
-                    muxerIframe.src = 'muxer.html';
-                    muxerContainer.appendChild(muxerIframe);
-                };
-
-                const requestEditorRefresh = (target) => {
-                    if (typeof window.__ensureTextEditorsRefreshed !== 'function') return;
-                    requestAnimationFrame(() => window.__ensureTextEditorsRefreshed(target));
-                };
-
-                const activate = (target, options = {}) => {
-                    const { updateHistory = true, scroll = true } = options;
-                    if (target === 'muxer') ensureMuxerIframe();
-                    buttons.forEach((btn) => {
-                        const isActive = btn.dataset.tool === target;
-                        btn.classList.toggle('active', isActive);
-                        btn.setAttribute('aria-selected', String(isActive));
-                        btn.setAttribute('aria-current', isActive ? 'page' : 'false');
-                        btn.tabIndex = isActive ? 0 : -1;
-                    });
-                    Object.entries(panels).forEach(([name, { element }]) => {
-                        if (element) element.classList.toggle('active', name === target);
-                    });
-                    if (panelList) panelList.value = target;
-                    if (scroll) {
-                        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-                    }
-                    if (updateHistory) {
-                        const newParams = new URLSearchParams(window.location.search);
-                        newParams.set('tool', target);
-                        window.history.replaceState({}, '', `${window.location.pathname}?${newParams}`);
-                    }
-                    requestEditorRefresh(target);
-                };
-
-                buttons.forEach((btn) => {
-                    btn.setAttribute('role', 'tab');
-                    btn.setAttribute('aria-controls', `${btn.dataset.tool}-panel`);
-                    btn.addEventListener('click', () => activate(btn.dataset.tool));
-                    if (panelList) {
-                        const option = document.createElement('option');
-                        option.value = btn.dataset.tool;
-                        option.textContent = btn.textContent;
-                        panelList.appendChild(option);
-                    }
-                });
-
-                if (panelList) {
-                    panelList.addEventListener('change', () => {
-                        activate(panelList.value, { scroll: false });
+                if (navSelect) {
+                    Object.entries(TOOLS).forEach(([key, { label }]) => {
+                        const opt = document.createElement("option");
+                        opt.value = key;
+                        opt.textContent = label;
+                        navSelect.appendChild(opt);
                     });
                 }
 
-                const toolOrder = Object.keys(panels);
+                const buttons = document.querySelectorAll("button[data-tool]");
+
+                const buildSrc = (tool) => {
+                    const url = new URL(TOOL_HOST);
+                    url.searchParams.set("tool", tool);
+                    return url.toString();
+                };
+
+                const activate = (target, { updateHistory = true } = {}) => {
+                    const tool = TOOLS[target] ? target : DEFAULT_TOOL;
+                    if (frame) {
+                        const desired = buildSrc(tool);
+                        if (frame.src !== desired) frame.src = desired;
+                    }
+                    buttons.forEach((btn) => {
+                        const isActive = btn.dataset.tool === tool;
+                        btn.classList.toggle("active", isActive);
+                        btn.setAttribute("aria-selected", String(isActive));
+                        btn.setAttribute("aria-current", isActive ? "page" : "false");
+                        btn.tabIndex = isActive ? 0 : -1;
+                    });
+                    if (navSelect && navSelect.value !== tool) navSelect.value = tool;
+                    if (updateHistory) {
+                        const newParams = new URLSearchParams(window.location.search);
+                        newParams.set("tool", tool);
+                        window.history.replaceState({}, "", `${window.location.pathname}?${newParams}`);
+                    }
+                };
+
                 buttons.forEach((btn) => {
-                    btn.addEventListener('keydown', (event) => {
+                    btn.addEventListener("click", () => activate(btn.dataset.tool));
+                    btn.addEventListener("keydown", (event) => {
                         const currentIndex = toolOrder.indexOf(btn.dataset.tool);
                         if (currentIndex === -1) return;
                         let targetIndex = null;
-                        if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % toolOrder.length;
-                        if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + toolOrder.length) % toolOrder.length;
-                        if (event.key === 'Home') targetIndex = 0;
-                        if (event.key === 'End') targetIndex = toolOrder.length - 1;
+                        if (event.key === "ArrowRight") targetIndex = (currentIndex + 1) % toolOrder.length;
+                        if (event.key === "ArrowLeft")  targetIndex = (currentIndex - 1 + toolOrder.length) % toolOrder.length;
+                        if (event.key === "Home")       targetIndex = 0;
+                        if (event.key === "End")        targetIndex = toolOrder.length - 1;
                         if (targetIndex === null) return;
                         event.preventDefault();
-                        const targetTool = toolOrder[targetIndex];
-                        activate(targetTool, { scroll: false });
-                        document.querySelector(`button[data-tool="${targetTool}"]`)?.focus();
+                        const nextTool = toolOrder[targetIndex];
+                        activate(nextTool);
+                        document.querySelector(`button[data-tool="${nextTool}"]`)?.focus();
                     });
                 });
-
-                document.querySelectorAll('[data-switch-to]').forEach((link) => {
-                    link.addEventListener('click', (event) => {
-                        event.preventDefault();
-                        activate(link.dataset.switchTo);
-                        window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-                    });
-                });
-
-                if (params.get('header')) {
-                    activate('encoder', { scroll: false });
+                if (navSelect) {
+                    navSelect.addEventListener("change", () => activate(navSelect.value));
                 }
 
-                const toolParam = params.get('tool');
-                if (toolParam && panels[toolParam]) {
-                    activate(toolParam, { scroll: false });
-                } else {
-                    activate('decoder', { scroll: false });
-                }
+                const params = new URLSearchParams(window.location.search);
+                const initial = params.get("tool");
+                activate(initial && TOOLS[initial] ? initial : DEFAULT_TOOL, { updateHistory: false });
 
-                window.addEventListener('deepLinkOpen', (event) => {
-                    const payload = event?.detail ?? event?.data;
-
-                    let deepLinkTool = null;
-
-                    if (typeof payload === 'string') {
-                        try { deepLinkTool = JSON.parse(payload)?.tool; } catch {}
-                    } else if (payload && typeof payload === 'object') {
-                        deepLinkTool = payload.tool;
+                window.addEventListener("deepLinkOpen", (event) => {
+                    const payload = event && (event.detail || event.data);
+                    let tool = null;
+                    if (typeof payload === "string") {
+                        try { tool = JSON.parse(payload).tool; } catch { tool = null; }
+                    } else if (payload && typeof payload === "object") {
+                        tool = payload.tool;
                     }
-
-                    if (deepLinkTool && panels?.[deepLinkTool]) {
-                        activate(deepLinkTool);
-                    }
+                    if (tool && TOOLS[tool]) activate(tool);
                 });
 
-                // Native bridge: muxer activation
                 if (window.EASBridge) {
-                    window.EASBridge.on('muxer:activate', () => {
-                        activate('muxer');
-                    });
-                    window.EASBridge.on('muxer:deactivate', () => {
-                        activate('decoder');
-                    });
+                    window.EASBridge.on("muxer:activate", () => activate("muxer"));
+                    window.EASBridge.on("muxer:deactivate", () => activate("decoder"));
                 }
             })();
         </script>
