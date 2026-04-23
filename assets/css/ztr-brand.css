@@ -625,6 +625,12 @@ button:focus-visible {
 
 /* -----------------------------------------------------------
    10. Tables
+   The only live data table in the app is #fips inside the encoder
+   panel. It uses <tbody><tr class="title">…</tr></tbody><tbody
+   id="container">…</tbody>, with body rows getting class="entry"
+   and being click-to-remove. Styles below treat #fips as a
+   first-class operational table while keeping the generic
+   selectors usable for any future table.
    ----------------------------------------------------------- */
 table {
     width: 100%;
@@ -635,11 +641,12 @@ table {
     border-radius: var(--ztr-radius-md);
     overflow: hidden;
     font-size: 0.92rem;
+    box-shadow: var(--ztr-shadow-1);
 }
 
 table th,
 table td {
-    padding: 10px 12px;
+    padding: 10px 14px;
     text-align: left;
     border: none;
     border-bottom: 1px solid var(--ztr-border-soft);
@@ -651,23 +658,90 @@ table thead th,
 table tr.title td {
     background: var(--ztr-bg-raised);
     color: var(--ztr-text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: var(--ztr-letter-tracked-sm);
     border-bottom: 1px solid var(--ztr-border);
+    padding: 9px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 table tbody tr:nth-child(even) td {
-    background: rgba(247, 250, 251, 0.6);
+    background: rgba(247, 250, 251, 0.55);
 }
 
 table tbody tr:hover td {
     background: var(--ztr-accent-pale);
+    color: var(--ztr-accent-active);
 }
 
 table tbody tr:last-child td {
     border-bottom: none;
+}
+
+/* Override the upstream rule that hard-codes a #444 cell border on
+   the encoder table — those dark lines fight the light canvas. */
+#encoder-panel table,
+#encoder-panel th,
+#encoder-panel td {
+    border-color: transparent !important;
+}
+
+#encoder-panel table {
+    margin-top: var(--ztr-space-3);
+    margin-bottom: var(--ztr-space-3);
+}
+
+/* The FIPS table specifically: clickable entries, monospace code
+   column, scrollable on narrow widths without breaking layout. */
+#fips {
+    display: block;
+    max-height: 420px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#fips tbody tr.entry {
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+#fips tbody tr.entry:hover td {
+    background: var(--ztr-accent-pale);
+    color: var(--ztr-accent-active);
+}
+
+#fips tbody tr.entry:hover td:last-child::after {
+    content: "  ✕";
+    color: var(--ztr-danger);
+    font-weight: 700;
+    margin-left: 6px;
+    opacity: 0.85;
+}
+
+#fips tbody tr.entry td:last-child {
+    font-family: var(--ztr-font-mono);
+    font-size: 0.88rem;
+    letter-spacing: 0.02em;
+    color: var(--ztr-text-secondary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#fips tr.title td:last-child {
+    text-align: right;
+}
+
+/* Stale upstream rule for #balconTable used hard-coded white borders;
+   neutralize it so any future render reads with the brand layer. */
+#balconTable table,
+#balconTable th,
+#balconTable td {
+    border-color: var(--ztr-border) !important;
 }
 
 /* -----------------------------------------------------------
