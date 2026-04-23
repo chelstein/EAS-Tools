@@ -8,9 +8,12 @@
         product: "buoyIQ",
         module: "EAS Lab",
         subtitle: "a Zero Trust Radio tool",
+        heroSubhead: "Synthetic Alert Generation · Signal Decode · Compliance Validation",
+        heroBody: "Operational testing and verification of broadcast alert behavior across the Zero Trust Radio network.",
+        heroIntegration: "Integrated with buoyIQ alert intelligence, SDR validation, and IPAWS ingestion.",
         tagline: "Synthetic alert generation, decode, validation, and station fire simulation.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
-        statement: "Zero Trust Radio applies validation, observability, and signal integrity principles to broadcast infrastructure. EAS Lab extends that model with synthetic alert generation, parsing, and test workflows.",
+        statement: "Zero Trust Radio enforces validation, observability, and signal integrity across broadcast infrastructure. EAS Lab extends this model with synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context and can be used to validate alert behavior before real-world broadcast conditions.",
         alliance: "Zero Trust Radio Alliance",
         nav: {
             decoder: "Decode",
@@ -61,15 +64,22 @@
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
                         <span class="ztr-hero__kicker">${BRAND.platform} · ${BRAND.product}</span>
-                        <h2 class="ztr-hero__module">${BRAND.module}</h2>
-                        <p class="ztr-hero__tagline">${BRAND.tagline}</p>
+                        <h1 class="ztr-hero__module">${BRAND.module}</h1>
+                        <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
+                        <p class="ztr-hero__body">${BRAND.heroBody}</p>
+                        <p class="ztr-hero__integration">
+                            <span class="ztr-hero__integration-dot" aria-hidden="true"></span>
+                            ${BRAND.heroIntegration}
+                        </p>
                     </div>
                     <div class="ztr-hero__aside">
                         <div class="ztr-badge" role="note" aria-label="Usage notice">
                             <span class="ztr-badge__dot" aria-hidden="true"></span>
                             <span class="ztr-badge__text">${BRAND.notice}</span>
                         </div>
-                        <p class="ztr-hero__statement">${BRAND.statement}</p>
+                        <div class="ztr-hero__statement" role="note" aria-label="Platform statement">
+                            <p>${BRAND.statement}</p>
+                        </div>
                     </div>
                 </div>
             </div>
