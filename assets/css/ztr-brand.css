@@ -1074,6 +1074,26 @@ footer {
     color: var(--ztr-text-secondary);
     border-top: 2px solid var(--ztr-border);
     padding: var(--ztr-space-4) var(--ztr-space-5);
+    position: static !important;
+    bottom: auto !important;
+    overflow: visible !important;
+    z-index: auto !important;
+}
+
+.ztr-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: var(--ztr-shell-max);
+    margin: 0 auto;
+}
+
+.ztr-footer__top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px 20px;
 }
 
 .ztr-footer {
