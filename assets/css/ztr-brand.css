@@ -1075,12 +1075,25 @@ footer {
     border-top: 2px solid var(--ztr-border);
     padding: var(--ztr-space-4) var(--ztr-space-5);
     position: static !important;
-    left: auto;
-    right: auto;
     bottom: auto !important;
     overflow: visible !important;
-    max-height: none !important;
     z-index: auto !important;
+}
+
+.ztr-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: var(--ztr-shell-max);
+    margin: 0 auto;
+}
+
+.ztr-footer__top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px 20px;
 }
 
 .ztr-footer {
@@ -1194,6 +1207,164 @@ article a:visited {
 }
 
 /* -----------------------------------------------------------
+   16.5 Full spacing rework (layout rhythm + breathing room)
+   ----------------------------------------------------------- */
+:root {
+    --ztr-shell-pad-x: clamp(16px, 2.2vw, 36px);
+}
+
+.ztr-header__inner {
+    gap: 20px;
+    align-items: center;
+}
+
+.ztr-lockup__home {
+    gap: 16px;
+}
+
+#tab-set {
+    gap: 14px;
+}
+
+#nav-buttons {
+    gap: 12px;
+    padding: 4px 0 6px;
+}
+
+button[data-tool] {
+    height: 42px;
+    padding: 0 18px;
+    border-radius: 14px;
+}
+
+.ztr-hero__inner {
+    padding-top: 36px;
+    padding-bottom: 34px;
+}
+
+.ztr-hero {
+    gap: 24px;
+}
+
+.ztr-hero__title {
+    padding: 28px;
+}
+
+.ztr-hero__subhead {
+    margin-bottom: 14px;
+}
+
+.ztr-hero__body {
+    margin-bottom: 18px;
+}
+
+.ztr-hero__capabilities {
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.ztr-hero__aside {
+    gap: 16px;
+}
+
+.ztr-badge {
+    min-height: 64px;
+    padding: 16px 20px;
+}
+
+.ztr-hero__statement {
+    padding: 24px;
+}
+
+.tool-panel {
+    padding-top: 28px;
+    padding-bottom: 42px;
+}
+
+.tool-panel > .section-heading {
+    margin-bottom: 10px !important;
+}
+
+.tool-panel > .section-subhead {
+    margin-bottom: 16px;
+}
+
+.tool-panel > hr {
+    margin: 18px auto;
+}
+
+/* Normalize stack spacing in dense control sections */
+#decoder-panel > span,
+.control-panel,
+.splice-controls > div,
+#spliceTTSGenerator,
+.splice-timeline,
+.waveform-card .guide,
+#encoder-panel select,
+#encoder-panel input,
+#encoder-panel textarea {
+    margin-bottom: 14px;
+}
+
+.splice-grid {
+    gap: 22px;
+}
+
+.waveform-card,
+.splice-controls {
+    padding: 18px;
+}
+
+.waveform-meta {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.waveform-actions,
+.splice-action-grid {
+    gap: 10px;
+}
+
+.splice-action-grid button,
+.waveform-actions button {
+    min-height: 38px;
+}
+
+.splice-timeline {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: 12px;
+    background: rgba(255, 244, 222, 0.6);
+}
+
+footer {
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+.ztr-footer {
+    gap: 16px;
+}
+
+.ztr-footer__top {
+    gap: 12px 24px;
+}
+
+.ztr-metrics-bar {
+    gap: 12px;
+}
+
+.ztr-metric {
+    padding: 12px;
+}
+
+.ztr-footer__links-grid {
+    gap: 14px 24px;
+}
+
+/* -----------------------------------------------------------
    16. Shell responsive guard (header / hero / pills)
    ----------------------------------------------------------- */
 @media (max-width: 1079px) {
@@ -1252,7 +1423,6 @@ article a:visited {
     .ztr-footer__links-grid {
         grid-template-columns: 1fr;
     }
-
 }
 
 /* -----------------------------------------------------------
@@ -1321,6 +1491,19 @@ pre, code {
 
     .ztr-hero__statement {
         padding: 16px;
+    }
+
+    #tab-set {
+        gap: 10px;
+    }
+
+    #nav-buttons {
+        gap: 8px;
+    }
+
+    button[data-tool] {
+        height: 38px;
+        padding: 0 14px;
     }
 
     .ztr-badge {
