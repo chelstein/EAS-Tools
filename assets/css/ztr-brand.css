@@ -1,441 +1,515 @@
-/* Zero Trust Radio · buoyIQ · EAS Lab — brand overlay.
-   Loaded after style.css so the infrastructure-intelligence palette
-   overrides the legacy EAS Tools orange/dark shell without rewriting
-   upstream styles. */
+/* ============================================================
+   Zero Trust Radio · buoyIQ · EAS Lab — brand foundation (MVP)
+   Loaded after assets/css/style.css. Conservative selectors only;
+   no class renames, no JS coupling. Establishes the operational
+   light console look-and-feel via design tokens.
+   ============================================================ */
 
+/* -----------------------------------------------------------
+   1. Design tokens
+   ----------------------------------------------------------- */
 :root {
-    --ztr-bg: #070b13;
-    --ztr-bg-alt: #0b1220;
-    --ztr-surface: #101826;
-    --ztr-surface-raised: #14203240;
-    --ztr-border: #1d2a3d;
-    --ztr-border-strong: #2a3c55;
-    --ztr-text: #e6eef7;
-    --ztr-text-dim: #9fb1c7;
-    --ztr-text-muted: #6c7f98;
-    --ztr-accent: #3dd6d0;
-    --ztr-accent-dim: #1f8a85;
-    --ztr-accent-deep: #0f4d4a;
-    --ztr-alert: #ff7a1a;
-    --ztr-alert-dim: #8a3f0a;
-    --ztr-danger: #ff4d5e;
-    --ztr-ok: #34c759;
+    /* Surfaces */
+    --ztr-bg:                #eef3f5;     /* app canvas */
+    --ztr-bg-raised:         #f7fafb;     /* subtle panel tint */
+    --ztr-panel:             #ffffff;     /* primary card / panel */
+    --ztr-panel-strong:      #ffffff;
+    --ztr-panel-dark:        #2c3a4f;     /* featured dark statement card */
+    --ztr-panel-dark-text:   #d7e3ef;
+    --ztr-overlay:           rgba(24, 35, 49, 0.55);
+
+    /* Text */
+    --ztr-text:              #182331;
+    --ztr-text-secondary:    #4d6175;
+    --ztr-text-muted:        #738395;
+    --ztr-text-inverse:      #ffffff;
+    --ztr-text-on-accent:    #ffffff;
+
+    /* Borders / dividers */
+    --ztr-border:            #cfd8df;
+    --ztr-border-strong:     #9dc7c7;
+    --ztr-border-soft:       #e3eaee;
+    --ztr-divider:           #cfd8df;
+
+    /* Brand accent (teal) */
+    --ztr-accent:            #0e9694;
+    --ztr-accent-hover:      #0b7f7e;
+    --ztr-accent-active:     #095f5e;
+    --ztr-accent-pale:       #dff4f3;
+    --ztr-accent-on:         #ffffff;
+    --ztr-accent-deep:       #084948;
+
+    /* Status / semantic */
+    --ztr-ok:                #1f8a5c;
+    --ztr-ok-bg:             #e6f4ec;
+    --ztr-ok-border:         #a8d8bc;
+
+    --ztr-warn:              #b66a18;
+    --ztr-warn-bg:           #fff4ea;
+    --ztr-warn-border:       #ebbf95;
+    --ztr-warn-text:         #7c4b19;
+
+    --ztr-danger:            #b3261e;
+    --ztr-danger-bg:         #fdecea;
+    --ztr-danger-border:     #f1b3b0;
+
+    /* Slate cues retained for the EAS-alert flavor */
+    --ztr-alert:             #d96a1a;
+    --ztr-alert-soft:        #fff4ea;
+
+    /* Radius scale */
+    --ztr-radius-xs:         4px;
+    --ztr-radius-sm:         6px;
+    --ztr-radius-md:         8px;
+    --ztr-radius-lg:         12px;
+    --ztr-radius-xl:         14px;
+    --ztr-radius-pill:       999px;
+
+    /* Shadow scale */
+    --ztr-shadow-1:          0 1px 2px rgba(16, 24, 40, 0.04);
+    --ztr-shadow-2:          0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+    --ztr-shadow-3:          0 8px 24px rgba(16, 24, 40, 0.08);
+    --ztr-shadow-dark:       0 8px 24px rgba(28, 45, 66, 0.18);
+
+    /* Spacing scale (8px system) */
+    --ztr-space-1:           4px;
+    --ztr-space-2:           8px;
+    --ztr-space-3:           12px;
+    --ztr-space-4:           16px;
+    --ztr-space-5:           24px;
+    --ztr-space-6:           32px;
+    --ztr-space-7:           40px;
+
+    /* Typography */
+    --ztr-font-sans:         "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --ztr-font-mono:         "Hack", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ztr-letter-tight:      -0.01em;
+    --ztr-letter-tracked:    0.16em;
+    --ztr-letter-tracked-sm: 0.12em;
 }
 
-/* Re-point upstream tokens to the ZTR palette so every legacy use of
-   var(--color-bg)/var(--color-orange) inherits the new look. */
+/* -----------------------------------------------------------
+   2. Compatibility shim — keep legacy upstream tokens working
+   ----------------------------------------------------------- */
 * {
-    --color-bg: var(--ztr-bg);
-    --color-text: var(--ztr-text);
-    --color-orange: var(--ztr-accent);
-    --color-dark-orange: var(--ztr-accent-dim);
-    --color-border: var(--ztr-border);
+    --color-bg:           var(--ztr-bg);
+    --color-text:         var(--ztr-text);
+    --color-orange:       var(--ztr-accent);
+    --color-dark-orange:  var(--ztr-accent-hover);
+    --color-border:       var(--ztr-border);
     --color-border-light: var(--ztr-border-strong);
-    --color-black: #000000;
+    --color-black:        #000000;
+}
+
+/* -----------------------------------------------------------
+   3. Page canvas + base typography
+   ----------------------------------------------------------- */
+html {
+    background: var(--ztr-bg);
 }
 
 body {
-    background: radial-gradient(1200px 600px at 10% -10%, rgba(61, 214, 208, 0.08), transparent 60%),
-                radial-gradient(1000px 500px at 110% 0%, rgba(255, 122, 26, 0.06), transparent 60%),
-                var(--ztr-bg);
+    background: var(--ztr-bg);
     color: var(--ztr-text);
+    font-family: var(--ztr-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
 }
 
-/* ========= Header lockup ========= */
-header.ztr-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 18px;
-    padding: 14px 24px;
-    background: linear-gradient(180deg, #0c1422 0%, #070b13 100%);
-    border-bottom: 1px solid var(--ztr-border);
-    box-shadow: 0 1px 0 rgba(61, 214, 208, 0.15);
-    position: relative;
-}
-
-header.ztr-header::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--ztr-accent) 30%, var(--ztr-alert) 70%, transparent);
-    opacity: 0.55;
-}
-
-header.ztr-header h1 {
-    display: none;
-}
-
-.ztr-lockup__home {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    text-decoration: none;
+h1, h2, h3, h4, h5, h6 {
     color: var(--ztr-text);
-}
-
-.ztr-lockup__mark {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background:
-        radial-gradient(circle at 30% 30%, var(--ztr-accent) 0%, var(--ztr-accent-deep) 55%, transparent 70%),
-        linear-gradient(145deg, #0f2434, #071219);
-    border: 1px solid var(--ztr-border-strong);
-    box-shadow: inset 0 0 12px rgba(61, 214, 208, 0.22), 0 0 0 1px rgba(61, 214, 208, 0.15);
-    position: relative;
-    flex-shrink: 0;
-}
-
-.ztr-lockup__mark::after {
-    content: "";
-    position: absolute;
-    inset: 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(61, 214, 208, 0.65);
-    border-top-color: rgba(255, 122, 26, 0.75);
-}
-
-.ztr-lockup__text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-}
-
-.ztr-lockup__eyebrow {
-    font-size: 0.68rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--ztr-accent);
-    font-weight: 600;
-}
-
-.ztr-lockup__product {
-    font-size: 1.05rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ztr-text);
+    font-family: var(--ztr-font-sans);
+    letter-spacing: var(--ztr-letter-tight);
     font-weight: 700;
 }
 
-.ztr-lockup__sep {
-    color: var(--ztr-text-muted);
-    font-weight: 400;
+p {
+    color: var(--ztr-text-secondary);
 }
 
-.ztr-lockup__module {
+a {
     color: var(--ztr-accent);
-    font-weight: 600;
+    text-decoration-color: rgba(14, 150, 148, 0.35);
+    text-underline-offset: 2px;
 }
 
-.ztr-lockup__sub {
-    color: var(--ztr-text-dim);
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: 0;
+a:hover {
+    color: var(--ztr-accent-hover);
+    text-decoration-color: var(--ztr-accent-hover);
 }
 
-.ztr-lockup__subtitle {
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    color: var(--ztr-text-muted);
-    text-transform: uppercase;
-    margin-top: 2px;
+a:visited {
+    color: var(--ztr-accent-active);
 }
 
-#eas-tools-logo { display: none; }
+hr {
+    border: 0;
+    border-top: 1px solid var(--ztr-divider);
+    margin: var(--ztr-space-4) 0;
+}
 
-/* ========= Nav ========= */
+code, kbd, samp, pre {
+    font-family: var(--ztr-font-mono);
+}
+
+pre {
+    background: var(--ztr-bg-raised);
+    color: var(--ztr-text);
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-md);
+    padding: var(--ztr-space-3) var(--ztr-space-4);
+    box-shadow: none;
+}
+
+/* -----------------------------------------------------------
+   4. Header lockup (current markup retained)
+   ----------------------------------------------------------- */
+header.ztr-header {
+    background: var(--ztr-panel);
+    border-bottom: 1px solid var(--ztr-border);
+    box-shadow: var(--ztr-shadow-1);
+    padding: var(--ztr-space-4) var(--ztr-space-5);
+}
+
+header.ztr-header::before {
+    background: linear-gradient(90deg, transparent, var(--ztr-accent) 30%, var(--ztr-alert) 70%, transparent);
+    opacity: 0.45;
+}
+
+.ztr-lockup__home { color: var(--ztr-text); }
+
+.ztr-lockup__mark {
+    background:
+        radial-gradient(circle at 30% 30%, var(--ztr-accent) 0%, var(--ztr-accent-deep) 60%, #04302f 100%);
+    border: 1px solid var(--ztr-accent-deep);
+    box-shadow: inset 0 0 10px rgba(14, 150, 148, 0.35);
+}
+
+.ztr-lockup__mark::after {
+    border-color: rgba(255, 255, 255, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.85);
+}
+
+.ztr-lockup__eyebrow { color: var(--ztr-accent); }
+.ztr-lockup__product { color: var(--ztr-text); }
+.ztr-lockup__sep     { color: var(--ztr-text-muted); }
+.ztr-lockup__module  { color: var(--ztr-accent); }
+.ztr-lockup__sub     { color: var(--ztr-text-secondary); }
+.ztr-lockup__subtitle{ color: var(--ztr-text-muted); }
+
+/* -----------------------------------------------------------
+   5. Hero section (current data-brand-hero markup)
+   ----------------------------------------------------------- */
+.ztr-hero-wrap {
+    background: var(--ztr-bg);
+    border-bottom: 1px solid var(--ztr-divider);
+    padding: var(--ztr-space-5) clamp(20px, 2vw, 32px) var(--ztr-space-4);
+}
+
+.ztr-hero {
+    gap: var(--ztr-space-5);
+}
+
+.ztr-hero__kicker {
+    color: var(--ztr-accent);
+    border-color: var(--ztr-accent);
+    background: var(--ztr-accent-pale);
+}
+
+.ztr-hero__module {
+    color: var(--ztr-text);
+    font-size: 2.25rem;
+}
+
+.ztr-hero__tagline {
+    color: var(--ztr-text-secondary);
+    font-size: 1rem;
+}
+
+.ztr-badge {
+    background: var(--ztr-warn-bg);
+    border: 1px solid var(--ztr-warn-border);
+    border-left: 3px solid var(--ztr-alert);
+    color: var(--ztr-warn-text);
+    border-radius: var(--ztr-radius-lg);
+    padding: var(--ztr-space-3) var(--ztr-space-4);
+}
+
+.ztr-badge__dot {
+    background: var(--ztr-alert);
+    box-shadow: 0 0 8px rgba(217, 106, 26, 0.6);
+}
+
+.ztr-hero__statement {
+    background: var(--ztr-panel-dark);
+    color: var(--ztr-panel-dark-text);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--ztr-radius-xl);
+    box-shadow: var(--ztr-shadow-3);
+    padding: var(--ztr-space-5);
+    line-height: 1.55;
+    font-size: 0.95rem;
+}
+
+/* -----------------------------------------------------------
+   6. Tab nav pills
+   ----------------------------------------------------------- */
 #tab-set {
-    gap: 6px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 button[data-tool] {
-    border: 1px solid var(--ztr-border);
-    background: rgba(16, 24, 38, 0.7);
-    color: var(--ztr-text-dim);
-    padding: 7px 14px;
-    border-radius: 6px;
-    font-size: 0.82rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-weight: 500;
-    transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+    background: var(--ztr-panel);
+    color: var(--ztr-text-secondary);
+    border: 1px solid var(--ztr-border-strong);
+    border-radius: var(--ztr-radius-md);
+    padding: 8px 16px;
+    height: 36px;
+    font-family: var(--ztr-font-sans);
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    box-shadow: none;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
 button[data-tool]:hover {
-    background: rgba(61, 214, 208, 0.08);
-    color: var(--ztr-text);
-    border-color: var(--ztr-accent-dim);
+    background: var(--ztr-accent-pale);
+    color: var(--ztr-accent-hover);
+    border-color: var(--ztr-accent);
 }
 
 button[data-tool].active {
-    background: linear-gradient(180deg, rgba(61, 214, 208, 0.18), rgba(61, 214, 208, 0.08));
-    color: var(--ztr-accent);
+    background: var(--ztr-accent-pale);
+    color: var(--ztr-accent-active);
     border-color: var(--ztr-accent);
     box-shadow: inset 0 -2px 0 var(--ztr-accent);
 }
 
-/* ========= Hero ========= */
-.ztr-hero-wrap {
-    display: block;
-    padding: 18px clamp(18px, 2vw, 32px) 0;
-    background: linear-gradient(180deg, #070b13 0%, #080d17 100%);
-    border-bottom: 1px solid var(--ztr-border);
-}
-
-.ztr-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-    padding-bottom: 16px;
-}
-
-.ztr-hero__title {
-    min-width: 0;
-}
-
-.ztr-hero__kicker {
-    display: inline-block;
-    font-size: 0.7rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ztr-accent);
-    border: 1px solid var(--ztr-accent-dim);
-    border-radius: 999px;
-    padding: 3px 10px;
-    margin-bottom: 10px;
-}
-
-.ztr-hero__module {
-    margin: 0 0 6px 0;
-    font-size: 1.85rem;
-    letter-spacing: 0.02em;
-    color: var(--ztr-text);
-    font-weight: 700;
-}
-
-.ztr-hero__tagline {
-    margin: 0;
-    color: var(--ztr-text-dim);
-    font-size: 0.95rem;
-    max-width: 62ch;
-}
-
-.ztr-hero__aside {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-width: 0;
-}
-
-.ztr-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: rgba(255, 122, 26, 0.08);
-    border: 1px solid var(--ztr-alert-dim);
-    border-left: 3px solid var(--ztr-alert);
-    border-radius: 6px;
-    color: #ffd7b3;
-    font-size: 0.82rem;
-    line-height: 1.4;
-}
-
-.ztr-badge__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--ztr-alert);
-    box-shadow: 0 0 10px var(--ztr-alert);
-    flex-shrink: 0;
-}
-
-.ztr-hero__statement {
-    margin: 0;
-    padding: 12px 14px;
-    background: rgba(16, 24, 38, 0.6);
-    border: 1px solid var(--ztr-border);
-    border-radius: 8px;
-    color: var(--ztr-text-dim);
-    font-size: 0.85rem;
-    line-height: 1.5;
-}
-
-@media (max-width: 1079px) {
-    .ztr-hero {
-        grid-template-columns: 1fr;
-    }
-    .ztr-hero__module { font-size: 1.5rem; }
-    header.ztr-header { padding: 12px 16px; }
-    .ztr-lockup__subtitle { display: none; }
-}
-
-/* ========= Section headings ========= */
+/* -----------------------------------------------------------
+   7. Section headings + subheads (current markup)
+   ----------------------------------------------------------- */
 .section-heading {
     color: var(--ztr-accent) !important;
-    font-size: 0.82rem !important;
-    letter-spacing: 0.14em !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.18em !important;
     text-transform: uppercase;
-    font-weight: 600;
-    margin: 0 0 6px !important;
+    font-weight: 700;
+    margin: 0 0 var(--ztr-space-2) !important;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
 .section-heading::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
     background: var(--ztr-accent);
-    box-shadow: 0 0 10px var(--ztr-accent);
-    display: inline-block;
-    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18);
 }
 
 .section-subhead {
-    margin: 0 0 14px;
-    color: var(--ztr-text-dim);
-    font-size: 0.88rem;
+    color: var(--ztr-text-secondary);
+    font-size: 0.95rem;
     line-height: 1.5;
-    max-width: 72ch;
+    max-width: 80ch;
+    margin: 0 0 var(--ztr-space-4);
 }
 
-/* ========= Buttons (primary CTAs) ========= */
+/* -----------------------------------------------------------
+   8. Buttons (primary CTA, default)
+   ----------------------------------------------------------- */
 button {
-    background-color: var(--ztr-accent);
-    color: #04171a !important;
+    background: var(--ztr-accent);
+    color: var(--ztr-accent-on) !important;
+    font-family: var(--ztr-font-sans);
     font-weight: 600;
-    letter-spacing: 0.02em;
-    border: 1px solid transparent;
-    box-shadow: 0 1px 0 rgba(61, 214, 208, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    transition: background 140ms ease, transform 80ms ease, box-shadow 140ms ease;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    border: 1px solid var(--ztr-accent-hover);
+    border-radius: var(--ztr-radius-md);
+    padding: 10px 18px;
+    box-shadow: var(--ztr-shadow-1);
+    transition: background 140ms ease, border-color 140ms ease, transform 80ms ease;
 }
 
-button:hover:not(:disabled) {
-    background-color: #5fe6e0;
+button:hover:not(:disabled):not([data-tool]) {
+    background: var(--ztr-accent-hover);
+    border-color: var(--ztr-accent-active);
 }
 
-button:active:not(:disabled) {
+button:active:not(:disabled):not([data-tool]) {
     transform: translateY(1px);
 }
 
-/* Inline-credit paragraph next to Generate */
-.inline-credit {
-    color: var(--ztr-text-muted);
-    font-size: 0.8rem;
-    border-top: 1px dashed var(--ztr-border);
-    padding-top: 10px;
-    margin-top: 18px;
+button:disabled,
+button[disabled] {
+    background: #c5cfd6;
+    color: #6c7a86 !important;
+    border-color: #b4bec6;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
-/* ========= Cards / surfaces ========= */
+/* -----------------------------------------------------------
+   9. Inputs / selects / textareas
+   ----------------------------------------------------------- */
+select,
+input,
+textarea {
+    background: var(--ztr-panel);
+    color: var(--ztr-text);
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-sm);
+    padding: 8px 10px;
+    font-family: var(--ztr-font-sans);
+    font-size: 0.95rem;
+    line-height: 1.4;
+    box-shadow: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    padding: 0;
+    width: auto;
+    height: auto;
+    accent-color: var(--ztr-accent);
+}
+
+input[type="color"] {
+    padding: 2px;
+    height: 32px;
+    width: 56px;
+}
+
+input[type="file"] {
+    padding: 6px;
+    background: var(--ztr-bg-raised);
+    border-style: dashed;
+}
+
+input[type="range"] {
+    accent-color: var(--ztr-accent);
+}
+
+select:focus,
+input:focus,
+textarea:focus,
+button:focus-visible {
+    outline: 2px solid var(--ztr-accent);
+    outline-offset: 2px;
+    border-color: var(--ztr-accent);
+    box-shadow: 0 0 0 3px rgba(14, 150, 148, 0.18);
+}
+
+/* -----------------------------------------------------------
+   10. Tables
+   ----------------------------------------------------------- */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--ztr-panel);
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-md);
+    overflow: hidden;
+    font-size: 0.92rem;
+}
+
+table th,
+table td {
+    padding: 10px 12px;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid var(--ztr-border-soft);
+    color: var(--ztr-text);
+    vertical-align: middle;
+}
+
+table thead th,
+table tr.title td {
+    background: var(--ztr-bg-raised);
+    color: var(--ztr-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--ztr-letter-tracked-sm);
+    border-bottom: 1px solid var(--ztr-border);
+}
+
+table tbody tr:nth-child(even) td {
+    background: rgba(247, 250, 251, 0.6);
+}
+
+table tbody tr:hover td {
+    background: var(--ztr-accent-pale);
+}
+
+table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* -----------------------------------------------------------
+   11. Cards / surfaces (existing markup)
+   ----------------------------------------------------------- */
 .waveform-card,
-.splice-controls {
-    background: var(--ztr-surface) !important;
+.splice-controls,
+.copy-paste-code-container {
+    background: var(--ztr-panel) !important;
     border: 1px solid var(--ztr-border) !important;
-    box-shadow: 0 1px 0 rgba(61, 214, 208, 0.05);
+    border-radius: var(--ztr-radius-lg);
+    box-shadow: var(--ztr-shadow-1);
+}
+
+.modalBox {
+    background: var(--ztr-panel) !important;
+    border: 1px solid var(--ztr-border-strong) !important;
+    border-radius: var(--ztr-radius-lg);
+    box-shadow: var(--ztr-shadow-3);
+}
+
+#audioPlayback {
+    background: var(--ztr-bg-raised);
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-md);
 }
 
 pre.generatedHeader,
 #headerPreview {
-    background: var(--ztr-surface) !important;
-    color: var(--ztr-accent) !important;
-    border: 1px solid var(--ztr-border);
-    font-family: "Hack", monospace;
+    background: var(--ztr-panel-dark) !important;
+    color: #b3f5f1 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: var(--ztr-font-mono);
+    border-radius: var(--ztr-radius-md);
 }
 
-pre {
-    background-color: var(--ztr-surface);
-    color: var(--ztr-text);
-    border: 1px solid var(--ztr-border);
-    border-radius: 6px;
-}
-
-#audioPlayback {
-    background: var(--ztr-surface);
-    border-color: var(--ztr-border);
-}
-
-.copy-paste-code-container {
-    background-color: var(--ztr-surface);
-    border-color: var(--ztr-border);
-}
-
-.modalBox {
-    background-color: var(--ztr-surface) !important;
-    border: 1px solid var(--ztr-border-strong) !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(61, 214, 208, 0.12);
-}
-
-/* ========= Footer ========= */
-footer {
-    background: linear-gradient(180deg, #070b13 0%, #050810 100%);
-    border-top: 1px solid var(--ztr-border);
-    color: var(--ztr-text-dim);
-    padding: 16px 20px;
-}
-
-.ztr-footer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-}
-
-.ztr-footer__brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.85rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ztr-text);
-}
-
-.ztr-footer__platform { color: var(--ztr-text); font-weight: 600; }
-.ztr-footer__product { color: var(--ztr-accent); font-weight: 500; }
-.ztr-footer__module { color: var(--ztr-text); font-weight: 600; }
-.ztr-footer__sep { color: var(--ztr-text-muted); }
-
-.ztr-footer__mission {
-    margin: 0 0 4px;
-    font-size: 0.78rem;
+.inline-credit {
     color: var(--ztr-text-muted);
-    max-width: 80ch;
-    text-align: center;
+    border-top: 1px dashed var(--ztr-border);
+    font-size: 0.85rem;
+    padding-top: var(--ztr-space-3);
+    margin-top: var(--ztr-space-5);
 }
 
-.footer-links {
-    color: var(--ztr-text-dim);
-}
-
-.footer-links a {
-    color: var(--ztr-accent);
-}
-
-.footer-links a:visited {
-    color: var(--ztr-accent-dim);
-}
-
-/* ========= Decoder status cues ========= */
+/* -----------------------------------------------------------
+   12. Decoder status cues (preserve existing IDs)
+   ----------------------------------------------------------- */
 #decoder-panel #sync {
-    color: var(--ztr-text-dim);
+    color: var(--ztr-text-secondary);
+    font-family: var(--ztr-font-mono);
     letter-spacing: 0.06em;
+    background: var(--ztr-bg-raised);
+    border: 1px solid var(--ztr-border);
+    border-radius: var(--ztr-radius-md);
+    padding: var(--ztr-space-3) var(--ztr-space-4);
 }
 
-#decoder-panel .watch { color: var(--ztr-alert); }
-#decoder-panel .warning { color: var(--ztr-danger); }
+#decoder-panel .watch    { color: var(--ztr-alert); font-weight: 600; }
+#decoder-panel .warning  { color: var(--ztr-danger); font-weight: 600; }
 
-/* Legacy rainbow link treatment for FAQ is too playful for the
-   infrastructure aesthetic — flatten it to a brand-consistent link. */
+/* Flatten the legacy rainbow FAQ link to the brand palette */
 #faq-link {
     background: none !important;
     -webkit-background-clip: initial !important;
@@ -447,23 +521,57 @@ footer {
 
 #faq-link a { color: var(--ztr-accent); }
 
-/* ========= Announcement toast retains alert cue ========= */
+/* -----------------------------------------------------------
+   13. Announcement toast retains alert cue
+   ----------------------------------------------------------- */
 #announcement-toast {
-    background: var(--ztr-surface);
+    background: var(--ztr-panel);
+    color: var(--ztr-text);
     border: 1px solid var(--ztr-border-strong);
     border-left: 3px solid var(--ztr-alert);
+    border-radius: var(--ztr-radius-md);
+    box-shadow: var(--ztr-shadow-3);
 }
 
 #announcement-toast strong { color: var(--ztr-alert); }
+#announcement-toast p      { color: var(--ztr-text-secondary); }
+#announcement-toast a      { color: var(--ztr-accent); }
 
-/* ========= Secondary pages (faq/terms/privacy/etc.) ========= */
+/* -----------------------------------------------------------
+   14. Footer (existing footer.js markup)
+   ----------------------------------------------------------- */
+footer {
+    background: var(--ztr-panel);
+    color: var(--ztr-text-secondary);
+    border-top: 1px solid var(--ztr-border);
+    padding: var(--ztr-space-4) var(--ztr-space-5);
+}
+
+.ztr-footer__platform { color: var(--ztr-text); }
+.ztr-footer__product  { color: var(--ztr-accent); }
+.ztr-footer__module   { color: var(--ztr-text); }
+.ztr-footer__sep      { color: var(--ztr-text-muted); }
+
+.ztr-footer__mission {
+    color: var(--ztr-text-muted);
+    font-size: 0.8rem;
+}
+
+.footer-links { color: var(--ztr-text-secondary); }
+.footer-links a { color: var(--ztr-accent); }
+.footer-links a:visited { color: var(--ztr-accent-active); }
+.footer-links li + li::before { color: var(--ztr-text-muted); }
+
+/* -----------------------------------------------------------
+   15. Secondary pages (article-based privacy/terms/etc.)
+   ----------------------------------------------------------- */
 article {
     color: var(--ztr-text);
 }
 
 article h2,
 article h3 {
-    color: var(--ztr-accent);
+    color: var(--ztr-text);
 }
 
 article a {
@@ -471,70 +579,29 @@ article a {
 }
 
 article a:visited {
-    color: var(--ztr-accent-dim);
+    color: var(--ztr-accent-active);
 }
 
-/* ========= Light mode overrides ========= */
-@media (prefers-color-scheme: light) {
+/* -----------------------------------------------------------
+   16. Reduced motion
+   ----------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* -----------------------------------------------------------
+   17. Force light operational console even when the OS asks
+   for dark mode — the upstream stylesheet has its own dark
+   media block that flips tokens; we want a single source of
+   truth during MVP. A future step can introduce a real
+   dark-theme variant.
+   ----------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
     :root {
-        --ztr-bg: #f2f5f8;
-        --ztr-bg-alt: #e6ecf2;
-        --ztr-surface: #ffffff;
-        --ztr-surface-raised: #eef3f8;
-        --ztr-border: #cfd8e3;
-        --ztr-border-strong: #9fb1c7;
-        --ztr-text: #0b1422;
-        --ztr-text-dim: #3a4b62;
-        --ztr-text-muted: #667a94;
-        --ztr-accent: #0a8a85;
-        --ztr-accent-dim: #0a6a66;
-        --ztr-accent-deep: #063f3c;
-        --ztr-alert: #c65a00;
-        --ztr-alert-dim: #f3d2b3;
+        color-scheme: light;
     }
-
-    body {
-        background: radial-gradient(1200px 600px at 10% -10%, rgba(10, 138, 133, 0.08), transparent 60%),
-                    var(--ztr-bg);
-        color: var(--ztr-text);
-    }
-
-    header.ztr-header {
-        background: linear-gradient(180deg, #ffffff 0%, #eef3f8 100%);
-        border-bottom: 1px solid var(--ztr-border);
-    }
-
-    .ztr-hero-wrap {
-        background: linear-gradient(180deg, #ffffff 0%, #eef3f8 100%);
-        border-bottom: 1px solid var(--ztr-border);
-    }
-
-    .ztr-badge {
-        background: rgba(198, 90, 0, 0.08);
-        color: #5a2900;
-        border-color: var(--ztr-alert-dim);
-    }
-
-    button {
-        color: #ffffff !important;
-        background-color: var(--ztr-accent);
-    }
-
-    button[data-tool] {
-        background: #ffffff;
-        color: var(--ztr-text-dim);
-        border: 1px solid var(--ztr-border);
-    }
-
-    button[data-tool].active {
-        background: linear-gradient(180deg, rgba(10, 138, 133, 0.18), rgba(10, 138, 133, 0.08));
-        color: var(--ztr-accent);
-        border-color: var(--ztr-accent);
-    }
-
-    footer {
-        background: #eef3f8;
-        border-top: 1px solid var(--ztr-border);
-        color: var(--ztr-text-dim);
-    }
+    body { background: var(--ztr-bg); color: var(--ztr-text); }
 }
