@@ -1,20 +1,20 @@
-// Zero Trust Radio / buoyIQ brand configuration.
-// EAS Lab is the broadcast integrity + synthetic alert module.
+// Dead Head brand configuration.
+// Dead Head is an EAS simulation, decode, and signal lab tool.
 // This module renders the shared header/footer lockup and exposes
 // BRAND as a global for other scripts that want the canonical names.
 (function () {
     const BRAND = {
-        platform: "Zero Trust Radio",
-        product: "buoyIQ",
-        module: "EAS Lab",
-        subtitle: "a Zero Trust Radio tool",
+        platform: "",
+        product: "Dead Head",
+        module: "",
+        subtitle: "EAS simulation · signal decode · lab use only",
         heroSubhead: "Synthetic Alert Generation · Signal Decode · Compliance Validation",
-        heroBody: "Operational testing and verification of broadcast alert behavior across the Zero Trust Radio network.",
-        heroIntegration: "Integrated with buoyIQ alert intelligence, SDR validation, and IPAWS ingestion.",
+        heroBody: "Operational testing and verification of broadcast alert behavior. Runs entirely in your browser — no server backend required.",
+        heroIntegration: "EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
         tagline: "Synthetic alert generation, decode, validation, and station fire simulation.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
-        statement: "Zero Trust Radio enforces validation, observability, and signal integrity across broadcast infrastructure. EAS Lab extends this model with synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context and can be used to validate alert behavior before real-world broadcast conditions.",
-        alliance: "Zero Trust Radio Alliance",
+        statement: "Dead Head is a submerged hazard — the kind of thing you don't see until it's too late. This tool exposes the same blind spots in broadcast alert infrastructure: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context and can be used to validate alert behavior before real-world broadcast conditions.",
+        alliance: "Dead Head",
         nav: {
             decoder: "Decode",
             encoder: "Generate",
@@ -26,7 +26,7 @@
         }
     };
 
-    const docTitle = (page) => `${BRAND.module} · ${BRAND.product} · ${BRAND.platform}${page ? ` — ${page}` : ""}`;
+    const docTitle = (page) => `${BRAND.product}${page ? ` — ${page}` : ""}`;
 
     const renderBrandHeader = (options = {}) => {
         const host = document.querySelector('[data-brand-header]') || document.querySelector('header');
@@ -52,14 +52,14 @@
         inner.className = 'ztr-header__inner';
         inner.innerHTML = `
             <div class="ztr-lockup">
-                <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.module} home">
+                <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
                     <span class="ztr-lockup__mark" aria-hidden="true"></span>
                     <span class="ztr-lockup__text">
-                        <span class="ztr-lockup__eyebrow">${BRAND.platform}</span>
+                        ${BRAND.platform ? `<span class="ztr-lockup__eyebrow">${BRAND.platform}</span>` : ''}
                         <span class="ztr-lockup__product">
-                            ${BRAND.product}
+                            ${BRAND.product}${BRAND.module ? `
                             <span class="ztr-lockup__sep">/</span>
-                            <span class="ztr-lockup__module">${BRAND.module}</span>${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
+                            <span class="ztr-lockup__module">${BRAND.module}</span>` : ''}${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                         </span>
                         <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
                     </span>
@@ -89,7 +89,7 @@
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
-                        <span class="ztr-hero__kicker">${BRAND.platform} · ${BRAND.product}</span>
+                        <span class="ztr-hero__kicker">${BRAND.product}</span>
                         <h1 class="ztr-hero__module">${BRAND.module}</h1>
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
@@ -118,7 +118,7 @@
     };
 
     const applyDocumentTitle = (page) => {
-        if (!document.title || document.title.indexOf(BRAND.module) === -1) {
+        if (!document.title || document.title.indexOf(BRAND.product) === -1) {
             document.title = docTitle(page);
         }
     };
