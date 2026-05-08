@@ -11,50 +11,56 @@
             '     role="img" aria-label="Dead Head"',
             '     class="dh-badge">',
 
-            '  <!-- Badge background -->',
-            '  <rect width="44" height="44" rx="10" fill="#112235"/>',
+            '  <!-- Background -->',
+            '  <rect width="44" height="44" rx="10" fill="#0d1a27"/>',
 
-            '  <!-- Top teal accent -->',
-            '  <rect x="4" y="1.5" width="36" height="2" rx="1" fill="#0f7c7b" opacity="0.9"/>',
+            '  <!-- Danger border glow -->',
+            '  <rect width="44" height="44" rx="10" fill="none" stroke="#c95d2e" stroke-width="2.5" opacity="0.22"/>',
 
-            '  <!-- SAME waveform scan line -->',
-            '  <polyline',
-            '    points="2,37 5,34 8,37 11,34 14,37 17,34 20,37 23,34 26,37 29,34 32,37 35,34 38,37 41,34"',
-            '    fill="none" stroke="#0f7c7b" stroke-width="1.2"',
-            '    stroke-linejoin="round" stroke-linecap="round" opacity="0.22"/>',
-
-            '  <!-- Headphone band -->',
-            '  <path d="M10,22 Q22,4 34,22"',
-            '        fill="none" stroke="#e6e3d4" stroke-width="3" stroke-linecap="round"/>',
-
-            '  <!-- Left ear cup -->',
-            '  <rect x="6" y="18" width="6" height="9" rx="2.5" fill="#e6e3d4"/>',
-
-            '  <!-- Right ear cup -->',
-            '  <rect x="32" y="18" width="6" height="9" rx="2.5" fill="#e6e3d4"/>',
+            '  <!-- Broadcast signal arcs -->',
+            '  <path d="M4,19 Q22,2 40,19"',
+            '        fill="none" stroke="#1abaaf" stroke-width="2" stroke-linecap="round" opacity="0.7"/>',
+            '  <path d="M9,19 Q22,8 35,19"',
+            '        fill="none" stroke="#1abaaf" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>',
 
             '  <!-- Skull cranium -->',
-            '  <ellipse cx="22" cy="17" rx="11" ry="10" fill="#e6e3d4"/>',
+            '  <ellipse cx="22" cy="21" rx="12" ry="11" fill="#e0dbc8"/>',
 
             '  <!-- Jaw -->',
-            '  <rect x="14" y="24" width="16" height="9" rx="2.5" fill="#e6e3d4"/>',
+            '  <rect x="13.5" y="28.5" width="17" height="8.5" rx="3.5" fill="#e0dbc8"/>',
 
-            '  <!-- Eye sockets -->',
-            '  <ellipse cx="17.5" cy="17" rx="3" ry="3.5" fill="#112235"/>',
-            '  <ellipse cx="26.5" cy="17" rx="3" ry="3.5" fill="#112235"/>',
+            '  <!-- Jaw tooth dividers -->',
+            '  <line x1="18" y1="29" x2="18" y2="37" stroke="#0d1a27" stroke-width="1.6" stroke-linecap="round"/>',
+            '  <line x1="22" y1="29" x2="22" y2="37" stroke="#0d1a27" stroke-width="1.6" stroke-linecap="round"/>',
+            '  <line x1="26" y1="29" x2="26" y2="37" stroke="#0d1a27" stroke-width="1.6" stroke-linecap="round"/>',
+
+            '  <!-- Eye sockets (deep dark) -->',
+            '  <ellipse cx="16.5" cy="20" rx="4.5" ry="5" fill="#0d1a27"/>',
+            '  <ellipse cx="27.5" cy="20" rx="4.5" ry="5" fill="#0d1a27"/>',
+
+            '  <!-- Teal eye outer glow layer -->',
+            '  <ellipse cx="16.5" cy="20" rx="3.8" ry="4.2" fill="#00c8b8" opacity="0.18"/>',
+            '  <ellipse cx="27.5" cy="20" rx="3.8" ry="4.2" fill="#00c8b8" opacity="0.18"/>',
+
+            '  <!-- Teal eye iris -->',
+            '  <ellipse cx="16.5" cy="20" rx="2.6" ry="3" fill="#00deca" opacity="0.92"/>',
+            '  <ellipse cx="27.5" cy="20" rx="2.6" ry="3" fill="#00deca" opacity="0.92"/>',
+
+            '  <!-- Eye specular highlight -->',
+            '  <ellipse cx="15.6" cy="18.4" rx="0.9" ry="0.7" fill="#ffffff" opacity="0.55"/>',
+            '  <ellipse cx="26.6" cy="18.4" rx="0.9" ry="0.7" fill="#ffffff" opacity="0.55"/>',
 
             '  <!-- Nasal cavity -->',
-            '  <path d="M21,22 L22,24.5 L23,22"',
-            '        fill="none" stroke="#112235" stroke-width="2"',
-            '        stroke-linejoin="round" stroke-linecap="round"/>',
+            '  <path d="M20,25.5 Q22,28 24,25.5"',
+            '        fill="none" stroke="#0d1a27" stroke-width="2" stroke-linecap="round"/>',
 
-            '  <!-- Teeth dividers -->',
-            '  <line x1="18.5" y1="26" x2="18.5" y2="33" stroke="#112235" stroke-width="1.8" stroke-linecap="round"/>',
-            '  <line x1="22"   y1="26" x2="22"   y2="33" stroke="#112235" stroke-width="1.8" stroke-linecap="round"/>',
-            '  <line x1="25.5" y1="26" x2="25.5" y2="33" stroke="#112235" stroke-width="1.8" stroke-linecap="round"/>',
+            '  <!-- Water surface line — submerged hazard -->',
+            '  <path d="M2,40 Q8,38 14,40 Q20,42 26,40 Q32,38 38,40 Q41,41 44,40"',
+            '        fill="none" stroke="#1abaaf" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>',
 
-            '  <!-- Orange status dot -->',
-            '  <circle cx="38.5" cy="38.5" r="2.5" fill="#c95d2e"/>',
+            '  <!-- Hazard indicator dot -->',
+            '  <circle cx="38.5" cy="5.5" r="3.5" fill="#c95d2e"/>',
+            '  <circle cx="38.5" cy="5.5" r="1.8" fill="#ff7845" opacity="0.85"/>',
 
             '</svg>'
         ].join('\n');
