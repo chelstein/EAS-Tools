@@ -1,20 +1,21 @@
-// Dead Head brand configuration.
-// Dead Head is an EAS simulation, decode, and signal lab tool.
+// Dead Head — a Zero Trust Radio tool.
+// Dead Head is the EAS simulation, signal decode, and station fire module
+// of the Zero Trust Radio platform.
 // This module renders the shared header/footer lockup and exposes
 // BRAND as a global for other scripts that want the canonical names.
 (function () {
     const BRAND = {
-        platform: "",
+        platform: "Zero Trust Radio",
         product: "Dead Head",
         module: "",
-        subtitle: "EAS simulation · signal decode · lab use only",
-        heroSubhead: "Synthetic Alert Generation · Signal Decode · Compliance Validation",
-        heroBody: "Operational testing and verification of broadcast alert behavior. Runs entirely in your browser — no server backend required.",
-        heroIntegration: "EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
+        subtitle: "a Zero Trust Radio tool",
+        heroSubhead: "Synthetic Alert Generation · Signal Decode · Station Fire Simulation",
+        heroBody: "Operational EAS testing from the bottom of the signal chain. Dead Head surfaces the alert infrastructure blind spots you don't see until it's too late — all in-browser, no server required.",
+        heroIntegration: "Part of the Zero Trust Radio platform. EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
         tagline: "Synthetic alert generation, decode, validation, and station fire simulation.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
-        statement: "Dead Head is a submerged hazard — the kind of thing you don't see until it's too late. This tool exposes the same blind spots in broadcast alert infrastructure: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context and can be used to validate alert behavior before real-world broadcast conditions.",
-        alliance: "Dead Head",
+        statement: "Dead Head is a submerged hazard — the kind of thing you don't see until it's too late. Zero Trust Radio surfaces blind spots in broadcast alert infrastructure. Dead Head extends that mission: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context. Validate alert behavior before it matters in the field.",
+        alliance: "Zero Trust Radio Alliance",
         nav: {
             decoder: "Decode",
             encoder: "Generate",
@@ -26,7 +27,7 @@
         }
     };
 
-    const docTitle = (page) => `${BRAND.product}${page ? ` — ${page}` : ""}`;
+    const docTitle = (page) => `${BRAND.product} · ${BRAND.platform}${page ? ` — ${page}` : ""}`;
 
     const renderBrandHeader = (options = {}) => {
         const host = document.querySelector('[data-brand-header]') || document.querySelector('header');
@@ -119,7 +120,7 @@
     };
 
     const applyDocumentTitle = (page) => {
-        if (!document.title || document.title.indexOf(BRAND.product) === -1) {
+        if (!document.title || (document.title.indexOf(BRAND.product) === -1 && document.title.indexOf(BRAND.platform) === -1)) {
             document.title = docTitle(page);
         }
     };

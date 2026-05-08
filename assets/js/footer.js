@@ -6,7 +6,9 @@ footer.innerHTML = `
 <div class="ztr-footer">
     <div class="ztr-footer__top">
         <div class="ztr-footer__brand">
-            <span class="ztr-footer__platform">Dead Head</span>
+            <span class="ztr-footer__platform">Zero Trust Radio Alliance</span>
+            <span class="ztr-footer__sep">·</span>
+            <span class="ztr-footer__module">Dead Head</span>
         </div>
         <p class="ztr-footer__mission">Includes EAS simulation, decode, and parsing capabilities for lab/testing workflows. Not for live broadcast without authorization.</p>
     </div>
