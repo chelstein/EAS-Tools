@@ -88,6 +88,10 @@
                     <div class="ztr-hero__title">
                         <div class="ztr-hero__logo-band">
                             <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-hero__logo">
+                            <div class="ztr-hero__logo-text">
+                                <span class="ztr-hero__logo-name">Dead Head</span>
+                                <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
+                            </div>
                         </div>
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
