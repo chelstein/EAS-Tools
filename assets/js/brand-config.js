@@ -1,20 +1,20 @@
-// Dead Head — a Zero Trust Radio tool.
-// Dead Head is the EAS simulation, signal decode, and station fire module
+// Dead Head IQ — a Zero Trust Radio tool.
+// Dead Head IQ is the EAS simulation, signal decode, and station fire module
 // of the Zero Trust Radio platform.
 // This module renders the shared header/footer lockup and exposes
 // BRAND as a global for other scripts that want the canonical names.
 (function () {
     const BRAND = {
         platform: "Zero Trust Radio",
-        product: "Dead Head",
+        product: "Dead Head IQ",
         module: "",
         subtitle: "a Zero Trust Radio tool",
         heroSubhead: "Synthetic Alert Generation · Signal Decode · Station Fire Simulation",
-        heroBody: "Operational EAS testing from the bottom of the signal chain. Dead Head surfaces the alert infrastructure blind spots you don't see until it's too late — all in-browser, no server required.",
+        heroBody: "Operational EAS testing from the bottom of the signal chain. Dead Head IQ surfaces the alert infrastructure blind spots you don't see until it's too late — all in-browser, no server required.",
         heroIntegration: "Part of the Zero Trust Radio platform. EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
         tagline: "Synthetic alert generation, decode, validation, and station fire simulation.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
-        statement: "Dead Head is a submerged hazard — the kind of thing you don't see until it's too late. Zero Trust Radio surfaces blind spots in broadcast alert infrastructure. Dead Head extends that mission: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context. Validate alert behavior before it matters in the field.",
+        statement: "Dead Head IQ is a submerged hazard — the kind of thing you don't see until it's too late. Zero Trust Radio surfaces blind spots in broadcast alert infrastructure. Dead Head IQ extends that mission: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context. Validate alert behavior before it matters in the field.",
         alliance: "Zero Trust Radio Alliance",
         nav: {
             decoder: "Decode",
@@ -51,12 +51,11 @@
         // listeners (attached by index.html's inline IIFE) survive.
         const inner = document.createElement('div');
         inner.className = 'ztr-header__inner';
-        const logoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(52) : '';
         inner.innerHTML = `
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
                     <span class="ztr-lockup__badge-wrap">
-                        ${logoSVG}
+                        <img src="assets/deadheadiq-logo.png" alt="${BRAND.product}" class="dh-badge" width="52" height="52">
                         <span class="ztr-lockup__status" aria-hidden="true">
                             <span class="ztr-header__rose"></span>
                             <span class="ztr-header__rose"></span>
@@ -81,15 +80,14 @@
         const hero = document.querySelector('[data-brand-hero]');
         if (!hero) return;
         if (hero.querySelector('.ztr-hero__inner')) return; // idempotent
-        const heroLogoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(80) : '';
         hero.innerHTML = `
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
                         <div class="ztr-hero__logo-band">
-                            ${heroLogoSVG}
+                            <img src="assets/deadheadiq-logo.png" alt="${BRAND.product}" class="dh-badge" width="80" height="80">
                             <div class="ztr-hero__logo-text">
-                                <span class="ztr-hero__logo-name">Dead Head</span>
+                                <span class="ztr-hero__logo-name">Dead Head IQ</span>
                                 <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
                             </div>
                         </div>
