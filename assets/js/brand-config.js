@@ -50,18 +50,20 @@
         // listeners (attached by index.html's inline IIFE) survive.
         const inner = document.createElement('div');
         inner.className = 'ztr-header__inner';
-        const logoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(44) : '';
+        const logoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(52) : '';
         inner.innerHTML = `
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
-                    ${logoSVG}
+                    <span class="ztr-lockup__badge-wrap">
+                        ${logoSVG}
+                        <span class="ztr-lockup__status" aria-hidden="true">
+                            <span class="ztr-header__rose"></span>
+                            <span class="ztr-header__rose"></span>
+                            <span class="ztr-header__rose"></span>
+                        </span>
+                    </span>
                     ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
-            </div>
-            <div class="ztr-header__ornament" aria-hidden="true">
-                <span class="ztr-header__rose"></span>
-                <span class="ztr-header__rose"></span>
-                <span class="ztr-header__rose"></span>
             </div>
         `;
 
