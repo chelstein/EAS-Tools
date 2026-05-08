@@ -250,17 +250,18 @@ header.ztr-header::before {
     text-decoration: none;
 }
 
-.ztr-lockup__logo {
-    height: 52px;
-    width: 52px;
+.dh-badge {
     display: block;
+    flex-shrink: 0;
     border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(27, 36, 48, 0.22);
-    transition: opacity 120ms ease;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(27, 36, 48, 0.28);
+    transition: opacity 120ms ease, transform 120ms ease;
 }
 
-.ztr-lockup__home:hover .ztr-lockup__logo {
+.ztr-lockup__home:hover .dh-badge {
     opacity: 0.88;
+    transform: scale(0.97);
 }
 
 .ztr-lockup__sub {
