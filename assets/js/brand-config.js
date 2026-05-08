@@ -62,6 +62,11 @@
                 <span class="ztr-header__rose"></span>
                 <span class="ztr-header__rose"></span>
             </div>
+            <div class="ztr-header__ornament" aria-hidden="true">
+                <span class="ztr-header__rose"></span>
+                <span class="ztr-header__rose"></span>
+                <span class="ztr-header__rose"></span>
+            </div>
         `;
 
         host.classList.add('ztr-header');
@@ -81,7 +86,13 @@
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
-                        <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-hero__logo">
+                        <div class="ztr-hero__logo-band">
+                            <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-hero__logo">
+                            <div class="ztr-hero__logo-text">
+                                <span class="ztr-hero__logo-name">Dead Head</span>
+                                <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
+                            </div>
+                        </div>
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
                         <div class="ztr-hero__capabilities" aria-label="Core capabilities">
