@@ -264,6 +264,27 @@ header.ztr-header::before {
     transform: scale(0.97);
 }
 
+/* Badge + status dots pinned together in header */
+.ztr-lockup__badge-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.ztr-lockup__status {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    background: var(--ztr-panel);
+    border-radius: 999px;
+    padding: 2px 5px;
+    border: 1px solid var(--ztr-border-soft);
+    box-shadow: 0 1px 3px rgba(27,36,48,0.2);
+}
+
 .ztr-lockup__sub {
     color: var(--ztr-text-secondary);
     font-family: var(--ztr-font-display);
@@ -274,13 +295,13 @@ header.ztr-header::before {
 }
 
 .ztr-hero__logo-band {
-    margin: -28px -28px 24px -28px;
-    padding: 18px 28px;
+    margin: -28px -28px 28px -28px;
+    padding: 24px 28px;
     background: var(--ztr-panel-dark);
     border-radius: var(--ztr-radius-xl) var(--ztr-radius-xl) 0 0;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
     overflow: hidden;
     border-bottom: 2px solid rgba(15, 124, 123, 0.35);
     box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
@@ -298,16 +319,16 @@ header.ztr-header::before {
 .ztr-hero__logo-text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
 }
 
 .ztr-hero__logo-name {
     color: #fff;
     font-family: var(--ztr-font-display);
-    font-size: 2rem;
+    font-size: clamp(2rem, 3.5vw, 2.8rem);
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     line-height: 1;
 }
