@@ -56,11 +56,6 @@
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
                     <span class="ztr-lockup__badge-wrap">
                         <img src="assets/deadheadiq-logo.png" alt="${BRAND.product}" class="dh-badge" width="52" height="52">
-                        <span class="ztr-lockup__status" aria-hidden="true">
-                            <span class="ztr-header__rose"></span>
-                            <span class="ztr-header__rose"></span>
-                            <span class="ztr-header__rose"></span>
-                        </span>
                     </span>
                     ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
