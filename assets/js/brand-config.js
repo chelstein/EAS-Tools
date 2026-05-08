@@ -50,17 +50,13 @@
         // listeners (attached by index.html's inline IIFE) survive.
         const inner = document.createElement('div');
         inner.className = 'ztr-header__inner';
+        const logoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(44) : '';
         inner.innerHTML = `
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
-                    <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-lockup__logo">
+                    ${logoSVG}
                     ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
-            </div>
-            <div class="ztr-header__ornament" aria-hidden="true">
-                <span class="ztr-header__rose"></span>
-                <span class="ztr-header__rose"></span>
-                <span class="ztr-header__rose"></span>
             </div>
             <div class="ztr-header__ornament" aria-hidden="true">
                 <span class="ztr-header__rose"></span>
@@ -82,12 +78,13 @@
         const hero = document.querySelector('[data-brand-hero]');
         if (!hero) return;
         if (hero.querySelector('.ztr-hero__inner')) return; // idempotent
+        const heroLogoSVG = window.deadHeadLogoSVG ? window.deadHeadLogoSVG(80) : '';
         hero.innerHTML = `
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
                         <div class="ztr-hero__logo-band">
-                            <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-hero__logo">
+                            ${heroLogoSVG}
                             <div class="ztr-hero__logo-text">
                                 <span class="ztr-hero__logo-name">Dead Head</span>
                                 <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
