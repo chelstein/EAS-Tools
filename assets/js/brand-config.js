@@ -53,16 +53,8 @@
         inner.innerHTML = `
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
-                    <span class="ztr-lockup__mark" aria-hidden="true"></span>
-                    <span class="ztr-lockup__text">
-                        ${BRAND.platform ? `<span class="ztr-lockup__eyebrow">${BRAND.platform}</span>` : ''}
-                        <span class="ztr-lockup__product">
-                            ${BRAND.product}${BRAND.module ? `
-                            <span class="ztr-lockup__sep">/</span>
-                            <span class="ztr-lockup__module">${BRAND.module}</span>` : ''}${subPage ? ` <span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
-                        </span>
-                        <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
-                    </span>
+                    <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-lockup__logo">
+                    ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
             </div>
             <div class="ztr-header__ornament" aria-hidden="true">
@@ -89,8 +81,7 @@
             <div class="ztr-hero__inner">
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
-                        <span class="ztr-hero__kicker">${BRAND.product}</span>
-                        <h1 class="ztr-hero__module">${BRAND.module}</h1>
+                        <img src="assets/eas-logo-banner.png" alt="${BRAND.product}" class="ztr-hero__logo">
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
                         <div class="ztr-hero__capabilities" aria-label="Core capabilities">
