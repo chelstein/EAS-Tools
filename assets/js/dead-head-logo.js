@@ -11,35 +11,46 @@
             '     role="img" aria-label="Dead Head"',
             '     class="dh-badge">',
 
-            '  <!-- Background -->',
+            '  <!-- Background — deep water -->',
             '  <rect width="44" height="44" rx="10" fill="#0d1a27"/>',
 
             '  <!-- Danger border -->',
             '  <rect width="44" height="44" rx="10" fill="none" stroke="#c95d2e" stroke-width="2" opacity="0.28"/>',
 
-            '  <!-- Skull — slightly taller than wide -->',
-            '  <ellipse cx="22" cy="15" rx="10.5" ry="11.5" fill="#e0dbc8"/>',
+            '  <!-- Log body — waterlogged, angled from lower-left to upper-right -->',
+            '  <!-- Parallelogram: top edge (6,38)→(40,22), bottom edge (6,44)→(40,28) -->',
+            '  <path d="M6,38 L40,22 L40,28 L6,44 Z" fill="#1e0d04"/>',
 
-            '  <!-- Eye sockets — hollow dark, angled slightly inward for menace -->',
-            '  <ellipse cx="17" cy="13" rx="3.5" ry="4" fill="#0d1a27"/>',
-            '  <ellipse cx="27" cy="13" rx="3.5" ry="4" fill="#0d1a27"/>',
+            '  <!-- Log left end cap -->',
+            '  <ellipse cx="6" cy="41" rx="3.5" ry="4.2" fill="#1e0d04" stroke="#2e1508" stroke-width="0.6"/>',
 
-            '  <!-- Teeth — zigzag row, reads as skull not smiley -->',
-            '  <path d="M14.5,21.5 L17,24 L19.5,21.5 L22,24 L24.5,21.5 L27,24 L29.5,21.5"',
-            '        fill="none" stroke="#0d1a27" stroke-width="1.9"',
-            '        stroke-linejoin="round" stroke-linecap="round"/>',
+            '  <!-- Log right end cap — cut wood, slightly lighter, shows annual rings -->',
+            '  <ellipse cx="40" cy="25" rx="3.5" ry="4.2" fill="#2e1508"/>',
+            '  <ellipse cx="40" cy="25" rx="2.4" ry="3" fill="none" stroke="#1e0d04" stroke-width="0.6" opacity="0.7"/>',
+            '  <ellipse cx="40" cy="25" rx="1.1" ry="1.5" fill="none" stroke="#1e0d04" stroke-width="0.5" opacity="0.5"/>',
 
-            '  <!-- Water surface -->',
-            '  <path d="M0,27 Q6,24.5 11,27 Q17,29.5 22,27 Q28,24.5 33,27 Q38,29.5 44,27"',
-            '        fill="none" stroke="#1abaaf" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>',
+            '  <!-- Wood grain lines along log length -->',
+            '  <line x1="10" y1="37" x2="38" y2="23" stroke="#2c1208" stroke-width="0.8" opacity="0.7"/>',
+            '  <line x1="10" y1="40.5" x2="38" y2="26.5" stroke="#2c1208" stroke-width="0.8" opacity="0.7"/>',
 
-            '  <!-- Ripple rings -->',
-            '  <ellipse cx="22" cy="28.5" rx="17" ry="2.6" fill="none" stroke="#1abaaf" stroke-width="1" opacity="0.38"/>',
-            '  <ellipse cx="22" cy="31" rx="11" ry="1.8" fill="none" stroke="#1abaaf" stroke-width="0.7" opacity="0.2"/>',
+            '  <!-- Dark water — swallows the log below the wave -->',
+            '  <path d="M0,26.5 Q5.5,24.5 11,26.5 Q16.5,28.5 22,26.5 Q27.5,24.5 33,26.5 Q38.5,28.5 44,26.5 L44,44 L0,44 Z"',
+            '        fill="#07101a"/>',
+
+            '  <!-- Teal wave surface -->',
+            '  <path d="M0,26.5 Q5.5,24.5 11,26.5 Q16.5,28.5 22,26.5 Q27.5,24.5 33,26.5 Q38.5,28.5 44,26.5"',
+            '        fill="none" stroke="#1abaaf" stroke-width="2.2" stroke-linecap="round" opacity="0.92"/>',
+
+            '  <!-- Water disturbance where log breaks surface (~x=33) -->',
+            '  <ellipse cx="35" cy="27" rx="5" ry="1.4" fill="none" stroke="#1abaaf" stroke-width="0.9" opacity="0.5"/>',
+
+            '  <!-- Ripples below -->',
+            '  <ellipse cx="22" cy="30" rx="15" ry="2" fill="none" stroke="#1abaaf" stroke-width="0.8" opacity="0.28"/>',
+            '  <ellipse cx="22" cy="32.5" rx="9" ry="1.3" fill="none" stroke="#1abaaf" stroke-width="0.6" opacity="0.15"/>',
 
             '  <!-- Hazard dot -->',
-            '  <circle cx="38.5" cy="5.5" r="3" fill="#c95d2e"/>',
-            '  <circle cx="38.5" cy="5.5" r="1.5" fill="#ff7845" opacity="0.85"/>',
+            '  <circle cx="7" cy="6" r="3" fill="#c95d2e"/>',
+            '  <circle cx="7" cy="6" r="1.5" fill="#ff7845" opacity="0.85"/>',
 
             '</svg>'
         ].join('\n');
