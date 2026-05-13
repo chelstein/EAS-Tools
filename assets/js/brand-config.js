@@ -55,7 +55,7 @@
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
                     <span class="ztr-lockup__badge-wrap">
-                        <img src="assets/deadheadiq-logo.png" alt="${BRAND.product}" class="dh-badge" width="52" height="52">
+                        ${window.sandbarIQLogo ? window.sandbarIQLogo(52) : '<img src="assets/deadheadiq-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="52" height="52">'}
                     </span>
                     ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
@@ -80,7 +80,7 @@
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
                         <div class="ztr-hero__logo-band">
-                            <img src="assets/deadheadiq-logo.png" alt="${BRAND.product}" class="dh-badge" width="80" height="80">
+                            ${window.sandbarIQLogo ? window.sandbarIQLogo(80) : '<img src="assets/deadheadiq-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="80" height="80">'}
                             <div class="ztr-hero__logo-text">
                                 <span class="ztr-hero__logo-name">Dead Head IQ</span>
                                 <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
