@@ -135,7 +135,7 @@ p {
 
 a {
     color: var(--ztr-accent);
-    text-decoration-color: rgba(14, 150, 148, 0.35);
+    text-decoration-color: rgba(201, 122, 14, 0.35);
     text-underline-offset: 2px;
 }
 
