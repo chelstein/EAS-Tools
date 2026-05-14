@@ -67,7 +67,7 @@
                         <li><a href="#">Where can I report bugs or request features without knowing how to code?</a></li>
                         <li><a href="#">You mentioned a web TTS service? What's that, and how does it work?</a></li>
                         <li><a href="#">How can I support the development of EAS Tools?</a></li>
-                        <li><a href="#">Are there currently any known issues or limitations with EAS Tools? (updated as of 2026-02-15)</a></li>
+                        <li><a href="#">Are there currently any known issues or limitations with EAS Tools? (updated as of 2026-05-14)</a></li>
                         <li><a href="#">How can I get more involved in the overall EAS community?</a></li>
                     </ul>
                 </div>
@@ -167,7 +167,7 @@
                         <li><strong>ZCZC</strong>: This is the start of the SAME header, indicating the beginning of the message. This is what encoders and decoders look for when processing the alert.</li>
                         <li><strong>PEP</strong>: The Originator code, indicating who issued the alert (e.g., PEP for Primary Entry Point). The only options are PEP, EAS (Emergency Alert System Participant, usually a sole TV/AM/FM station), CIV (Civil Authorities), and WXR (NOAA Weather Radio).</li>
                         <li><strong>NPT</strong>: The Event Code, specifying the type of alert (e.g., NPT for National Periodic Test). There's a whole list of event codes on <a target="_blank" href="https://en.wikipedia.org/wiki/Specific_Area_Message_Encoding#Event_codes">Wikipedia</a>.</li>
-                        <li><strong>000000</strong>: The Location Code (or codes, if there are multiple), representing the areas affected by the alert. There can be between 1 and 31 location codes.</li>
+                        <li><strong>000000</strong>: The Location Code (or codes, if there are multiple), representing the areas affected by the alert. There can be between 1 and 31 location codes. Each location code is 6 digits in the format <code>PSSCCC</code>, where <code>P</code> is a subdivision digit (0 = entire area; 1–9 correspond to NW/N/NE/W/Central/E/SW/S/SE), <code>SS</code> is the two-digit FIPS state code, and <code>CCC</code> is the three-digit FIPS county code (000 = entire state). The special code <code>000000</code> targets all of the United States.</li>
                         <li><strong>+0100-0011337</strong>: The Valid Time Period, indicating how long the alert is valid for (duration and issuance Julian date/UTC time).</li>
                         <li><strong>ORIGIN</strong>: The Originator Identifier, providing additional information about the source of the alert. This is usually where the station's call sign or other identifying information would be included.</li>
                         <li><strong>-</strong>: The end of the SAME header, indicating the conclusion of the message.</li>
@@ -207,7 +207,7 @@
                 </section>
                 <section>
                     <h3>Tool: Text Crawl Generator</h3>
-                    <p>The Text Crawl Generator tool allows you to create scrolling text crawls that can be used in conjunction with EAS alert audio. Note, however, you must generate the audio and crawl separately and combine them using an outside tool like <a href="https://ffmpeg.org/" target="_blank">ffmpeg</a> or a standard video editor, you can NOT combine them with this tool alone. You can customize pretty much any aspect of the crawl that is generated to fit your needs or scenario.</p>
+                    <p>The Text Crawl Generator tool allows you to create scrolling text crawls that can be used in conjunction with EAS alert audio. You must generate the audio and crawl separately; to combine them into a single file, use the <strong>Artifacts (Video/Audio Muxer)</strong> tab built into this tool, or an external tool such as <a href="https://ffmpeg.org/" target="_blank">ffmpeg</a>. You can customize pretty much any aspect of the crawl that is generated to fit your needs or scenario.</p>
                     <p>To use the Text Crawl Generator tool, follow these steps:</p>
                     <ol>
                         <li>Select a crawl text source. You can choose to enter your own text, or use a SAME header. SAME headers pull the alert text using a JavaScript module called <a href="https://github.com/wagwan-piffting-blud/E2T-NG" target="_blank">E2T-NG</a>.</li>
