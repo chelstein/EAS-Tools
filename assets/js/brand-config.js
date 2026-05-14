@@ -9,9 +9,9 @@
         product: "SandBarIQ",
         module: "",
         subtitle: "Navigate. Analyze. Elevate.",
-        heroSubhead: "Synthetic Alert Generation · Signal Decode · Station Fire Simulation",
-        heroBody: "SandBarIQ gives you complete visibility into EAS/SAME signal infrastructure. Navigate alert data, analyze signal artifacts, and elevate your broadcast operation — all in-browser, no server required.",
-        heroIntegration: "Part of the Zero Trust Radio platform. EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
+        heroSubhead: "Decode · Generate · Crawl · Assemble · Phoneme · Normalize · Mux",
+        heroBody: "Seven integrated tools for EAS/SAME signal work — all running locally in your browser. Decode live microphone or stream input, generate validated SAME headers with US and Canada FIPS support, build broadcast-quality text crawls, assemble multi-segment audio, convert TTS phonemes, normalize AWIPS products, and mux artifacts into broadcast-ready deliverables. No signal leaves your workstation.",
+        heroIntegration: "Part of the Zero Trust Radio platform. AFSK decode at 520.83 bps · Up to 31 FIPS location codes · 10+ ENDEC profiles · US &amp; Canada SAME.",
         tagline: "Navigate. Analyze. Elevate. EAS/SAME tools that run entirely in your browser.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
         statement: "SandBarIQ surfaces the hidden hazards in broadcast alert infrastructure — the blind spots you don't see until it's too late. Synthetic alert generation, real-time decode, and station-level fire simulation, all running locally in your browser. Navigate your signal chain. Analyze alert behavior. Elevate your operation before it matters in the field.",
@@ -93,9 +93,9 @@
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
                         <div class="ztr-hero__capabilities" aria-label="Core capabilities">
-                            <span>Navigate</span>
-                            <span>Analyze</span>
-                            <span>Elevate</span>
+                            <span>7 Integrated Tools</span>
+                            <span>In-Browser · No Server</span>
+                            <span>US &amp; Canada SAME</span>
                         </div>
                         <p class="ztr-hero__integration">
                             <span class="ztr-hero__integration-dot" aria-hidden="true"></span>

@@ -55,7 +55,7 @@
         <main>
             <section id="decoder-panel" class="tool-panel active" aria-labelledby="tab-decoder">
                 <h2 class="section-heading">Decode — SAME Signal Intake</h2>
-                <p class="section-subhead">Ingest microphone, stream, or artifact audio and parse SAME headers in-browser. No signal leaves the workstation.</p>
+                <p class="section-subhead">Ingest microphone, stream, or artifact audio and decode SAME headers in-browser via AFSK at 520.83 bps. Identifies originator, event code, FIPS location codes, valid time, and ENDEC profile. No signal leaves the workstation.</p>
                 <hr>
                 <div data-mic-container style="display: none;">Select Microphone: <select id="device"></select></div>
                 <span>
@@ -113,7 +113,7 @@
             </section>
             <section id="encoder-panel" class="tool-panel" aria-labelledby="tab-encoder">
                 <h2 class="section-heading">Generate — Synthetic Alert Artifact</h2>
-                <p class="section-subhead">Compose a validated SAME payload, preview the header, and export a lab-grade WAV artifact for station fire testing and integration validation.</p>
+                <p class="section-subhead">Compose a validated SAME payload (PEP / WXR / EAS / CIV originators, up to 31 FIPS location codes, US and Canada), preview the header, and export a lab-grade WAV artifact with attention tone, optional TTS or custom audio, and ENDEC profile matching.</p>
                 <hr>
                 <label for="encoderMode">Select EAS Header Generation Mode:</label>
                 <select id="encoderMode">
@@ -330,7 +330,7 @@
             </section>
             <section id="crawl-panel" class="tool-panel" aria-labelledby="tab-crawl">
                 <h2 class="section-heading">Crawl Builder — Visual Layer</h2>
-                <p class="section-subhead">Compose validated alert crawls for station overlay, signage, and validation loops. Export as GIF or WebM artifacts.</p>
+                <p class="section-subhead">Compose broadcast-quality alert crawls from custom text or a decoded SAME header via E2T-NG. Control font, speed, VDS mode, background, outline, and canvas dimensions. Export as GIF or WebM artifact.</p>
                 <hr>
                 <label for="crawlUserPreset">Save/Load User Preset...</label>
                 <select id="crawlUserPreset">
@@ -532,7 +532,7 @@
             </section>
             <section id="splicer-panel" class="tool-panel" aria-labelledby="tab-splicer">
                 <h2 class="section-heading">Audio Assembly — Artifact Composition</h2>
-                <p class="section-subhead">Combine TTS, uploaded samples, and macros into a single validated WAV artifact. All processing stays on this workstation.</p>
+                <p class="section-subhead">Build multi-segment alert audio from uploaded artifacts and TTS. Trim, split, join, adjust loudness, apply ENDEC macros, and insert silence. Session auto-saves locally. Export as a single WAV artifact.</p>
                 <hr>
                 <div class="splice-grid">
                     <div class="waveform-card">
@@ -692,7 +692,7 @@
             </section>
             <section id="phoneme-panel" class="tool-panel" aria-labelledby="tab-phoneme">
                 <h2 class="section-heading">Phoneme Lab — Voice Pronunciation Tuning</h2>
-                <p class="section-subhead">Translate word ↔ phoneme and cross-convert backends to tune TTS voices for operational clarity.</p>
+                <p class="section-subhead">Translate word ↔ phoneme and cross-convert between VTML, Balabolka, and DECTalk backends. Includes NWS-sourced pronunciation overrides so TTS voices read location names, event codes, and agency identifiers correctly.</p>
                 <hr>
                 <label for="phonemeText">Enter text to convert to phonemes (or vice-versa):</label>
                 <br>
@@ -740,7 +740,7 @@
 
             <section id="normalizer-panel" class="tool-panel" aria-labelledby="tab-normalizer">
                 <h2 class="section-heading">Product Normalizer — VTAC / AWIPS</h2>
-                <p class="section-subhead">Normalize raw VTAC/AWIPS product text into operator-grade input for synthesis and crawl workflows.</p>
+                <p class="section-subhead">Normalize raw NWS VTAC / AWIPS product text — strip formatting artifacts, expand abbreviations, and produce clean operator-grade copy ready for TTS synthesis or crawl generation.</p>
                 <hr>
                 <label for="shouldRepeat">Include "Repeating..." line: </label>
                 <input type="checkbox" id="shouldRepeat" name="shouldRepeat">
@@ -762,7 +762,7 @@
             </section>
             <section id="muxer-panel" class="tool-panel" aria-labelledby="tab-muxer">
                 <h2 class="section-heading">Artifacts — Video / Audio Muxer</h2>
-                <p class="section-subhead">Combine artifact video with a synthesized audio track to produce a unified broadcast-ready deliverable.</p>
+                <p class="section-subhead">Mux crawl video (WebM/GIF) with alert audio into a single broadcast-ready deliverable using in-browser FFmpeg. Supports MP4 output, multi-core processing, and progress monitoring.</p>
                 <hr>
                 <div id="muxer-container">
                     <!-- Muxer iframe will be injected here when activated -->

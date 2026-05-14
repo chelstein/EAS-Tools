@@ -690,8 +690,14 @@ button[data-tool]:focus-visible {
 }
 
 .section-heading::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
     background: var(--ztr-accent);
-    box-shadow: 0 0 0 3px rgba(201, 122, 14, 0.18);
+    box-shadow: 0 0 0 3px rgba(201, 122, 14, 0.20);
 }
 
 .section-subhead {
@@ -1821,4 +1827,145 @@ pre, code {
         color-scheme: light;
     }
     body { background: var(--ztr-bg); color: var(--ztr-text); }
+}
+
+/* -----------------------------------------------------------
+   18. Tool panel form section cards
+   Group related controls into visible surface areas so each
+   logical section of a panel reads as a distinct unit.
+   These selectors target existing IDs/classes — no markup
+   changes, no JS coupling.
+   ----------------------------------------------------------- */
+
+/* Encoder: main header builder and raw-header input surfaces */
+#customEncoder,
+#stringEncoder {
+    background: var(--ztr-panel);
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: var(--ztr-radius-lg);
+    padding: var(--ztr-space-5);
+    margin: var(--ztr-space-4) 0;
+    box-shadow: var(--ztr-shadow-1);
+}
+
+/* Encoder: announcement section (TTS or custom audio) */
+#tts,
+#customAudioDiv {
+    background: var(--ztr-bg-raised);
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: var(--ztr-radius-md);
+    padding: var(--ztr-space-4);
+    margin: var(--ztr-space-3) 0;
+    box-shadow: var(--ztr-shadow-1);
+}
+
+/* Encoder: attention tone duration — accent left-border stripe */
+#tlenContainer {
+    background: rgba(201, 122, 14, 0.05);
+    border-left: 3px solid var(--ztr-accent);
+    border-radius: 0 var(--ztr-radius-sm) var(--ztr-radius-sm) 0;
+    padding: var(--ztr-space-3) var(--ztr-space-4);
+    margin: var(--ztr-space-2) 0;
+}
+
+/* Crawl: settings card */
+.crawl-settings {
+    background: var(--ztr-panel);
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: var(--ztr-radius-lg);
+    padding: var(--ztr-space-5);
+    margin: var(--ztr-space-4) 0;
+    box-shadow: var(--ztr-shadow-1);
+}
+
+/* Crawl: E2T options sub-card */
+#E2TOptions {
+    background: var(--ztr-bg-raised);
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: var(--ztr-radius-md);
+    padding: var(--ztr-space-4);
+    margin: var(--ztr-space-3) 0;
+}
+
+/* Splicer: static noise sub-group */
+#staticNoiseOptions {
+    background: rgba(27, 36, 48, 0.04);
+    border-left: 3px solid var(--ztr-border-soft);
+    border-radius: 0 var(--ztr-radius-sm) var(--ztr-radius-sm) 0;
+    padding: var(--ztr-space-3) var(--ztr-space-4);
+    margin: var(--ztr-space-2) 0;
+}
+
+/* Output pre blocks: ensure a reasonable min-height so empty
+   state doesn't collapse the area */
+#phonemeOutput,
+#normalizedProduct {
+    min-height: 80px;
+}
+
+/* FIPS location table: tighten the wrapper spacing */
+#fips {
+    margin-top: var(--ztr-space-3);
+    margin-bottom: var(--ztr-space-4);
+}
+
+/* Decoder: AFSK bit-stream display */
+#afsk {
+    font-family: var(--ztr-font-mono);
+    font-size: 0.78rem;
+    color: var(--ztr-text-muted);
+    letter-spacing: 0.06em;
+    word-break: break-all;
+    line-height: 1.6;
+}
+
+/* Crawl export progress bar — visible only during export */
+.crawl-export-progress {
+    border-radius: var(--ztr-radius-md);
+    padding: var(--ztr-space-3) var(--ztr-space-4);
+}
+
+/* Splice segment list — cards for each segment */
+.splice-segment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Inline status lines next to buttons */
+.status-line {
+    font-size: 0.88rem;
+    color: var(--ztr-text-muted);
+    font-style: italic;
+}
+
+/* Level meter — reinforce brand borders */
+.level-meter {
+    border: 1px solid var(--ztr-border-soft);
+    border-radius: var(--ztr-radius-md);
+    background: var(--ztr-bg-raised);
+    padding: var(--ztr-space-2) var(--ztr-space-3);
+    margin: var(--ztr-space-3) 0;
+}
+
+.level-meter__fill {
+    background: linear-gradient(90deg, var(--ztr-ok) 0%, #a8d44a 60%, var(--ztr-alert) 85%, var(--ztr-danger) 100%);
+}
+
+/* Guide block in splicer waveform card */
+.waveform-card .guide {
+    color: var(--ztr-text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    border-top: 1px dashed var(--ztr-border-soft);
+    padding-top: var(--ztr-space-3);
+    margin-top: var(--ztr-space-3);
+}
+
+.waveform-card .guide ul {
+    padding-left: var(--ztr-space-4);
+    margin: var(--ztr-space-2) 0 0;
 }
