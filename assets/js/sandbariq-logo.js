@@ -1,6 +1,6 @@
-// SandbarIQ badge — inline SVG component.
+// SandBarIQ badge — inline SVG component.
 // Call sandbarIQLogo(size) to get a scalable inline SVG string.
-// Default size: 44. Legible at 24, 32, and 44px.
+// Default size: 44. Legible at 24, 32, 44, 52, and 80px.
 (function () {
     function sandbarIQLogo(size) {
         size = size || 44;
@@ -8,48 +8,48 @@
             '<svg xmlns="http://www.w3.org/2000/svg"',
             '     viewBox="0 0 44 44"',
             '     width="' + size + '" height="' + size + '"',
-            '     role="img" aria-label="SandbarIQ"',
+            '     role="img" aria-label="SandBarIQ"',
             '     class="dh-badge">',
 
-            '  <!-- Background — deep water -->',
-            '  <rect width="44" height="44" rx="10" fill="#0d1a27"/>',
+            '  <!-- Background — warm sand -->',
+            '  <rect width="44" height="44" rx="10" fill="#f5e9cc"/>',
 
-            '  <!-- Danger border -->',
-            '  <rect width="44" height="44" rx="10" fill="none" stroke="#c95d2e" stroke-width="2" opacity="0.28"/>',
+            '  <!-- Sun halo outer -->',
+            '  <circle cx="22" cy="21" r="15" fill="#f0c070" opacity="0.38"/>',
 
-            '  <!-- Sandbar body — broad sandy shoal -->',
-            '  <ellipse cx="22" cy="31" rx="20" ry="13" fill="#b8882a"/>',
+            '  <!-- Sun halo inner -->',
+            '  <circle cx="22" cy="21" r="10" fill="#e8860a" opacity="0.45"/>',
 
-            '  <!-- Dry sand highlight on exposed hump -->',
-            '  <ellipse cx="22" cy="26" rx="14" ry="5.5" fill="#d4a43c" opacity="0.7"/>',
+            '  <!-- Sun core -->',
+            '  <circle cx="22" cy="21" r="6.5" fill="#e8860a" opacity="0.9"/>',
 
-            '  <!-- Sand contour / tide lines on exposed surface -->',
-            '  <path d="M13,22 Q22,20 31,22"',
-            '        fill="none" stroke="#e8c060" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>',
-            '  <path d="M9,24.5 Q22,22.5 35,24.5"',
-            '        fill="none" stroke="#e8c060" stroke-width="0.7" stroke-linecap="round" opacity="0.35"/>',
+            '  <!-- 8-point compass star (dark navy) -->',
+            '  <!-- Cardinal points -->',
+            '  <polygon points="22,6 23.3,19 22,21 20.7,19" fill="#1a2438"/>',
+            '  <polygon points="38,21 25,22.3 23,22 25,20.7" fill="#1a2438"/>',
+            '  <polygon points="22,36 20.7,23 22,21 23.3,23" fill="#1a2438"/>',
+            '  <polygon points="6,21 19,20.7 21,22 19,23.3" fill="#1a2438"/>',
+            '  <!-- Intercardinal points (shorter) -->',
+            '  <polygon points="33.2,10.8 24.3,20.3 22.5,21.5 23.5,19.5" fill="#1a2438" opacity="0.65"/>',
+            '  <polygon points="33.2,31.2 23.7,21.7 22.5,19.5 24.5,20.5" fill="#1a2438" opacity="0.65"/>',
+            '  <polygon points="10.8,31.2 20.3,21.7 21.5,22.5 19.5,23.5" fill="#1a2438" opacity="0.65"/>',
+            '  <polygon points="10.8,10.8 20.5,20.5 21.5,22.5 19.5,21.5" fill="#1a2438" opacity="0.65"/>',
 
-            '  <!-- Dark water body — covers submerged sandbar -->',
-            '  <path d="M0,26 Q5.5,24 11,26 Q16.5,28 22,26 Q27.5,24 33,26 Q38.5,28 44,26 L44,44 L0,44 Z"',
-            '        fill="#07101a" opacity="0.7"/>',
+            '  <!-- Center dot -->',
+            '  <circle cx="22" cy="21" r="2.2" fill="#1a2438"/>',
 
-            '  <!-- Teal wave surface -->',
-            '  <path d="M0,26 Q5.5,24 11,26 Q16.5,28 22,26 Q27.5,24 33,26 Q38.5,28 44,26"',
-            '        fill="none" stroke="#1abaaf" stroke-width="2.2" stroke-linecap="round" opacity="0.92"/>',
+            '  <!-- Water / horizon line -->',
+            '  <path d="M1,34 Q5.5,32 11,34 Q16.5,36 22,34 Q27.5,32 33,34 Q38.5,36 43,34"',
+            '        fill="none" stroke="#1a2438" stroke-width="1.6" stroke-linecap="round" opacity="0.55"/>',
 
-            '  <!-- Side ripples where sandbar edges break surface -->',
-            '  <ellipse cx="5" cy="27" rx="4.5" ry="1.5" fill="none" stroke="#1abaaf" stroke-width="0.9" opacity="0.45"/>',
-            '  <ellipse cx="39" cy="27" rx="4.5" ry="1.5" fill="none" stroke="#1abaaf" stroke-width="0.9" opacity="0.45"/>',
+            '  <!-- Tiny sailboat silhouette -->',
+            '  <path d="M30,34 L30,27 L36,33 Z" fill="#1a2438" opacity="0.65"/>',
+            '  <rect x="29.2" y="33.5" width="7.5" height="1.5" rx="0.7" fill="#1a2438" opacity="0.55"/>',
 
-            '  <!-- Center ripples -->',
-            '  <ellipse cx="22" cy="30" rx="14" ry="1.8" fill="none" stroke="#1abaaf" stroke-width="0.8" opacity="0.28"/>',
-            '  <ellipse cx="22" cy="32.5" rx="8" ry="1.2" fill="none" stroke="#1abaaf" stroke-width="0.6" opacity="0.15"/>',
+            '  <!-- Island/sandbar hump -->',
+            '  <ellipse cx="12" cy="34" rx="7" ry="2.2" fill="#c9922a" opacity="0.75"/>',
 
-            '  <!-- Hazard dot -->',
-            '  <circle cx="38.5" cy="5.5" r="3" fill="#c95d2e"/>',
-            '  <circle cx="38.5" cy="5.5" r="1.5" fill="#ff7845" opacity="0.85"/>',
-
-            '</svg>'
+        '</svg>'
         ].join('\n');
     }
 
