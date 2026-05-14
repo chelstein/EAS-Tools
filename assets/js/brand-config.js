@@ -1,20 +1,20 @@
-// Dead Head IQ — a Zero Trust Radio tool.
-// Dead Head IQ is the EAS simulation, signal decode, and station fire module
+// SandBarIQ — a Zero Trust Radio tool.
+// SandBarIQ is the EAS simulation, signal decode, and station fire module
 // of the Zero Trust Radio platform.
 // This module renders the shared header/footer lockup and exposes
 // BRAND as a global for other scripts that want the canonical names.
 (function () {
     const BRAND = {
         platform: "Zero Trust Radio",
-        product: "Dead Head IQ",
+        product: "SandBarIQ",
         module: "",
-        subtitle: "a Zero Trust Radio tool",
+        subtitle: "Navigate. Analyze. Elevate.",
         heroSubhead: "Synthetic Alert Generation · Signal Decode · Station Fire Simulation",
-        heroBody: "Operational EAS testing from the bottom of the signal chain. Dead Head IQ surfaces the alert infrastructure blind spots you don't see until it's too late — all in-browser, no server required.",
+        heroBody: "SandBarIQ gives you complete visibility into EAS/SAME signal infrastructure. Navigate alert data, analyze signal artifacts, and elevate your broadcast operation — all in-browser, no server required.",
         heroIntegration: "Part of the Zero Trust Radio platform. EAS/SAME decode, synthetic alert generation, audio assembly, and station fire simulation in one place.",
-        tagline: "Synthetic alert generation, decode, validation, and station fire simulation.",
+        tagline: "Navigate. Analyze. Elevate. EAS/SAME tools that run entirely in your browser.",
         notice: "For lab, simulation, validation, and authorized testing workflows only.",
-        statement: "Dead Head IQ is a submerged hazard — the kind of thing you don't see until it's too late. Zero Trust Radio surfaces blind spots in broadcast alert infrastructure. Dead Head IQ extends that mission: synthetic alert generation, real-time decode, and station-level fire simulation. All workflows operate in a controlled lab context. Validate alert behavior before it matters in the field.",
+        statement: "SandBarIQ surfaces the hidden hazards in broadcast alert infrastructure — the blind spots you don't see until it's too late. Synthetic alert generation, real-time decode, and station-level fire simulation, all running locally in your browser. Navigate your signal chain. Analyze alert behavior. Elevate your operation before it matters in the field.",
         alliance: "Zero Trust Radio Alliance",
         nav: {
             decoder: "Decode",
@@ -55,7 +55,11 @@
             <div class="ztr-lockup">
                 <a class="ztr-lockup__home" href="./index.html" aria-label="${BRAND.product} home">
                     <span class="ztr-lockup__badge-wrap">
-                        ${window.sandbarIQLogo ? window.sandbarIQLogo(52) : '<img src="assets/deadheadiq-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="52" height="52">'}
+                        ${window.sandbarIQLogo ? window.sandbarIQLogo(52) : '<img src="assets/eas-tools-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="52" height="52">'}
+                    </span>
+                    <span class="ztr-lockup__text">
+                        <span class="ztr-lockup__product">${BRAND.product}</span>
+                        <span class="ztr-lockup__subtitle">${BRAND.subtitle}</span>
                     </span>
                     ${subPage ? `<span class="ztr-lockup__sub">— ${subPage}</span>` : ''}
                 </a>
@@ -80,18 +84,18 @@
                 <div class="ztr-hero">
                     <div class="ztr-hero__title">
                         <div class="ztr-hero__logo-band">
-                            ${window.sandbarIQLogo ? window.sandbarIQLogo(80) : '<img src="assets/deadheadiq-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="80" height="80">'}
+                            ${window.sandbarIQLogo ? window.sandbarIQLogo(80) : '<img src="assets/eas-tools-logo.png" alt="' + BRAND.product + '" class="dh-badge" width="80" height="80">'}
                             <div class="ztr-hero__logo-text">
-                                <span class="ztr-hero__logo-name">Dead Head IQ</span>
+                                <span class="ztr-hero__logo-name">${BRAND.product}</span>
                                 <span class="ztr-hero__logo-sub">${BRAND.subtitle}</span>
                             </div>
                         </div>
                         <p class="ztr-hero__subhead">${BRAND.heroSubhead}</p>
                         <p class="ztr-hero__body">${BRAND.heroBody}</p>
                         <div class="ztr-hero__capabilities" aria-label="Core capabilities">
-                            <span>Synthetic Alert</span>
-                            <span>Signal Decode</span>
-                            <span>Compliance Validation</span>
+                            <span>Navigate</span>
+                            <span>Analyze</span>
+                            <span>Elevate</span>
                         </div>
                         <p class="ztr-hero__integration">
                             <span class="ztr-hero__integration-dot" aria-hidden="true"></span>
